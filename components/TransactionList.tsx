@@ -1,7 +1,9 @@
-import React, { useState, useMemo } from 'react';
+﻿import React, { useState, useMemo } from 'react';
 import { Transaction, TransactionType } from '../types';
-import { Trash2, Search, ArrowLeft, CalendarDays, FileText, ChevronDown, ChevronRight } from 'lucide-react';
+import { Trash2, Search, ArrowLeft, CalendarDays, FileText, ChevronDown, ChevronRight, Building2 } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
+
+type ViewMode = 'itemized' | 'invoices';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -9,65 +11,114 @@ interface TransactionListProps {
   onBack: () => void;
 }
 
-interface InvoiceGroup {
+interface IssuerInvoice {
   paymentDate: string;
   transactions: Transaction[];
   total: number;
-  isGrouped: boolean;
+}
+
+interface IssuerGroup {
+  issuer: string;
+  invoices: IssuerInvoice[];
+  totalAmount: number;
+  itemCount: number;
 }
 
 const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelete, onBack }) => {
   const [filter, setFilter] = useState('');
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<ViewMode>('itemized');
+  const [expandedIssuers, setExpandedIssuers] = useState<Set<string>>(new Set());
+  const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set());
 
-  const toggleGroup = (paymentDate: string) => {
-    const newExpanded = new Set(expandedGroups);
-    if (newExpanded.has(paymentDate)) {
-      newExpanded.delete(paymentDate);
-    } else {
-      newExpanded.add(paymentDate);
-    }
-    setExpandedGroups(newExpanded);
+  const toggleIssuer = (issuer: string) => {
+    setExpandedIssuers((prev) => {
+      const next = new Set(prev);
+      if (next.has(issuer)) {
+        next.delete(issuer);
+      } else {
+        next.add(issuer);
+      }
+      return next;
+    });
   };
 
-  // Group transactions by payment date
-  const groupedTransactions = useMemo(() => {
-    const filtered = transactions
-      .filter(t =>
-        t.description.toLowerCase().includes(filter.toLowerCase()) ||
-        t.category.toLowerCase().includes(filter.toLowerCase())
-      );
-
-    // Group by payment date (or date if no payment date)
-    const groups = new Map<string, Transaction[]>();
-
-    filtered.forEach(t => {
-      const key = t.paymentDate || t.date;
-      if (!groups.has(key)) {
-        groups.set(key, []);
+  const toggleInvoice = (issuer: string, paymentDate: string) => {
+    const key = `${issuer}-${paymentDate}`;
+    setExpandedInvoices((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
       }
-      groups.get(key)!.push(t);
+      return next;
+    });
+  };
+
+  const filteredTransactions = useMemo(
+    () =>
+      transactions.filter(
+        (t) =>
+          t.description.toLowerCase().includes(filter.toLowerCase()) ||
+          t.category.toLowerCase().includes(filter.toLowerCase())
+      ),
+    [transactions, filter]
+  );
+
+  const itemizedTransactions = useMemo(
+    () =>
+      [...filteredTransactions].sort(
+        (a, b) =>
+          new Date(b.paymentDate || b.date).getTime() - new Date(a.paymentDate || a.date).getTime()
+      ),
+    [filteredTransactions]
+  );
+
+  const issuerGroups = useMemo(() => {
+    const expensesOnly = filteredTransactions.filter((t) => t.type === TransactionType.EXPENSE);
+    const issuerMap = new Map<string, Map<string, Transaction[]>>();
+
+    expensesOnly.forEach((t) => {
+      const issuer = t.issuer || 'Outros';
+      const paymentKey = t.paymentDate || t.date;
+
+      if (!issuerMap.has(issuer)) {
+        issuerMap.set(issuer, new Map());
+      }
+
+      const invoiceMap = issuerMap.get(issuer)!;
+      if (!invoiceMap.has(paymentKey)) {
+        invoiceMap.set(paymentKey, []);
+      }
+
+      invoiceMap.get(paymentKey)!.push(t);
     });
 
-    // Convert to array and create InvoiceGroup objects
-    const invoiceGroups: InvoiceGroup[] = Array.from(groups.entries()).map(([paymentDate, txs]) => {
-      // Only group if there are 2+ transactions with same payment date AND they're all expenses
-      const allExpenses = txs.every(t => t.type === TransactionType.EXPENSE);
-      const shouldGroup = txs.length >= 2 && allExpenses;
+    const groups: IssuerGroup[] = Array.from(issuerMap.entries()).map(([issuer, invoicesMap]) => {
+      const invoices: IssuerInvoice[] = Array.from(invoicesMap.entries())
+        .map(([paymentDate, txs]) => {
+          const sortedTransactions = [...txs].sort((a, b) => a.description.localeCompare(b.description));
+          return {
+            paymentDate,
+            transactions: sortedTransactions,
+            total: sortedTransactions.reduce((sum, t) => sum + t.amount, 0)
+          };
+        })
+        .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
+
+      const totalAmount = invoices.reduce((sum, invoice) => sum + invoice.total, 0);
+      const itemCount = invoices.reduce((sum, invoice) => sum + invoice.transactions.length, 0);
 
       return {
-        paymentDate,
-        transactions: txs.sort((a, b) => a.description.localeCompare(b.description)),
-        total: txs.reduce((sum, t) => sum + (t.type === TransactionType.EXPENSE ? t.amount : -t.amount), 0),
-        isGrouped: shouldGroup
+        issuer,
+        invoices,
+        totalAmount,
+        itemCount
       };
     });
 
-    // Sort by payment date (most recent first)
-    return invoiceGroups.sort((a, b) =>
-      new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
-    );
-  }, [transactions, filter]);
+    return groups.sort((a, b) => b.totalAmount - a.totalAmount || b.itemCount - a.itemCount);
+  }, [filteredTransactions]);
 
   const renderTransaction = (t: Transaction, isNested: boolean = false) => {
     const effectiveDate = t.paymentDate || t.date;
@@ -127,7 +178,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
 
       <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 overflow-hidden">
         {/* Search Bar */}
-        <div className="p-6 border-b border-zinc-100 bg-zinc-50/50">
+        <div className="p-6 border-b border-zinc-100 bg-zinc-50/50 space-y-4">
             <div className="relative">
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-400" size={20} />
                 <input
@@ -138,66 +189,122 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                     className="w-full pl-12 pr-4 py-4 bg-white border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-zinc-900/5 outline-none transition-all text-zinc-700"
                 />
             </div>
+            <div className="flex justify-center">
+              <div className="inline-flex bg-zinc-100 rounded-full p-1 shadow-inner text-sm font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('itemized')}
+                  className={`px-5 py-2 rounded-full transition-all ${viewMode === 'itemized' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}
+                >
+                  Itemizado
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('invoices')}
+                  className={`px-5 py-2 rounded-full transition-all ${viewMode === 'invoices' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}
+                >
+                  Faturas
+                </button>
+              </div>
+            </div>
         </div>
 
         {/* List */}
         <div className="divide-y divide-zinc-100">
-            {groupedTransactions.length === 0 ? (
-                <div className="p-10 text-center text-zinc-400">Nenhuma transação encontrada.</div>
+          {viewMode === 'itemized' ? (
+            itemizedTransactions.length === 0 ? (
+              <div className="p-10 text-center text-zinc-400">Nenhuma transacao encontrada.</div>
             ) : (
-                groupedTransactions.map(group => {
-                  if (group.isGrouped) {
-                    const isExpanded = expandedGroups.has(group.paymentDate);
-                    const invoiceDate = new Date(group.paymentDate);
-                    const monthName = invoiceDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-                    // Get issuer from first transaction in the group
-                    const issuer = group.transactions[0]?.issuer;
-                    const invoiceTitle = issuer ? `${issuer} - ${monthName}` : `Fatura ${monthName}`;
+              itemizedTransactions.map((t) => renderTransaction(t, false))
+            )
+          ) : issuerGroups.length === 0 ? (
+            <div className="p-10 text-center text-zinc-400">Nenhuma fatura encontrada para as transacoes filtradas.</div>
+          ) : (
+            issuerGroups.map((group) => {
+              const isIssuerOpen = expandedIssuers.has(group.issuer);
+              return (
+                <div key={group.issuer} className="bg-white">
+                  <button
+                    type="button"
+                    onClick={() => toggleIssuer(group.issuer)}
+                    className="w-full p-6 flex items-center justify-between hover:bg-zinc-50 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-zinc-900 flex items-center justify-center">
+                        <Building2 className="text-white" size={22} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-zinc-900">{group.issuer}</p>
+                        <p className="text-xs text-zinc-500 mt-1">
+                          {group.invoices.length} {group.invoices.length === 1 ? 'fatura' : 'faturas'} - {group.itemCount}{' '}
+                          {group.itemCount === 1 ? 'item' : 'itens'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="font-bold text-xl text-zinc-900">
+                        R$ {group.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                      {isIssuerOpen ? (
+                        <ChevronDown className="text-zinc-400" size={20} />
+                      ) : (
+                        <ChevronRight className="text-zinc-400" size={20} />
+                      )}
+                    </div>
+                  </button>
 
-                    return (
-                      <div key={group.paymentDate}>
-                        {/* Invoice Header */}
-                        <div
-                          onClick={() => toggleGroup(group.paymentDate)}
-                          className="p-6 flex items-center justify-between bg-gradient-to-r from-zinc-50 to-white hover:from-zinc-100 cursor-pointer transition-all border-b border-zinc-100"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-zinc-900 flex items-center justify-center">
-                              <FileText className="text-white" size={24} />
-                            </div>
-                            <div>
-                              <p className="font-bold text-zinc-900">{invoiceTitle}</p>
-                              <p className="text-xs text-zinc-500 mt-1">
-                                {group.transactions.length} {group.transactions.length === 1 ? 'item' : 'itens'} • Vencimento: {formatDate(group.paymentDate)}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <span className="font-bold text-xl text-zinc-900">
-                              R$ {group.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </span>
-                            {isExpanded ? (
-                              <ChevronDown className="text-zinc-400" size={20} />
-                            ) : (
-                              <ChevronRight className="text-zinc-400" size={20} />
+                  {isIssuerOpen && (
+                    <div className="bg-zinc-50/50 divide-y divide-zinc-100">
+                      {group.invoices.map((invoice) => {
+                        const invoiceKey = `${group.issuer}-${invoice.paymentDate}`;
+                        const isInvoiceOpen = expandedInvoices.has(invoiceKey);
+                        return (
+                          <div key={invoice.paymentDate} className="bg-white/60">
+                            <button
+                              type="button"
+                              onClick={() => toggleInvoice(group.issuer, invoice.paymentDate)}
+                              className="w-full p-5 flex items-center justify-between hover:bg-zinc-50 transition-colors text-left"
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-white border border-zinc-200 flex items-center justify-center">
+                                  <FileText className="text-zinc-500" size={18} />
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-zinc-800">
+                                    Vencimento: {formatDate(invoice.paymentDate)}
+                                  </p>
+                                  <p className="text-xs text-zinc-500 mt-1">
+                                    {invoice.transactions.length}{' '}
+                                    {invoice.transactions.length === 1 ? 'item' : 'itens'}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <span className="font-bold text-lg text-zinc-900">
+                                  R$ {invoice.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </span>
+                                {isInvoiceOpen ? (
+                                  <ChevronDown className="text-zinc-400" size={18} />
+                                ) : (
+                                  <ChevronRight className="text-zinc-400" size={18} />
+                                )}
+                              </div>
+                            </button>
+
+                            {isInvoiceOpen && (
+                              <div className="bg-zinc-50/80 border-t border-zinc-100">
+                                {invoice.transactions.map((t) => renderTransaction(t, true))}
+                              </div>
                             )}
                           </div>
-                        </div>
-
-                        {/* Invoice Items (collapsed/expanded) */}
-                        {isExpanded && (
-                          <div className="bg-zinc-50/30">
-                            {group.transactions.map(t => renderTransaction(t, true))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  } else {
-                    // Single transaction - render normally
-                    return group.transactions.map(t => renderTransaction(t, false));
-                  }
-                })
-            )}
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>

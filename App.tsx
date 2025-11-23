@@ -3,11 +3,16 @@ import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import AddTransaction from './components/AddTransaction';
 import InsightsPanel from './components/InsightsPanel';
+import PlanningTab from './components/PlanningTab';
+import SavingsPlanPage from './components/SavingsPlanPage';
 import Onboarding from './components/Onboarding';
 import TransactionList from './components/TransactionList';
 import { Transaction, UserSettings, ChatMessage, TransactionType, Category, TimePeriod } from './types';
-import { getTransactions, saveTransaction, getUserSettings, saveUserSettings, deleteTransaction } from './services/storageService';
+import { calculateMonthlyForecast, generateSmartAlerts } from './services/forecastService';
+import { getTransactions, saveTransaction, getUserSettings, saveUserSettings, deleteTransaction, getSavingsReviews, saveSavingsReview, SavingsReview } from './services/storageService';
 import { chatWithAdvisor } from './services/geminiService';
+import { SavingsPlanAction } from './services/savingsService';
+import ReviewRecommendationPanel from './components/ReviewRecommendationPanel';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -23,10 +28,22 @@ const App: React.FC = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
 
+  // Global State
+  const [isTurboMode, setIsTurboMode] = useState(false);
+  const [reviews, setReviews] = useState<SavingsReview[]>([]);
+
+  // Review Panel State
+  const [isReviewPanelOpen, setIsReviewPanelOpen] = useState(false);
+  const [selectedReviewAction, setSelectedReviewAction] = useState<SavingsPlanAction | null>(null);
+
+  // Derived State
+  const alerts = React.useMemo(() => generateSmartAlerts(transactions, settings, isTurboMode), [transactions, settings, isTurboMode]);
+
   // Initial Load
   useEffect(() => {
     setTransactions(getTransactions());
     setSettings(getUserSettings());
+    setReviews(getSavingsReviews());
   }, []);
 
   const handleAddTransactions = (newTransactions: Transaction[]) => {
@@ -122,6 +139,23 @@ const App: React.FC = () => {
     }
   };
 
+  const handleOpenReview = (action: SavingsPlanAction) => {
+    setSelectedReviewAction(action);
+    setIsReviewPanelOpen(true);
+    setIsChatOpen(false);
+  };
+
+  const handleCloseReview = () => {
+    setIsReviewPanelOpen(false);
+    setSelectedReviewAction(null);
+  };
+
+  const handleSaveReview = (review: SavingsReview) => {
+    const updated = saveSavingsReview(review);
+    setReviews(updated);
+    handleCloseReview();
+  };
+
   if (!settings || !settings.onboardingCompleted) {
     return <Onboarding onComplete={handleOnboardingComplete} />;
   }
@@ -131,19 +165,38 @@ const App: React.FC = () => {
       activeTab={activeTab === 'history' ? 'dashboard' : activeTab} 
       onTabChange={setActiveTab}
       isChatOpen={isChatOpen}
-      onToggleChat={() => setIsChatOpen(!isChatOpen)}
+      onToggleChat={() => {
+        setIsChatOpen(!isChatOpen);
+        if (!isChatOpen) setIsReviewPanelOpen(false);
+      }}
       chatMessages={chatMessages}
       onSendMessage={handleSendMessage}
       isChatLoading={isChatLoading}
+      alerts={alerts}
+      isTurboMode={isTurboMode}
+      onToggleTurboMode={() => setIsTurboMode(!isTurboMode)}
+      extraPanel={
+        <ReviewRecommendationPanel 
+          isOpen={isReviewPanelOpen}
+          onClose={handleCloseReview}
+          recommendation={selectedReviewAction}
+          onSave={handleSaveReview}
+        />
+      }
     >
       {activeTab === 'dashboard' && (
         <Dashboard 
           transactions={transactions} 
           settings={settings}
+          reviews={reviews}
+          alerts={alerts}
           onViewAllHistory={() => setActiveTab('history')}
+          onViewSavingsPlan={() => setActiveTab('savings-plan')}
           currentDate={currentDate}
           onDateChange={setCurrentDate}
           period={period}
+          isTurboMode={isTurboMode}
+          onToggleTurboMode={() => setIsTurboMode(!isTurboMode)}
         />
       )}
       
@@ -165,6 +218,24 @@ const App: React.FC = () => {
 
       {activeTab === 'insights' && (
         <InsightsPanel transactions={transactions} />
+      )}
+
+      {activeTab === 'planning' && (
+        <PlanningTab 
+          transactions={transactions}
+          settings={settings}
+          forecast={calculateMonthlyForecast(transactions, currentDate, settings, isTurboMode)}
+        />
+      )}
+
+      {activeTab === 'savings-plan' && (
+        <SavingsPlanPage 
+          transactions={transactions}
+          settings={settings}
+          reviews={reviews}
+          onReview={handleOpenReview}
+          onBack={() => setActiveTab('dashboard')}
+        />
       )}
     </Layout>
   );

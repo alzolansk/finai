@@ -2,6 +2,7 @@ import { Transaction, TransactionType, UserSettings } from '../types';
 
 const TRANSACTIONS_KEY = 'finai_transactions';
 const SETTINGS_KEY = 'finai_settings';
+const SAVINGS_REVIEWS_KEY = 'finai_savings_reviews';
 
 // --- Transactions ---
 
@@ -141,4 +142,42 @@ export const generateInvoiceFingerprint = (dueDate: string | null, transactions:
   }
 
   return `invoice-${Math.abs(hash)}`;
+};
+
+// --- Savings Reviews ---
+
+export type RecommendationStatus = 'pending' | 'kept' | 'dismissed' | 'adjusted';
+
+export interface SavingsReview {
+  id: string; // Matches the SavingsItem id
+  status: RecommendationStatus;
+  justification?: string;
+  adjustedAmount?: number;
+  reviewedAt: number;
+}
+
+export const getSavingsReviews = (): SavingsReview[] => {
+  const stored = localStorage.getItem(SAVINGS_REVIEWS_KEY);
+  if (!stored) return [];
+  try {
+    return JSON.parse(stored);
+  } catch (e) {
+    return [];
+  }
+};
+
+export const saveSavingsReview = (review: SavingsReview): SavingsReview[] => {
+  const current = getSavingsReviews();
+  const index = current.findIndex(r => r.id === review.id);
+  
+  let updated;
+  if (index >= 0) {
+    updated = [...current];
+    updated[index] = review;
+  } else {
+    updated = [...current, review];
+  }
+  
+  localStorage.setItem(SAVINGS_REVIEWS_KEY, JSON.stringify(updated));
+  return updated;
 };

@@ -1,6 +1,7 @@
 import React, { ReactNode } from 'react';
-import { Home, Plus, PieChart, MessageSquareText, X, Sparkles } from 'lucide-react';
+import { Home, Plus, PieChart, MessageSquareText, X, Sparkles, Map, Zap, AlertTriangle } from 'lucide-react';
 import { ChatMessage } from '../types';
+import { SmartAlert } from '../services/forecastService';
 
 interface LayoutProps {
   children: ReactNode;
@@ -11,6 +12,10 @@ interface LayoutProps {
   chatMessages: ChatMessage[];
   onSendMessage: (text: string) => void;
   isChatLoading: boolean;
+  extraPanel?: ReactNode;
+  alerts?: SmartAlert[];
+  isTurboMode?: boolean;
+  onToggleTurboMode?: () => void;
 }
 
 // Helper to parse simple markdown bold syntax (**text**)
@@ -33,7 +38,11 @@ const Layout: React.FC<LayoutProps> = ({
   onToggleChat,
   chatMessages,
   onSendMessage,
-  isChatLoading
+  isChatLoading,
+  extraPanel,
+  alerts = [],
+  isTurboMode = false,
+  onToggleTurboMode
 }) => {
   const [inputText, setInputText] = React.useState('');
   const chatEndRef = React.useRef<HTMLDivElement>(null);
@@ -49,6 +58,9 @@ const Layout: React.FC<LayoutProps> = ({
       setInputText('');
     }
   };
+
+  // Filter alerts for header (Overspend and Turbo)
+  const headerAlerts = alerts.filter(a => a.id.startsWith('overspend'));
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans relative overflow-hidden flex flex-row selection:bg-emerald-500 selection:text-white">
@@ -76,17 +88,55 @@ const Layout: React.FC<LayoutProps> = ({
                  </div>
                </div>
 
-               <button 
-                  onClick={onToggleChat}
-                  className={`group flex items-center gap-3 px-5 py-2.5 rounded-full border transition-all duration-300 active:scale-95 ${isChatOpen ? 'bg-zinc-100 border-zinc-200 text-zinc-400' : 'bg-white border-zinc-200 hover:border-emerald-200 hover:shadow-md hover:shadow-emerald-900/5'}`}
-               >
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isChatOpen ? 'bg-zinc-200 text-zinc-500' : 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100'}`}>
-                    <Sparkles size={16} />
-                  </div>
-                  <span className={`text-sm font-medium ${isChatOpen ? 'text-zinc-400' : 'text-zinc-700'}`}>
-                    {isChatOpen ? 'Assistente Ativo' : 'Assistente IA'}
-                  </span>
-               </button>
+               <div className="flex items-center gap-3">
+                 {/* Header Alerts */}
+                 {headerAlerts.map(alert => (
+                   <div key={alert.id} className="relative group">
+                     <div className={`p-2 rounded-full cursor-help transition-colors ${alert.type === 'danger' ? 'bg-rose-100 text-rose-600' : 'bg-orange-100 text-orange-600'}`}>
+                       <AlertTriangle size={20} />
+                     </div>
+                     {/* Tooltip */}
+                     <div className="absolute top-full right-0 mt-2 w-64 p-3 bg-white rounded-xl shadow-xl border border-zinc-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 transform translate-y-2 group-hover:translate-y-0">
+                       <h4 className={`font-bold text-sm mb-1 ${alert.type === 'danger' ? 'text-rose-600' : 'text-orange-600'}`}>{alert.title}</h4>
+                       <p className="text-xs text-zinc-600">{alert.message}</p>
+                     </div>
+                   </div>
+                 ))}
+
+                 {/* Turbo Mode Toggle */}
+                 {onToggleTurboMode && (
+                   <button 
+                     onClick={onToggleTurboMode}
+                     className={`relative group p-2 rounded-full transition-all flex items-center justify-center ${isTurboMode ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-zinc-100 text-zinc-400 hover:bg-zinc-200'}`}
+                   >
+                     <Zap size={20} className={isTurboMode ? 'fill-current' : ''} />
+                     
+                     {/* Tooltip */}
+                     <div className="absolute top-full right-0 mt-2 w-48 p-3 bg-white rounded-xl shadow-xl border border-zinc-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 transform translate-y-2 group-hover:translate-y-0 text-left">
+                       <h4 className="font-bold text-sm mb-1 text-indigo-600">Modo Turbo {isTurboMode ? 'Ativo' : 'Inativo'}</h4>
+                       <p className="text-xs text-zinc-600">
+                         {isTurboMode 
+                           ? 'Limites de gastos reduzidos em 20% para maximizar economia.' 
+                           : 'Ative para reduzir limites e economizar mais.'}
+                       </p>
+                     </div>
+                   </button>
+                 )}
+
+                 <div className="w-px h-6 bg-zinc-200 mx-2"></div>
+
+                 <button 
+                    onClick={onToggleChat}
+                    className={`group flex items-center gap-3 px-5 py-2.5 rounded-full border transition-all duration-300 active:scale-95 ${isChatOpen ? 'bg-zinc-100 border-zinc-200 text-zinc-400' : 'bg-white border-zinc-200 hover:border-emerald-200 hover:shadow-md hover:shadow-emerald-900/5'}`}
+                 >
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isChatOpen ? 'bg-zinc-200 text-zinc-500' : 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100'}`}>
+                      <Sparkles size={16} />
+                    </div>
+                    <span className={`text-sm font-medium ${isChatOpen ? 'text-zinc-400' : 'text-zinc-700'}`}>
+                      {isChatOpen ? 'Assistente Ativo' : 'Assistente IA'}
+                    </span>
+                 </button>
+               </div>
             </header>
 
           <div className="max-w-7xl mx-auto w-full p-6 md:p-10 pb-32">
@@ -120,6 +170,13 @@ const Layout: React.FC<LayoutProps> = ({
               className={`p-4 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'insights' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
             >
               <PieChart size={24} strokeWidth={activeTab === 'insights' ? 2.5 : 2} />
+            </button>
+
+            <button
+              onClick={() => onTabChange('planning')}
+              className={`p-4 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'planning' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+            >
+              <Map size={24} strokeWidth={activeTab === 'planning' ? 2.5 : 2} />
             </button>
 
           </nav>
@@ -206,6 +263,9 @@ const Layout: React.FC<LayoutProps> = ({
           onClick={onToggleChat}
         />
       )}
+
+      {/* Extra Panel (e.g. Review Panel) */}
+      {extraPanel}
     </div>
   );
 };

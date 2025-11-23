@@ -1,16 +1,26 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Transaction, TransactionType, UserSettings, TimePeriod } from '../types';
+import { SavingsReview } from '../services/storageService';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
-import { ArrowUpRight, ArrowDownRight, Target, Wallet, TrendingDown, ChevronLeft, ChevronRight, Calendar, Clock } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Target, Wallet, TrendingDown, ChevronLeft, ChevronRight, Calendar, Clock, AlertTriangle, Zap } from 'lucide-react';
 import { getMonthName, filterTransactionsByPeriod } from '../utils/dateUtils';
+import { calculatePotentialSavings } from '../services/savingsService';
+import { calculateMonthlyForecast, generateSmartAlerts, SmartAlert } from '../services/forecastService';
+import PotentialSavingsCard from './PotentialSavingsCard';
+import ForecastCard from './ForecastCard';
 
 interface DashboardProps {
   transactions: Transaction[];
   settings: UserSettings | null;
+  reviews: SavingsReview[];
+  alerts: SmartAlert[];
   onViewAllHistory: () => void;
+  onViewSavingsPlan: () => void;
   currentDate: Date;
   onDateChange: (date: Date) => void;
   period: TimePeriod;
+  isTurboMode: boolean;
+  onToggleTurboMode: () => void;
 }
 
 const COLORS = ['#27272a', '#52525b', '#71717a', '#a1a1aa', '#10b981', '#059669', '#047857'];
@@ -18,14 +28,28 @@ const COLORS = ['#27272a', '#52525b', '#71717a', '#a1a1aa', '#10b981', '#059669'
 const Dashboard: React.FC<DashboardProps> = ({ 
   transactions, 
   settings, 
+  reviews,
+  alerts,
   onViewAllHistory,
+  onViewSavingsPlan,
   currentDate,
   onDateChange,
-  period
+  period,
+  isTurboMode,
+  onToggleTurboMode
 }) => {
   
   // 1. Filter Transactions by the selected period (Using effective paymentDate)
   const filteredTransactions = filterTransactionsByPeriod(transactions, currentDate, period);
+
+  // Calculate Potential Savings
+  const potentialSavings = useMemo(() => calculatePotentialSavings(transactions, reviews), [transactions, reviews]);
+
+  // Calculate Forecast
+  const forecast = useMemo(() => calculateMonthlyForecast(transactions, currentDate, settings, isTurboMode), [transactions, currentDate, settings, isTurboMode]);
+  
+  // Filter alerts to exclude those shown in header (overspend and turbo)
+  const bodyAlerts = alerts.filter(a => !a.id.startsWith('overspend') && a.id !== 'turbo-active');
 
   // 2. Calculate Stats based on Filtered Data
   const totalIncome = filteredTransactions
@@ -94,6 +118,36 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
+      {/* Smart Alerts Section */}
+      {bodyAlerts.length > 0 && (
+        <div className="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {bodyAlerts.map(alert => (
+            <div key={alert.id} className={`p-4 rounded-2xl border flex items-start gap-3 ${
+              alert.type === 'danger' ? 'bg-rose-50 border-rose-100 text-rose-900' :
+              alert.type === 'warning' ? 'bg-orange-50 border-orange-100 text-orange-900' :
+              'bg-blue-50 border-blue-100 text-blue-900'
+            }`}>
+              <div className={`p-2 rounded-lg shrink-0 ${
+                 alert.type === 'danger' ? 'bg-rose-100 text-rose-600' :
+                 alert.type === 'warning' ? 'bg-orange-100 text-orange-600' :
+                 'bg-blue-100 text-blue-600'
+              }`}>
+                <AlertTriangle size={18} />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm mb-1">{alert.title}</h4>
+                <p className="text-xs opacity-80 mb-2">{alert.message}</p>
+                {alert.action && (
+                  <button className="text-xs font-bold underline hover:opacity-70">
+                    {alert.action}
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
         
         {/* Left Column - Main Stats & Goals */}
@@ -124,8 +178,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                 {/* Income Card */}
                 <div className="bg-white p-8 rounded-3xl border border-zinc-100 shadow-sm flex flex-col justify-center gap-4 hover:border-emerald-200 hover:shadow-emerald-500/10 transition-all group h-56">
                     <div className="flex items-center justify-between">
-                         <div className="p-2 bg-emerald-50 rounded-xl text-emerald-600 group-hover:scale-110 transition-transform"><ArrowUpRight size={24} /></div>
-                         <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">Receitas</span>
+                        <div className="p-2 bg-emerald-50 rounded-xl text-emerald-600 group-hover:scale-110 transition-transform"><ArrowUpRight size={24} /></div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">Receitas</span>
                     </div>
                     <div>
                         <p className="text-zinc-400 text-sm mb-1">Entradas</p>
@@ -220,14 +274,19 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
             </div>
+
+            {/* Potential Savings Card (Moved Here) */}
+            <PotentialSavingsCard 
+                data={potentialSavings} 
+                riskCategories={forecast.riskCategories}
+                onViewDetails={onViewSavingsPlan} 
+            />
+
         </div>
 
-        {/* Right Column - History 
-            Calculated Height: 
-            Cards (14rem) + Gap (1.5rem) + Charts (20rem) = 35.5rem = 568px 
-            This ensures the Right Column matches the Left Column height exactly.
-        */}
-        <div className="lg:col-span-1 bg-white p-6 rounded-3xl shadow-sm border border-zinc-100 flex flex-col hover:shadow-lg transition-all hover:border-zinc-200 lg:h-[568px] h-auto">
+        {/* Right Column - History & Forecast */}
+        <div className="lg:col-span-1 flex flex-col gap-6">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-zinc-100 flex flex-col hover:shadow-lg transition-all hover:border-zinc-200 lg:h-[568px] h-auto">
             <h3 className="text-xl font-bold text-zinc-800 mb-6 flex items-center gap-2 shrink-0">
                 <ArrowDownRight className="text-zinc-400" size={20} />
                 Recentes
@@ -282,6 +341,9 @@ const Dashboard: React.FC<DashboardProps> = ({
             >
                 Ver Extrato Completo
             </button>
+            </div>
+
+            {period === 'month' && <ForecastCard forecast={forecast} />}
         </div>
 
       </div>
