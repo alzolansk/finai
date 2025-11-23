@@ -452,6 +452,19 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                      </button>
                 </div>
 
+                <div className="flex items-center gap-3 pt-2">
+                    <input
+                        type="checkbox"
+                        id="isRecurring"
+                        checked={formData.isRecurring || false}
+                        onChange={(e) => setFormData({...formData, isRecurring: e.target.checked})}
+                        className="w-5 h-5 rounded border-2 border-zinc-300 text-emerald-600 focus:ring-2 focus:ring-emerald-200 cursor-pointer"
+                    />
+                    <label htmlFor="isRecurring" className="text-sm text-zinc-600 cursor-pointer select-none">
+                        É uma assinatura/gasto fixo?
+                    </label>
+                </div>
+
                 <button
                     type="submit"
                     className="w-full py-5 bg-zinc-900 text-white rounded-2xl font-bold hover:bg-zinc-800 hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] transition-all"
