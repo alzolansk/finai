@@ -66,6 +66,7 @@ export interface ImportedInvoice {
   transactionCount: number;
   importedAt: number;
   fingerprint: string; // Hash of key transaction details
+  transactionIds?: string[]; // IDs of transactions created from this invoice
 }
 
 export const getImportedInvoices = (): ImportedInvoice[] => {
@@ -85,9 +86,38 @@ export const saveImportedInvoice = (invoice: ImportedInvoice): void => {
   localStorage.setItem(IMPORTED_INVOICES_KEY, JSON.stringify(updated));
 };
 
+// Check if transactions from an invoice still exist in the system
+export const doInvoiceTransactionsExist = (invoice: ImportedInvoice): boolean => {
+  // If no transaction IDs were stored (old invoices), we can't verify
+  if (!invoice.transactionIds || invoice.transactionIds.length === 0) {
+    return true; // Assume they exist to maintain backward compatibility
+  }
+
+  const currentTransactions = getTransactions();
+  const currentIds = new Set(currentTransactions.map(t => t.id));
+
+  // Count how many of the original transactions still exist
+  const existingCount = invoice.transactionIds.filter(id => currentIds.has(id)).length;
+
+  // If less than 50% of transactions exist, consider them deleted
+  // This allows for some flexibility if user deleted a few items but not all
+  return existingCount >= (invoice.transactionIds.length * 0.5);
+};
+
 export const isInvoiceAlreadyImported = (fingerprint: string): ImportedInvoice | null => {
   const invoices = getImportedInvoices();
-  return invoices.find(inv => inv.fingerprint === fingerprint) || null;
+  const matchingInvoice = invoices.find(inv => inv.fingerprint === fingerprint);
+
+  if (!matchingInvoice) {
+    return null; // Not imported before
+  }
+
+  // Check if the transactions still exist
+  if (!doInvoiceTransactionsExist(matchingInvoice)) {
+    return null; // Transactions were deleted, allow re-import
+  }
+
+  return matchingInvoice; // Transactions still exist, block duplicate
 };
 
 // Generate a unique fingerprint for an invoice

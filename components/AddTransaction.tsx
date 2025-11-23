@@ -91,14 +91,24 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                     setLoading(false);
                 } else {
                     // Not a duplicate, proceed with import
-                    // Save invoice record
+                    // Generate transaction IDs upfront so we can save them with the invoice
+                    const transactionIds = result.transactions.map(() => crypto.randomUUID());
+
+                    // Assign the pre-generated IDs to transactions
+                    const transactionsWithIds = result.transactions.map((t: any, index: number) => ({
+                        ...t,
+                        id: transactionIds[index]
+                    }));
+
+                    // Save invoice record with transaction IDs
                     saveImportedInvoice({
                         id: crypto.randomUUID(),
                         dueDate: result.dueDate || 'no-date',
                         totalAmount: result.transactions.reduce((sum, t) => sum + t.amount, 0),
                         transactionCount: result.transactions.length,
                         importedAt: Date.now(),
-                        fingerprint: fingerprint
+                        fingerprint: fingerprint,
+                        transactionIds: transactionIds
                     });
 
                     // Show success state with due date
@@ -107,7 +117,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
 
                     // Wait for animation then add transactions
                     setTimeout(() => {
-                        onAdd(result.transactions);
+                        onAdd(transactionsWithIds);
                     }, 1500);
                 }
             } else {
