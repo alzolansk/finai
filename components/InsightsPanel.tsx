@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Transaction, Insight } from '../types';
 import { generateInsights } from '../services/geminiService';
 import { Lightbulb, AlertCircle, RefreshCw, CheckCircle2, BadgePercent } from 'lucide-react';
@@ -7,13 +7,18 @@ interface InsightsPanelProps {
   transactions: Transaction[];
 }
 
+interface StoredInsights {
+  insights: Insight[];
+  hash: string;
+  timestamp: number;
+}
+
 const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions }) => {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(false);
-  const lastFetchedHash = useRef<string>("");
 
   // Hash based on transaction IDs to detect actual additions/removals
-  const getCurrentHash = () => {
+  const currentHash = useMemo(() => {
       // Sort transaction IDs to create a consistent hash
       // This will change only when transactions are added or removed
       const ids = transactions.map(t => t.id).sort().join(',');
@@ -25,19 +30,49 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions }) => {
         hash = hash & hash; // Convert to 32-bit integer
       }
       return `${transactions.length}-${hash}`;
+  }, [transactions]);
+
+  // Load insights from localStorage
+  const loadStoredInsights = (): StoredInsights | null => {
+    try {
+      const stored = localStorage.getItem('finai_insights');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (e) {
+      console.error('Error loading stored insights:', e);
+    }
+    return null;
+  };
+
+  // Save insights to localStorage
+  const saveInsights = (insights: Insight[], hash: string) => {
+    try {
+      const data: StoredInsights = {
+        insights,
+        hash,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('finai_insights', JSON.stringify(data));
+    } catch (e) {
+      console.error('Error saving insights:', e);
+    }
   };
 
   const fetchInsights = async (force = false) => {
-    const currentHash = getCurrentHash();
-    if (!force && currentHash === lastFetchedHash.current && insights.length > 0) {
-        return; // Skip if data hasn't changed
+    // If not forced and we already have insights for this hash, skip
+    if (!force) {
+      const stored = loadStoredInsights();
+      if (stored && stored.hash === currentHash && insights.length > 0) {
+        return; // Skip if data hasn't changed and we have insights
+      }
     }
 
     setLoading(true);
     try {
       const result = await generateInsights(transactions);
       setInsights(result);
-      lastFetchedHash.current = currentHash;
+      saveInsights(result, currentHash);
     } catch (e) {
       console.error(e);
     } finally {
@@ -45,12 +80,24 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions }) => {
     }
   };
 
+  // Load insights on mount
   useEffect(() => {
-    if (transactions.length > 0) {
+    if (transactions.length < 5) {
+      setInsights([]);
+      return;
+    }
+
+    const stored = loadStoredInsights();
+
+    // If we have stored insights with the same hash, use them
+    if (stored && stored.hash === currentHash) {
+      setInsights(stored.insights);
+    } else {
+      // Otherwise, generate new insights
       fetchInsights();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getCurrentHash()]); // Refetch when transaction list changes (additions/removals)
+  }, [currentHash]); // Only re-run when hash changes (additions/removals)
 
   return (
     <div className="space-y-8 pb-20">
