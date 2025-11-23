@@ -1,7 +1,8 @@
 import React, { ReactNode } from 'react';
-import { Home, Plus, PieChart, MessageSquareText, X, Sparkles, Map, Zap, AlertTriangle } from 'lucide-react';
+import { Home, Plus, PieChart, MessageSquareText, X, Sparkles, Map, Zap, AlertTriangle, Settings, Trash2, Activity, ChevronDown, ChevronUp, Calendar, Repeat, TrendingUp } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { SmartAlert } from '../services/forecastService';
+import { clearAllData, getApiLogs, ApiLog } from '../services/storageService';
 
 interface LayoutProps {
   children: ReactNode;
@@ -45,7 +46,16 @@ const Layout: React.FC<LayoutProps> = ({
   onToggleTurboMode
 }) => {
   const [inputText, setInputText] = React.useState('');
+  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
+  const [showApiLogs, setShowApiLogs] = React.useState(false);
+  const [apiLogs, setApiLogs] = React.useState<ApiLog[]>([]);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (isSettingsOpen && showApiLogs) {
+        setApiLogs(getApiLogs());
+    }
+  }, [isSettingsOpen, showApiLogs]);
 
   React.useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -59,8 +69,13 @@ const Layout: React.FC<LayoutProps> = ({
     }
   };
 
-  // Filter alerts for header (Overspend and Turbo)
-  const headerAlerts = alerts.filter(a => a.id.startsWith('overspend'));
+  // Filter alerts for header (Overspend, Turbo, Frequent Habits, and Large Expenses)
+  const headerAlerts = alerts.filter(a => 
+    a.id.startsWith('overspend') || 
+    a.id.startsWith('freq-') || 
+    a.title.includes('Hábito Frequente') ||
+    a.id.startsWith('large-')
+  );
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans relative overflow-hidden flex flex-row selection:bg-emerald-500 selection:text-white">
@@ -89,15 +104,33 @@ const Layout: React.FC<LayoutProps> = ({
                </div>
 
                <div className="flex items-center gap-3">
+                 <button 
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="p-2 rounded-full hover:bg-zinc-100 text-zinc-400 hover:text-zinc-900 transition-colors"
+                    title="Configurações"
+                 >
+                    <Settings size={20} />
+                 </button>
+
                  {/* Header Alerts */}
                  {headerAlerts.map(alert => (
                    <div key={alert.id} className="relative group">
-                     <div className={`p-2 rounded-full cursor-help transition-colors ${alert.type === 'danger' ? 'bg-rose-100 text-rose-600' : 'bg-orange-100 text-orange-600'}`}>
-                       <AlertTriangle size={20} />
+                     <div className={`p-2 rounded-full cursor-help transition-colors ${
+                        alert.type === 'danger' ? 'bg-rose-100 text-rose-600' : 
+                        alert.type === 'warning' ? 'bg-orange-100 text-orange-600' : 
+                        'bg-blue-100 text-blue-600'
+                     }`}>
+                       {alert.id.startsWith('freq-') || alert.title.includes('Hábito Frequente') ? <Repeat size={20} /> : 
+                        alert.id.startsWith('large-') ? <TrendingUp size={20} /> :
+                        <AlertTriangle size={20} />}
                      </div>
                      {/* Tooltip */}
                      <div className="absolute top-full right-0 mt-2 w-64 p-3 bg-white rounded-xl shadow-xl border border-zinc-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 transform translate-y-2 group-hover:translate-y-0">
-                       <h4 className={`font-bold text-sm mb-1 ${alert.type === 'danger' ? 'text-rose-600' : 'text-orange-600'}`}>{alert.title}</h4>
+                       <h4 className={`font-bold text-sm mb-1 ${
+                          alert.type === 'danger' ? 'text-rose-600' : 
+                          alert.type === 'warning' ? 'text-orange-600' : 
+                          'text-blue-600'
+                       }`}>{alert.title}</h4>
                        <p className="text-xs text-zinc-600">{alert.message}</p>
                      </div>
                    </div>
@@ -170,6 +203,13 @@ const Layout: React.FC<LayoutProps> = ({
               className={`p-4 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'insights' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
             >
               <PieChart size={24} strokeWidth={activeTab === 'insights' ? 2.5 : 2} />
+            </button>
+
+            <button
+              onClick={() => onTabChange('agenda')}
+              className={`p-4 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'agenda' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+            >
+              <Calendar size={24} strokeWidth={activeTab === 'agenda' ? 2.5 : 2} />
             </button>
 
             <button
@@ -266,6 +306,94 @@ const Layout: React.FC<LayoutProps> = ({
 
       {/* Extra Panel (e.g. Review Panel) */}
       {extraPanel}
+
+      {/* Settings Modal */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-zinc-900/20 backdrop-blur-sm animate-fadeIn">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn">
+            <div className="p-6 border-b border-zinc-100 flex justify-between items-center">
+                <h3 className="font-bold text-lg text-zinc-900">Configurações</h3>
+                <button onClick={() => setIsSettingsOpen(false)} className="p-2 hover:bg-zinc-100 rounded-full text-zinc-400 hover:text-zinc-900 transition-colors">
+                <X size={20} />
+                </button>
+            </div>
+            <div className="p-6">
+                <div className="space-y-6">
+                
+                {/* API Monitoring Section (Hidden/Collapsible) */}
+                <div>
+                    <button 
+                        onClick={() => setShowApiLogs(!showApiLogs)}
+                        className="flex items-center justify-between w-full text-left mb-3 group"
+                    >
+                        <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider group-hover:text-zinc-600 transition-colors">Monitoramento de API</h4>
+                        {showApiLogs ? <ChevronUp size={14} className="text-zinc-400" /> : <ChevronDown size={14} className="text-zinc-400" />}
+                    </button>
+                    
+                    {showApiLogs && (
+                        <div className="bg-zinc-900 rounded-xl p-4 overflow-hidden animate-slideUp">
+                            <div className="flex items-center gap-2 mb-3 text-zinc-400 text-xs">
+                                <Activity size={14} />
+                                <span>Últimas chamadas (Gemini AI)</span>
+                            </div>
+                            <div className="space-y-2 max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 pr-2">
+                                {apiLogs.length === 0 ? (
+                                    <p className="text-zinc-600 text-xs italic">Nenhum registro encontrado.</p>
+                                ) : (
+                                    apiLogs.map(log => (
+                                        <div key={log.id} className="flex items-center justify-between text-xs border-b border-zinc-800 pb-2 last:border-0 last:pb-0">
+                                            <div>
+                                                <p className="text-zinc-300 font-mono">{log.endpoint}</p>
+                                                <p className="text-zinc-600">{new Date(log.timestamp).toLocaleTimeString()}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${log.status === 'success' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-rose-900/30 text-rose-400'}`}>
+                                                    {log.status.toUpperCase()}
+                                                </span>
+                                                <p className="text-zinc-500 mt-0.5">{log.duration}ms</p>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div>
+                    <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Zona de Perigo</h4>
+                    <div className="bg-rose-50 border border-rose-100 rounded-xl p-4">
+                    <div className="flex items-start gap-3 mb-4">
+                        <div className="p-2 bg-rose-100 text-rose-600 rounded-lg shrink-0">
+                        <AlertTriangle size={20} />
+                        </div>
+                        <div>
+                        <h5 className="font-bold text-rose-900 text-sm">Excluir todos os dados</h5>
+                        <p className="text-xs text-rose-700 mt-1">Esta ação não pode ser desfeita. Todos os seus registros, metas e configurações serão apagados permanentemente.</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => {
+                        if (confirm('Tem certeza absoluta? Todos os seus dados serão perdidos.')) {
+                            clearAllData();
+                            window.location.reload();
+                        }
+                        }}
+                        className="w-full py-3 bg-white border border-rose-200 text-rose-600 font-bold rounded-xl hover:bg-rose-600 hover:text-white transition-all flex items-center justify-center gap-2 text-sm shadow-sm"
+                    >
+                        <Trash2 size={16} />
+                        Excluir todos os registros
+                    </button>
+                    </div>
+                </div>
+                </div>
+            </div>
+            <div className="p-4 bg-zinc-50 text-center text-xs text-zinc-400">
+                FinAI v1.0.0
+            </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 };

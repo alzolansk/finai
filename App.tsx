@@ -9,15 +9,17 @@ import Onboarding from './components/Onboarding';
 import TransactionList from './components/TransactionList';
 import { Transaction, UserSettings, ChatMessage, TransactionType, Category, TimePeriod } from './types';
 import { calculateMonthlyForecast, generateSmartAlerts } from './services/forecastService';
-import { getTransactions, saveTransaction, getUserSettings, saveUserSettings, deleteTransaction, getSavingsReviews, saveSavingsReview, SavingsReview } from './services/storageService';
+import { getTransactions, saveTransaction, getUserSettings, saveUserSettings, deleteTransaction, updateTransaction, getSavingsReviews, saveSavingsReview, SavingsReview, getAgendaChecklist, toggleAgendaChecklist, AgendaChecklistEntry } from './services/storageService';
 import { chatWithAdvisor } from './services/geminiService';
 import { SavingsPlanAction } from './services/savingsService';
 import ReviewRecommendationPanel from './components/ReviewRecommendationPanel';
+import Agenda, { AgendaItem } from './components/Agenda';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [settings, setSettings] = useState<UserSettings | null>(null);
+  const [agendaChecklist, setAgendaChecklist] = useState<AgendaChecklistEntry[]>([]);
   
   // Date & Period Navigation State
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -44,6 +46,7 @@ const App: React.FC = () => {
     setTransactions(getTransactions());
     setSettings(getUserSettings());
     setReviews(getSavingsReviews());
+    setAgendaChecklist(getAgendaChecklist());
   }, []);
 
   const handleAddTransactions = (newTransactions: Transaction[]) => {
@@ -58,6 +61,11 @@ const App: React.FC = () => {
 
   const handleDeleteTransaction = (id: string) => {
       const updated = deleteTransaction(id);
+      setTransactions(updated);
+  };
+
+  const handleUpdateTransaction = (transaction: Transaction) => {
+      const updated = updateTransaction(transaction);
       setTransactions(updated);
   };
 
@@ -156,6 +164,31 @@ const App: React.FC = () => {
     handleCloseReview();
   };
 
+  const handleMarkAsPaid = (item: AgendaItem) => {
+    // Just toggle the checklist status, do NOT create a transaction
+    // For recurring items, use the originalTransaction ID
+    // For invoices, use the original invoice ID (without month suffix)
+    // For one-off items, use the item ID
+    let targetId: string;
+    
+    if (item.isInvoice && item.originalInvoice) {
+      targetId = item.originalInvoice.id;
+    } else if (item.originalTransaction) {
+      targetId = item.originalTransaction.id;
+    } else {
+      targetId = item.id;
+    }
+    
+    const entry: AgendaChecklistEntry = {
+        targetId: targetId,
+        monthKey: item.dueDate.substring(0, 7), // YYYY-MM
+        paidAt: new Date().toISOString()
+    };
+    
+    const updated = toggleAgendaChecklist(entry);
+    setAgendaChecklist(updated);
+  };
+
   if (!settings || !settings.onboardingCompleted) {
     return <Onboarding onComplete={handleOnboardingComplete} />;
   }
@@ -217,7 +250,22 @@ const App: React.FC = () => {
       )}
 
       {activeTab === 'insights' && (
-        <InsightsPanel transactions={transactions} />
+        <InsightsPanel 
+          transactions={transactions} 
+          onUpdate={handleUpdateTransaction}
+          onDelete={handleDeleteTransaction}
+          onAdd={(t) => handleAddTransactions([t])}
+        />
+      )}
+
+      {activeTab === 'agenda' && (
+        <Agenda 
+          transactions={transactions}
+          onMarkAsPaid={handleMarkAsPaid}
+          checklist={agendaChecklist}
+          currentDate={currentDate}
+          onDateChange={setCurrentDate}
+        />
       )}
 
       {activeTab === 'planning' && (

@@ -47,3 +47,10 @@ export const addMonths = (date: Date, months: number): Date => {
   newDate.setMonth(newDate.getMonth() + months);
   return newDate;
 };
+
+export const parseLocalDate = (dateString: string): Date => {
+  // Handles YYYY-MM-DD string and returns a Date object set to 00:00:00 Local Time
+  if (!dateString) return new Date();
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};

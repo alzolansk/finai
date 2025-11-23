@@ -28,6 +28,9 @@ export interface Transaction {
   type: TransactionType;
   isRecurring?: boolean;
   issuer?: string; // Bank/Card issuer (e.g., "Nubank", "Itaú", "C6")
+  isAiGenerated?: boolean;
+  linkedToInvoice?: boolean; // Indicates if this subscription is linked to a credit card invoice
+  creditCardIssuer?: string; // Credit card issuer for linked subscriptions
 }
 
 export interface Insight {
@@ -36,6 +39,8 @@ export interface Insight {
   description: string;
   type: 'warning' | 'tip' | 'success';
   savingsPotential?: number;
+  relatedTransactionId?: string;
+  suggestedAmount?: number;
 }
 
 export interface MonthlySummary {
@@ -60,3 +65,16 @@ export interface UserSettings {
 }
 
 export type TimePeriod = 'month' | 'year' | 'all';
+
+export type TipoImportacao = 'extrato_bancario' | 'fatura_cartao' | 'planilha' | 'texto_livre' | 'imagem' | 'pdf' | 'desconhecido';
+
+export interface TransacaoNormalizada {
+  date: string;
+  description: string;
+  amount: number;
+  type: TransactionType;
+  category: Category;
+  paymentDate?: string;
+  isRecurring?: boolean;
+  issuer?: string;
+}

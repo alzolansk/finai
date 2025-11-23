@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Category, Transaction, TransactionType } from '../types';
 import { parseTransactionFromText, parseImportFile } from '../services/geminiService';
 import { generateInvoiceFingerprint, isInvoiceAlreadyImported, saveImportedInvoice } from '../services/storageService';
+import { parseLocalDate } from '../utils/dateUtils';
 import { Mic, Send, Loader2, Wand2, Check, Layers, Upload, FileText, X, AlertTriangle } from 'lucide-react';
 
 interface AddTransactionProps {
@@ -73,10 +74,10 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
         const base64Data = base64String.split(',')[1];
 
         try {
-            const result = await parseImportFile(base64Data, file.type, existingTransactions);
-            if (result.transactions.length > 0) {
+            const result = await parseImportFile(base64Data, file.type, file.name, existingTransactions);
+            if (result.normalized.length > 0) {
                 // Generate fingerprint for this invoice
-                const fingerprint = generateInvoiceFingerprint(result.dueDate || null, result.transactions);
+                const fingerprint = generateInvoiceFingerprint(result.dueDate || null, result.normalized);
 
                 // Check if already imported
                 const existingInvoice = isInvoiceAlreadyImported(fingerprint);
@@ -92,10 +93,10 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                 } else {
                     // Not a duplicate, proceed with import
                     // Generate transaction IDs upfront so we can save them with the invoice
-                    const transactionIds = result.transactions.map(() => crypto.randomUUID());
+                    const transactionIds = result.normalized.map(() => crypto.randomUUID());
 
                     // Assign the pre-generated IDs to transactions
-                    const transactionsWithIds = result.transactions.map((t: any, index: number) => ({
+                    const transactionsWithIds = result.normalized.map((t: any, index: number) => ({
                         ...t,
                         id: transactionIds[index]
                     }));
@@ -104,11 +105,12 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                     saveImportedInvoice({
                         id: crypto.randomUUID(),
                         dueDate: result.dueDate || 'no-date',
-                        totalAmount: result.transactions.reduce((sum, t) => sum + t.amount, 0),
-                        transactionCount: result.transactions.length,
+                        totalAmount: result.normalized.reduce((sum, t) => sum + t.amount, 0),
+                        transactionCount: result.normalized.length,
                         importedAt: Date.now(),
                         fingerprint: fingerprint,
-                        transactionIds: transactionIds
+                        transactionIds: transactionIds,
+                        issuer: result.issuer
                     });
 
                     // Show success state with due date
@@ -138,8 +140,9 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
     if (!formData.description || !formData.amount) return;
 
     const baseAmount = Number(formData.amount);
-    const purchaseDateObj = new Date(formData.date || Date.now());
-    const paymentDateObj = new Date(formData.paymentDate || formData.date || Date.now());
+    // Use parseLocalDate to ensure we get 00:00:00 Local Time, avoiding timezone shifts
+    const purchaseDateObj = formData.date ? parseLocalDate(formData.date) : new Date();
+    const paymentDateObj = formData.paymentDate ? parseLocalDate(formData.paymentDate) : (formData.date ? parseLocalDate(formData.date) : new Date());
     
     const transactionsToAdd: Transaction[] = [];
 
@@ -166,7 +169,8 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                 type: formData.type as TransactionType,
                 date: purchaseDateObj.toISOString(), // Purchase date stays same
                 paymentDate: nextPaymentDate.toISOString(), // Payment date shifts
-                isRecurring: false
+                isRecurring: false,
+                isAiGenerated: formData.isAiGenerated
             });
         }
     } else {
@@ -179,7 +183,10 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
             type: formData.type as TransactionType,
             date: purchaseDateObj.toISOString(),
             paymentDate: paymentDateObj.toISOString(),
-            isRecurring: formData.isRecurring
+            isRecurring: formData.isRecurring,
+            isAiGenerated: formData.isAiGenerated,
+            linkedToInvoice: formData.linkedToInvoice,
+            creditCardIssuer: formData.creditCardIssuer
         });
     }
 
@@ -474,6 +481,48 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                         É uma assinatura/gasto fixo?
                     </label>
                 </div>
+
+                {/* Credit Card Association - only show for recurring expenses */}
+                {formData.isRecurring && formData.type === TransactionType.EXPENSE && (
+                    <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 space-y-3 animate-slideUp">
+                        <div className="flex items-center gap-3">
+                            <input
+                                type="checkbox"
+                                id="linkedToInvoice"
+                                checked={formData.linkedToInvoice || false}
+                                onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setFormData({
+                                        ...formData, 
+                                        linkedToInvoice: checked,
+                                        creditCardIssuer: checked ? formData.creditCardIssuer : undefined
+                                    });
+                                }}
+                                className="w-5 h-5 rounded border-2 border-zinc-300 text-zinc-900 focus:ring-2 focus:ring-zinc-200 cursor-pointer"
+                            />
+                            <label htmlFor="linkedToInvoice" className="text-sm text-zinc-700 cursor-pointer select-none font-medium">
+                                Vincular a um cartão de crédito
+                            </label>
+                        </div>
+
+                        {formData.linkedToInvoice && (
+                            <div className="pl-8 animate-fadeIn">
+                                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-2">Cartão</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={formData.creditCardIssuer || ''}
+                                    onChange={(e) => setFormData({...formData, creditCardIssuer: e.target.value})}
+                                    className="w-full p-3 bg-white border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-300 outline-none transition-all text-zinc-800"
+                                    placeholder="Ex: Nubank, Itaú, C6 Bank"
+                                />
+                                <p className="text-xs text-zinc-500 mt-2">
+                                    Esta assinatura será automaticamente incluída nas faturas futuras deste cartão
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 <button
                     type="submit"

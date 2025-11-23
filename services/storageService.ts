@@ -31,6 +31,18 @@ export const deleteTransaction = (id: string): Transaction[] => {
   return updated;
 };
 
+export const updateTransaction = (transaction: Transaction): Transaction[] => {
+  const current = getTransactions();
+  const index = current.findIndex(t => t.id === transaction.id);
+  if (index >= 0) {
+    const updated = [...current];
+    updated[index] = transaction;
+    localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(updated));
+    return updated;
+  }
+  return current;
+};
+
 // --- Settings & Onboarding ---
 
 export const getUserSettings = (): UserSettings | null => {
@@ -68,6 +80,7 @@ export interface ImportedInvoice {
   importedAt: number;
   fingerprint: string; // Hash of key transaction details
   transactionIds?: string[]; // IDs of transactions created from this invoice
+  issuer?: string; // Bank/Card issuer name
 }
 
 export const getImportedInvoices = (): ImportedInvoice[] => {
@@ -179,5 +192,89 @@ export const saveSavingsReview = (review: SavingsReview): SavingsReview[] => {
   }
   
   localStorage.setItem(SAVINGS_REVIEWS_KEY, JSON.stringify(updated));
+  return updated;
+};
+
+export const clearAllData = (): void => {
+  localStorage.removeItem(TRANSACTIONS_KEY);
+  localStorage.removeItem(SETTINGS_KEY);
+  localStorage.removeItem(SAVINGS_REVIEWS_KEY);
+  localStorage.removeItem(IMPORTED_INVOICES_KEY);
+  localStorage.removeItem(API_LOGS_KEY);
+};
+
+// --- API Monitoring ---
+
+const API_LOGS_KEY = 'finai_api_logs';
+
+export interface ApiLog {
+  id: string;
+  timestamp: number;
+  endpoint: string;
+  status: 'success' | 'error';
+  duration: number;
+  error?: string;
+}
+
+export const getApiLogs = (): ApiLog[] => {
+  const stored = localStorage.getItem(API_LOGS_KEY);
+  if (!stored) return [];
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return [];
+  }
+};
+
+export const logApiCall = (log: Omit<ApiLog, 'id' | 'timestamp'>) => {
+  const logs = getApiLogs();
+  const newLog: ApiLog = {
+    ...log,
+    id: crypto.randomUUID(),
+    timestamp: Date.now()
+  };
+  // Keep last 50 logs
+  const updated = [newLog, ...logs].slice(0, 50);
+  localStorage.setItem(API_LOGS_KEY, JSON.stringify(updated));
+};
+
+export const clearApiLogs = () => {
+  localStorage.removeItem(API_LOGS_KEY);
+};
+
+// --- Agenda Checklist ---
+
+const AGENDA_CHECKLIST_KEY = 'finai_agenda_checklist';
+
+export interface AgendaChecklistEntry {
+  targetId: string; // ID of the invoice or recurring transaction definition
+  monthKey: string; // YYYY-MM
+  paidAt: string; // ISO Date
+}
+
+export const getAgendaChecklist = (): AgendaChecklistEntry[] => {
+  const stored = localStorage.getItem(AGENDA_CHECKLIST_KEY);
+  if (!stored) return [];
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return [];
+  }
+};
+
+export const toggleAgendaChecklist = (entry: AgendaChecklistEntry): AgendaChecklistEntry[] => {
+  const current = getAgendaChecklist();
+  const index = current.findIndex(e => e.targetId === entry.targetId && e.monthKey === entry.monthKey);
+  
+  let updated;
+  if (index >= 0) {
+    // Remove if exists (toggle off)
+    updated = current.filter((_, i) => i !== index);
+  } else {
+    // Add if not exists (toggle on)
+    updated = [...current, entry];
+  }
+  
+  localStorage.setItem(AGENDA_CHECKLIST_KEY, JSON.stringify(updated));
   return updated;
 };

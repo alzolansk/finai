@@ -48,8 +48,14 @@ const Dashboard: React.FC<DashboardProps> = ({
   // Calculate Forecast
   const forecast = useMemo(() => calculateMonthlyForecast(transactions, currentDate, settings, isTurboMode), [transactions, currentDate, settings, isTurboMode]);
   
-  // Filter alerts to exclude those shown in header (overspend and turbo)
-  const bodyAlerts = alerts.filter(a => !a.id.startsWith('overspend') && a.id !== 'turbo-active');
+  // Filter alerts to exclude those shown in header (overspend, frequent habits, large expenses and turbo)
+  const bodyAlerts = alerts.filter(a => 
+    !a.id.startsWith('overspend') && 
+    !a.id.startsWith('freq-') && 
+    !a.title.includes('Hábito Frequente') &&
+    !a.id.startsWith('large-') &&
+    a.id !== 'turbo-active'
+  );
 
   // 2. Calculate Stats based on Filtered Data
   const totalIncome = filteredTransactions

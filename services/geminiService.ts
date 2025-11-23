@@ -1,11 +1,15 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { Transaction, Category, TransactionType, Insight } from '../types';
+import { Transaction, Category, TransactionType, Insight, TipoImportacao, TransacaoNormalizada } from '../types';
+import { detectarTipoImportacao, normalizarTransacaoGenerica, isPagamentoFaturaDescription, isLikelyInternalTransfer, parseSpreadsheet } from '../utils/importUtils';
+import { logApiCall } from './storageService';
+import { parseLocalDate } from '../utils/dateUtils';
 
 // Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });  
 
 // 1. Smart Entry: Parse natural language into a Transaction object
 export const parseTransactionFromText = async (text: string): Promise<Partial<Transaction> & { installments?: number }> => {
+  const startTime = Date.now();
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -40,14 +44,17 @@ export const parseTransactionFromText = async (text: string): Promise<Partial<Tr
     });
 
     if (response.text) {
+      logApiCall({ endpoint: 'parseTransactionFromText', status: 'success', duration: Date.now() - startTime });
       const data = JSON.parse(response.text);
       return {
         ...data,
         id: crypto.randomUUID(),
+        isAiGenerated: true
       };
     }
     throw new Error("No response text");
   } catch (error) {
+    logApiCall({ endpoint: 'parseTransactionFromText', status: 'error', duration: Date.now() - startTime, error: String(error) });
     console.error("Gemini parse error:", error);
     throw error;
   }
@@ -57,13 +64,72 @@ export const parseTransactionFromText = async (text: string): Promise<Partial<Tr
 export const parseImportFile = async (
   fileData: string,
   mimeType: string,
+  fileName: string,
   existingTransactions: Transaction[] = []
-): Promise<{ transactions: Transaction[], dueDate?: string }> => {
+): Promise<{ normalized: TransacaoNormalizada[]; dueDate?: string; issuer?: string; tipoImportacao: TipoImportacao }> => {
+  const startTime = Date.now();
   try {
-    // Get list of recurring subscriptions to avoid duplicates
+    const tipoImportacao = detectarTipoImportacao({ name: fileName, type: mimeType });
+
+    // Planilhas tratadas localmente
+    if (tipoImportacao === 'planilha') {
+      return {
+        normalized: parseSpreadsheet(fileData, mimeType, fileName),
+        tipoImportacao
+      };
+    }
+
     const recurringSubscriptions = existingTransactions
       .filter(t => t.isRecurring)
-      .map(t => t.description.toLowerCase());
+      .map(t => t.description.toLowerCase().trim());
+
+    // Helper function to check if a subscription is a duplicate
+    const isDuplicateSubscription = (newDesc: string): boolean => {
+      const cleanNew = newDesc.toLowerCase().trim()
+        .replace(/\s+/g, ' ') // Normalize whitespace
+        .replace(/[^\w\s]/g, ''); // Remove special chars
+      
+      return recurringSubscriptions.some(existing => {
+        const cleanExisting = existing
+          .replace(/\s+/g, ' ')
+          .replace(/[^\w\s]/g, '');
+        
+        // Check for exact match
+        if (cleanNew === cleanExisting) return true;
+        
+        // Check if one contains the other (with length threshold)
+        const shorter = cleanNew.length < cleanExisting.length ? cleanNew : cleanExisting;
+        const longer = cleanNew.length < cleanExisting.length ? cleanExisting : cleanNew;
+        
+        // If shorter is at least 60% of longer and longer contains shorter, it's a match
+        if (shorter.length >= longer.length * 0.6 && longer.includes(shorter)) {
+          return true;
+        }
+        
+        // Common subscription name variations
+        const commonPairs = [
+          ['chatgpt', 'google chatgp'],
+          ['chatgpt', 'openai'],
+          ['prime', 'amazon prime'],
+          ['prime video', 'amazon prime'],
+          ['netflix', 'netflix.com'],
+          ['spotify', 'spotify premium'],
+          ['youtube', 'youtube premium'],
+          ['disney', 'disney plus'],
+          ['apple', 'apple one'],
+          ['icloud', 'apple icloud']
+        ];
+        
+        for (const [term1, term2] of commonPairs) {
+          if ((cleanNew.includes(term1) && cleanExisting.includes(term2)) ||
+              (cleanNew.includes(term2) && cleanExisting.includes(term1))) {
+            return true;
+          }
+        }
+        
+        return false;
+      });
+    };
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -161,6 +227,7 @@ export const parseImportFile = async (
     });
 
     if (response.text) {
+      logApiCall({ endpoint: 'parseImportFile', status: 'success', duration: Date.now() - startTime });
       const raw = JSON.parse(response.text);
       const dueDate = raw.invoiceDueDate;
       const issuer = raw.issuer;
@@ -169,13 +236,8 @@ export const parseImportFile = async (
       const filteredTransactions = (raw.transactions || [])
         .filter((t: any) => {
           if (t.isRecurring) {
-            const cleanDesc = t.description.toLowerCase();
-            // Check if this subscription already exists
-            const alreadyExists = recurringSubscriptions.some(existing =>
-              cleanDesc.includes(existing) || existing.includes(cleanDesc)
-            );
-            if (alreadyExists) {
-              console.log(`Skipping duplicate recurring subscription: ${t.description}`);
+            if (isDuplicateSubscription(t.description)) {
+              console.log(`⚠️ Skipping duplicate recurring subscription: "${t.description}" (already exists in system)`);
               return false;
             }
           }
@@ -185,8 +247,9 @@ export const parseImportFile = async (
           // Handle installments - create multiple transactions
           if (t.currentInstallment && t.totalInstallments && t.totalInstallments > 1) {
             const transactions: Transaction[] = [];
-            const purchaseDate = new Date(t.date);
-            const paymentDate = new Date(t.paymentDate || t.date);
+            // Use parseLocalDate if it's a YYYY-MM-DD string to avoid timezone issues
+            const purchaseDate = t.date.includes('T') ? new Date(t.date) : parseLocalDate(t.date);
+            const paymentDate = (t.paymentDate || t.date).includes('T') ? new Date(t.paymentDate || t.date) : parseLocalDate(t.paymentDate || t.date);
 
             // Calculate how many months before and after
             const monthsBefore = t.currentInstallment - 1;
@@ -206,7 +269,8 @@ export const parseImportFile = async (
                 category: t.category,
                 type: t.type,
                 isRecurring: false,
-                issuer: issuer
+                issuer: issuer,
+                isAiGenerated: true
               });
             }
 
@@ -220,7 +284,8 @@ export const parseImportFile = async (
               category: t.category,
               type: t.type,
               isRecurring: false,
-              issuer: issuer
+              issuer: issuer,
+              isAiGenerated: true
             });
 
             // Create future installments
@@ -237,7 +302,8 @@ export const parseImportFile = async (
                 category: t.category,
                 type: t.type,
                 isRecurring: false,
-                issuer: issuer
+                issuer: issuer,
+                isAiGenerated: true
               });
             }
 
@@ -253,18 +319,22 @@ export const parseImportFile = async (
               category: t.category,
               type: t.type,
               isRecurring: t.isRecurring || false,
-              issuer: issuer
+              issuer: issuer,
+              isAiGenerated: true
             }];
           }
         });
 
       return {
-        transactions: filteredTransactions,
-        dueDate: dueDate
+        normalized: filteredTransactions,
+        dueDate: dueDate,
+        issuer: issuer,
+        tipoImportacao
       };
     }
-    return { transactions: [] };
+    return { normalized: [], tipoImportacao };
   } catch (error) {
+    logApiCall({ endpoint: 'parseImportFile', status: 'error', duration: Date.now() - startTime, error: String(error) });
     console.error("Gemini import error:", error);
     throw error;
   }
@@ -273,6 +343,7 @@ export const parseImportFile = async (
 // 3. Insights: Analyze history and generate unlimited tips
 export const generateInsights = async (transactions: Transaction[]): Promise<Insight[]> => {
   if (transactions.length === 0) return [];
+  const startTime = Date.now();
 
   // Sort by date desc and take recent ones for relevance
   const recentTransactions = transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 100);
@@ -289,6 +360,8 @@ export const generateInsights = async (transactions: Transaction[]): Promise<Ins
       - Be specific about values (Use BRL currency format).
       - Types: 'warning' (bad), 'tip' (neutral/advice), 'success' (good).
       - Language: Portuguese.
+      - If the insight is about a specific transaction (e.g. "Netflix is expensive"), include its ID in 'relatedTransactionId'.
+      - If you suggest a lower value (e.g. "Negotiate internet to R$ 100"), include 'suggestedAmount'.
       
       Return JSON array.`,
       config: {
@@ -301,7 +374,9 @@ export const generateInsights = async (transactions: Transaction[]): Promise<Ins
               title: { type: Type.STRING },
               description: { type: Type.STRING },
               type: { type: Type.STRING, enum: ["warning", "tip", "success"] },
-              savingsPotential: { type: Type.NUMBER, description: "Estimated savings amount if applicable, else 0" }
+              savingsPotential: { type: Type.NUMBER, description: "Estimated savings amount if applicable, else 0" },
+              relatedTransactionId: { type: Type.STRING, description: "The ID of the transaction this insight refers to, if any" },
+              suggestedAmount: { type: Type.NUMBER, description: "A suggested new amount for this transaction, if applicable" }
             }
           }
         }
@@ -309,11 +384,13 @@ export const generateInsights = async (transactions: Transaction[]): Promise<Ins
     });
 
     if (response.text) {
+      logApiCall({ endpoint: 'generateInsights', status: 'success', duration: Date.now() - startTime });
       const rawInsights = JSON.parse(response.text);
       return rawInsights.map((i: any) => ({ ...i, id: crypto.randomUUID() }));
     }
     return [];
   } catch (error) {
+    logApiCall({ endpoint: 'generateInsights', status: 'error', duration: Date.now() - startTime, error: String(error) });
     console.error("Gemini insights error:", error);
     return [];
   }
@@ -321,7 +398,7 @@ export const generateInsights = async (transactions: Transaction[]): Promise<Ins
 
 // 4. Chat with Financial Advisor
 export const chatWithAdvisor = async (history: {role: string, parts: {text: string}[]}[], transactions: Transaction[]): Promise<string> => {
-  // Get the last user message to extract keywords
+  const startTime = Date.now();
   const lastUserMsg = history[history.length - 1].parts[0].text.toLowerCase();
 
   // Define keywords and categories to look for
@@ -408,15 +485,18 @@ export const chatWithAdvisor = async (history: {role: string, parts: {text: stri
 
     const response = await chat.sendMessage({ message: lastUserMsg });
 
-    return response.text || "Desculpe, não entendi.";
+    logApiCall({ endpoint: 'chatWithAdvisor', status: 'success', duration: Date.now() - startTime });
+    return response.text || "Desculpe, nao entendi.";
   } catch (error) {
+    logApiCall({ endpoint: 'chatWithAdvisor', status: 'error', duration: Date.now() - startTime, error: String(error) });
     console.error("Chat error:", error);
-    return "Desculpe, estou com dificuldade de conexão no momento.";
+    return "Desculpe, estou com dificuldade de conexao no momento.";
   }
 };
 
 // 5. Onboarding: Calculate Goals
 export const calculateBudgetGoal = async (income: number, fixedExpenses: {description: string, amount: number}[]): Promise<{ recommendedGoal: number, reasoning: string }> => {
+  const startTime = Date.now();
   try {
     const fixedTotal = fixedExpenses.reduce((sum, e) => sum + e.amount, 0);
     const response = await ai.models.generateContent({
@@ -437,9 +517,13 @@ export const calculateBudgetGoal = async (income: number, fixedExpenses: {descri
       }
     });
     
-    if (response.text) return JSON.parse(response.text);
+    if (response.text) {
+        logApiCall({ endpoint: 'calculateBudgetGoal', status: 'success', duration: Date.now() - startTime });
+        return JSON.parse(response.text);
+    }
     return { recommendedGoal: income * 0.2, reasoning: "Estimativa baseada em 20% da renda." };
   } catch (e) {
-    return { recommendedGoal: income * 0.2, reasoning: "Padrão de 20% aplicado." };
+    logApiCall({ endpoint: 'calculateBudgetGoal', status: 'error', duration: Date.now() - startTime, error: String(e) });
+    return { recommendedGoal: income * 0.2, reasoning: "Padrao de 20% aplicado." };
   }
 };
