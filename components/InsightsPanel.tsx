@@ -11,13 +11,20 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions }) => {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(false);
   const lastFetchedHash = useRef<string>("");
-  
-  // Simple hash to check if transactions really changed significantly
+
+  // Hash based on transaction IDs to detect actual additions/removals
   const getCurrentHash = () => {
-      // Check count and sum of last 5 amounts to detect changes
-      const recent = transactions.slice(0, 10); 
-      const sum = recent.reduce((acc, t) => acc + t.amount, 0);
-      return `${transactions.length}-${sum.toFixed(2)}`;
+      // Sort transaction IDs to create a consistent hash
+      // This will change only when transactions are added or removed
+      const ids = transactions.map(t => t.id).sort().join(',');
+      // Create a simple hash from the IDs string
+      let hash = 0;
+      for (let i = 0; i < ids.length; i++) {
+        const char = ids.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+      }
+      return `${transactions.length}-${hash}`;
   };
 
   const fetchInsights = async (force = false) => {
@@ -43,7 +50,7 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions }) => {
       fetchInsights();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transactions.length]); // Only auto-refetch on count change mostly
+  }, [getCurrentHash()]); // Refetch when transaction list changes (additions/removals)
 
   return (
     <div className="space-y-8 pb-20">

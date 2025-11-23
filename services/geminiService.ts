@@ -54,8 +54,17 @@ export const parseTransactionFromText = async (text: string): Promise<Partial<Tr
 };
 
 // 2. Import Tool: Parse File Content (Base64 or Text)
-export const parseImportFile = async (fileData: string, mimeType: string): Promise<Transaction[]> => {
+export const parseImportFile = async (
+  fileData: string,
+  mimeType: string,
+  existingTransactions: Transaction[] = []
+): Promise<{ transactions: Transaction[], dueDate?: string }> => {
   try {
+    // Get list of recurring subscriptions to avoid duplicates
+    const recurringSubscriptions = existingTransactions
+      .filter(t => t.isRecurring)
+      .map(t => t.description.toLowerCase());
+
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: {
@@ -69,33 +78,50 @@ export const parseImportFile = async (fileData: string, mimeType: string): Promi
           {
             text: `Extract all financial transactions from this document/image.
             Current Year: ${new Date().getFullYear()}.
-            
+            Current Month: ${new Date().getMonth() + 1}.
+
             CRITICAL RULES:
-            1. **INVOICE DUE DATE**: Search the document for the "Data de Vencimento" or "Vencimento" (Due Date) of the Invoice/Bill. 
+            1. **INVOICE DUE DATE**: Search the document for the "Data de Vencimento" or "Vencimento" (Due Date) of the Invoice/Bill.
                - If found, set 'paymentDate' of ALL extracted items to this Due Date.
                - If NOT found (e.g. bank statement), 'paymentDate' should be the same as 'date'.
+               - Also return this due date separately in 'invoiceDueDate' field.
             2. Ignore totals, sub-totals, or balance lines. Only extract individual purchases/transfers.
             3. **SANITIZE DESCRIPTIONS**: Shorten and clean merchant names (e.g., "MERCADOLIVRE*VENDEDOR" -> "Mercado Livre").
             4. Detect if it is Income or Expense based on context (negative signs usually expense, or "Crédito").
             5. Map categories intelligently.
-            
-            Return a JSON array of transactions.`
+            6. **DETECT RECURRING SUBSCRIPTIONS**: Identify if a transaction is likely a recurring subscription (Netflix, Spotify, etc.) and set 'isRecurring' to true.
+            7. **DETECT INSTALLMENTS**: Look for patterns like "4/6", "parcela 4 de 6", "4x de 6", etc.
+               - If found, extract: currentInstallment (e.g., 4), totalInstallments (e.g., 6)
+               - The amount should be the installment amount (not total)
+
+            Return a JSON object with:
+            - invoiceDueDate: the invoice due date if found (ISO 8601 YYYY-MM-DD), or null
+            - transactions: array of transactions`
           }
         ]
       },
       config: {
         responseMimeType: "application/json",
         responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              description: { type: Type.STRING },
-              amount: { type: Type.NUMBER },
-              date: { type: Type.STRING, description: "ISO 8601 YYYY-MM-DD (Date of purchase)" },
-              paymentDate: { type: Type.STRING, description: "ISO 8601 YYYY-MM-DD (Invoice Due Date or Payment Date)" },
-              category: { type: Type.STRING },
-              type: { type: Type.STRING, enum: ["INCOME", "EXPENSE"] }
+          type: Type.OBJECT,
+          properties: {
+            invoiceDueDate: { type: Type.STRING, description: "Invoice due date if found" },
+            transactions: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  description: { type: Type.STRING },
+                  amount: { type: Type.NUMBER },
+                  date: { type: Type.STRING, description: "ISO 8601 YYYY-MM-DD (Date of purchase)" },
+                  paymentDate: { type: Type.STRING, description: "ISO 8601 YYYY-MM-DD (Invoice Due Date or Payment Date)" },
+                  category: { type: Type.STRING },
+                  type: { type: Type.STRING, enum: ["INCOME", "EXPENSE"] },
+                  isRecurring: { type: Type.BOOLEAN, description: "Is this a recurring subscription?" },
+                  currentInstallment: { type: Type.INTEGER, description: "Current installment number (e.g., 4)" },
+                  totalInstallments: { type: Type.INTEGER, description: "Total installments (e.g., 6)" }
+                }
+              }
             }
           }
         }
@@ -104,13 +130,103 @@ export const parseImportFile = async (fileData: string, mimeType: string): Promi
 
     if (response.text) {
       const raw = JSON.parse(response.text);
-      return raw.map((t: any) => ({
-        ...t,
-        id: crypto.randomUUID(),
-        isRecurring: false
-      }));
+      const dueDate = raw.invoiceDueDate;
+
+      // Filter out recurring subscriptions that already exist
+      const filteredTransactions = (raw.transactions || [])
+        .filter((t: any) => {
+          if (t.isRecurring) {
+            const cleanDesc = t.description.toLowerCase();
+            // Check if this subscription already exists
+            const alreadyExists = recurringSubscriptions.some(existing =>
+              cleanDesc.includes(existing) || existing.includes(cleanDesc)
+            );
+            if (alreadyExists) {
+              console.log(`Skipping duplicate recurring subscription: ${t.description}`);
+              return false;
+            }
+          }
+          return true;
+        })
+        .flatMap((t: any) => {
+          // Handle installments - create multiple transactions
+          if (t.currentInstallment && t.totalInstallments && t.totalInstallments > 1) {
+            const transactions: Transaction[] = [];
+            const purchaseDate = new Date(t.date);
+            const paymentDate = new Date(t.paymentDate || t.date);
+
+            // Calculate how many months before and after
+            const monthsBefore = t.currentInstallment - 1;
+            const monthsAfter = t.totalInstallments - t.currentInstallment;
+
+            // Create past installments
+            for (let i = monthsBefore; i > 0; i--) {
+              const pastPaymentDate = new Date(paymentDate);
+              pastPaymentDate.setMonth(pastPaymentDate.getMonth() - i);
+
+              transactions.push({
+                id: crypto.randomUUID(),
+                description: `${t.description} (${t.currentInstallment - i}/${t.totalInstallments})`,
+                amount: t.amount,
+                date: purchaseDate.toISOString(),
+                paymentDate: pastPaymentDate.toISOString(),
+                category: t.category,
+                type: t.type,
+                isRecurring: false
+              });
+            }
+
+            // Create current installment
+            transactions.push({
+              id: crypto.randomUUID(),
+              description: `${t.description} (${t.currentInstallment}/${t.totalInstallments})`,
+              amount: t.amount,
+              date: purchaseDate.toISOString(),
+              paymentDate: paymentDate.toISOString(),
+              category: t.category,
+              type: t.type,
+              isRecurring: false
+            });
+
+            // Create future installments
+            for (let i = 1; i <= monthsAfter; i++) {
+              const futurePaymentDate = new Date(paymentDate);
+              futurePaymentDate.setMonth(futurePaymentDate.getMonth() + i);
+
+              transactions.push({
+                id: crypto.randomUUID(),
+                description: `${t.description} (${t.currentInstallment + i}/${t.totalInstallments})`,
+                amount: t.amount,
+                date: purchaseDate.toISOString(),
+                paymentDate: futurePaymentDate.toISOString(),
+                category: t.category,
+                type: t.type,
+                isRecurring: false
+              });
+            }
+
+            return transactions;
+          } else {
+            // Single transaction (no installments)
+            return [{
+              id: crypto.randomUUID(),
+              description: t.description,
+              amount: t.amount,
+              date: t.date,
+              paymentDate: t.paymentDate || t.date,
+              category: t.category,
+              type: t.type,
+              isRecurring: t.isRecurring || false
+            }];
+          }
+        });
+
+      return {
+        transactions: filteredTransactions,
+        dueDate: dueDate
+      };
     }
-    return [];
+    return { transactions: [] };
   } catch (error) {
     console.error("Gemini import error:", error);
     throw error;
@@ -168,28 +284,93 @@ export const generateInsights = async (transactions: Transaction[]): Promise<Ins
 
 // 4. Chat with Financial Advisor
 export const chatWithAdvisor = async (history: {role: string, parts: {text: string}[]}[], transactions: Transaction[]): Promise<string> => {
-  // Pass a summary instead of full history to save tokens but keep context
-  const summary = transactions.slice(0, 50).map(t => `${t.date}: ${t.description} (${t.amount})`).join('\n');
-  
+  // Get the last user message to extract keywords
+  const lastUserMsg = history[history.length - 1].parts[0].text.toLowerCase();
+
+  // Define keywords and categories to look for
+  const categoryKeywords: { [key: string]: string[] } = {
+    [Category.FOOD]: ['comida', 'alimentação', 'restaurante', 'ifood', 'delivery', 'mercado', 'supermercado'],
+    [Category.TRANSPORT]: ['transporte', 'uber', 'taxi', '99', 'gasolina', 'combustível', 'carro', 'ônibus'],
+    [Category.HOUSING]: ['moradia', 'aluguel', 'casa', 'apartamento', 'condomínio'],
+    [Category.UTILITIES]: ['conta', 'luz', 'água', 'energia', 'internet', 'telefone'],
+    [Category.ENTERTAINMENT]: ['lazer', 'diversão', 'cinema', 'show', 'streaming', 'netflix', 'spotify'],
+    [Category.HEALTH]: ['saúde', 'médico', 'farmácia', 'remédio', 'academia', 'gym'],
+    [Category.SHOPPING]: ['compra', 'shopping', 'loja', 'mercadolivre', 'amazon'],
+    [Category.SUBSCRIPTIONS]: ['assinatura', 'mensalidade', 'netflix', 'spotify', 'amazon prime'],
+    [Category.EDUCATION]: ['educação', 'curso', 'escola', 'faculdade', 'universidade'],
+    [Category.SAVINGS]: ['investimento', 'poupança', 'economia', 'reserva']
+  };
+
+  // Time-based keywords
+  const timeKeywords = {
+    recent: ['último', 'últimos', 'recente', 'hoje', 'ontem', 'semana', 'mês'],
+    all: ['total', 'tudo', 'todos', 'todas', 'histórico', 'sempre', 'completo']
+  };
+
+  // Filter transactions based on keywords
+  let relevantTransactions: Transaction[] = [];
+  let useFullHistory = false;
+
+  // Check if user wants full history
+  if (timeKeywords.all.some(keyword => lastUserMsg.includes(keyword))) {
+    useFullHistory = true;
+    relevantTransactions = transactions;
+  }
+
+  // Check for category-specific queries
+  for (const [category, keywords] of Object.entries(categoryKeywords)) {
+    if (keywords.some(keyword => lastUserMsg.includes(keyword))) {
+      const categoryTransactions = transactions.filter(t => t.category === category);
+      relevantTransactions = [...relevantTransactions, ...categoryTransactions];
+    }
+  }
+
+  // Check for specific descriptions in user message
+  const possibleDescriptions = transactions.map(t => t.description.toLowerCase());
+  possibleDescriptions.forEach((desc, idx) => {
+    if (lastUserMsg.includes(desc)) {
+      relevantTransactions.push(transactions[idx]);
+    }
+  });
+
+  // Remove duplicates
+  relevantTransactions = Array.from(new Set(relevantTransactions.map(t => t.id)))
+    .map(id => relevantTransactions.find(t => t.id === id)!)
+    .filter(t => t !== undefined);
+
+  // If no specific keywords found, use recent transactions (but more than before)
+  if (relevantTransactions.length === 0) {
+    relevantTransactions = transactions.slice(0, 100); // Increased from 50 to 100
+  }
+
+  // Sort by date (most recent first)
+  relevantTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // Create a detailed summary
+  const summary = relevantTransactions
+    .slice(0, useFullHistory ? relevantTransactions.length : 200) // Limit to 200 for token efficiency
+    .map(t => `${t.date}: ${t.description} - R$ ${t.amount} (${t.category})`)
+    .join('\n');
+
   try {
     const chat = ai.chats.create({
       model: "gemini-2.5-flash",
       config: {
-        systemInstruction: `You are FinAI, a sophisticated financial advisor. 
-        User's recent transactions: 
+        systemInstruction: `You are FinAI, a sophisticated financial advisor.
+        User's transactions (${relevantTransactions.length} transactions analyzed):
         ${summary}
-        
-        Answer questions about their spending, habits, and give advice. 
-        Be concise, professional but friendly. 
+
+        Answer questions about their spending, habits, and give advice.
+        Be concise, professional but friendly.
         Values are in BRL (R$).
-        Language: Portuguese.`
+        Language: Portuguese.
+        When analyzing data, be specific and use actual numbers from the transactions.`
       },
       history: history
     });
 
-    const lastUserMsg = history[history.length - 1].parts[0].text;
     const response = await chat.sendMessage({ message: lastUserMsg });
-    
+
     return response.text || "Desculpe, não entendi.";
   } catch (error) {
     console.error("Chat error:", error);

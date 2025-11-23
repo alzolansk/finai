@@ -6,12 +6,15 @@ import { Mic, Send, Loader2, Wand2, Check, Layers, Upload, FileText, X } from 'l
 interface AddTransactionProps {
   onAdd: (transactions: Transaction[]) => void;
   onCancel: () => void;
+  existingTransactions?: Transaction[];
 }
 
-const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel }) => {
+const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existingTransactions = [] }) => {
   const [mode, setMode] = useState<'ai' | 'manual' | 'import'>('ai');
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [importSuccess, setImportSuccess] = useState(false);
+  const [importDueDate, setImportDueDate] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Staging for logic that handles multiple installments
@@ -56,32 +59,35 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel }) => {
     if (!file) return;
 
     setLoading(true);
+    setImportSuccess(false);
+    setImportDueDate(null);
     const reader = new FileReader();
-    
+
     reader.onloadend = async () => {
         const base64String = reader.result as string;
         const base64Data = base64String.split(',')[1];
-        
+
         try {
-            const transactions = await parseImportFile(base64Data, file.type);
-            if (transactions.length > 0) {
-                // Determine if we found a global due date in the file (by checking if they all share a paymentDate different from date)
-                const firstPaymentDate = transactions[0].paymentDate;
-                if (firstPaymentDate && firstPaymentDate !== transactions[0].date) {
-                    alert(`Data de Vencimento Identificada: ${new Date(firstPaymentDate).toLocaleDateString('pt-BR')}`);
-                }
-                onAdd(transactions); // Immediate add for bulk
+            const result = await parseImportFile(base64Data, file.type, existingTransactions);
+            if (result.transactions.length > 0) {
+                // Show success state with due date
+                setImportSuccess(true);
+                setImportDueDate(result.dueDate || null);
+
+                // Wait for animation then add transactions
+                setTimeout(() => {
+                    onAdd(result.transactions);
+                }, 1500);
             } else {
                 alert("Não conseguimos identificar transações neste arquivo.");
+                setLoading(false);
             }
         } catch (error) {
             alert("Erro ao processar arquivo. Tente novamente.");
-        } finally {
             setLoading(false);
-            setMode('ai'); // Go back to start
         }
     };
-    
+
     reader.readAsDataURL(file);
   };
 
@@ -212,13 +218,34 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel }) => {
 
         {mode === 'import' ? (
              <div className="flex-1 flex flex-col items-center justify-center animate-fadeIn text-center relative">
-                 <button onClick={() => setMode('ai')} className="absolute top-0 right-0 p-2 text-zinc-400 hover:text-zinc-800"><X /></button>
-                 
-                 <div className={`w-full max-w-sm h-64 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center gap-4 transition-all ${loading ? 'border-emerald-500 bg-emerald-50/50' : 'border-zinc-300 hover:border-zinc-800 hover:bg-zinc-50'}`}>
-                     {loading ? (
+                 <button onClick={() => { setMode('ai'); setImportSuccess(false); setImportDueDate(null); }} className="absolute top-0 right-0 p-2 text-zinc-400 hover:text-zinc-800"><X /></button>
+
+                 <div className={`w-full max-w-sm h-64 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center gap-4 transition-all ${
+                     importSuccess ? 'border-emerald-500 bg-emerald-50/50' :
+                     loading ? 'border-emerald-500 bg-emerald-50/50' :
+                     'border-zinc-300 hover:border-zinc-800 hover:bg-zinc-50'
+                 }`}>
+                     {importSuccess ? (
+                         <>
+                            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center animate-fadeIn">
+                                <Check className="w-12 h-12 text-emerald-600" />
+                            </div>
+                            <div className="animate-fadeIn">
+                                <p className="text-emerald-800 font-bold text-lg mb-2">Fatura Processada!</p>
+                                {importDueDate && (
+                                    <p className="text-emerald-600 text-sm">
+                                        Data de Vencimento: {new Date(importDueDate).toLocaleDateString('pt-BR')}
+                                    </p>
+                                )}
+                            </div>
+                         </>
+                     ) : loading ? (
                          <>
                             <Loader2 className="w-10 h-10 text-emerald-600 animate-spin" />
                             <p className="text-emerald-700 font-bold">Analisando Fatura...</p>
+                            <p className="text-emerald-600 text-xs max-w-xs">
+                                Identificando data de vencimento e itens...
+                            </p>
                          </>
                      ) : (
                          <>
@@ -229,8 +256,8 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel }) => {
                                 <p className="font-bold text-zinc-800">Clique para enviar fatura</p>
                                 <p className="text-xs text-zinc-400 mt-1">PDF, JPG, PNG ou CSV</p>
                             </div>
-                            <input 
-                                type="file" 
+                            <input
+                                type="file"
                                 ref={fileInputRef}
                                 onChange={handleFileImport}
                                 accept=".csv, .pdf, image/*"

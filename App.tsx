@@ -156,9 +156,10 @@ const App: React.FC = () => {
       )}
 
       {activeTab === 'add' && (
-        <AddTransaction 
-          onAdd={handleAddTransactions} 
-          onCancel={() => setActiveTab('dashboard')} 
+        <AddTransaction
+          onAdd={handleAddTransactions}
+          onCancel={() => setActiveTab('dashboard')}
+          existingTransactions={transactions}
         />
       )}
 

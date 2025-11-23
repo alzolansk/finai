@@ -53,10 +53,21 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     onComplete(settings);
   };
 
+  const handleSkip = () => {
+    // Skip onboarding with default values
+    const settings: UserSettings = {
+        monthlyIncome: 0,
+        savingsGoal: 0,
+        onboardingCompleted: true,
+        fixedExpenses: []
+    };
+    onComplete(settings);
+  };
+
   return (
     <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center p-6 text-zinc-900">
-       <div className="max-w-md w-full">
-         
+       <div className="max-w-md w-full relative">
+
          {/* Progress */}
          <div className="flex gap-2 mb-10 justify-center">
             {[1, 2, 3].map(i => (
@@ -164,6 +175,17 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                 </button>
              </div>
          )}
+
+         {/* Discrete Skip Button */}
+         <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-4">
+            <button
+               onClick={handleSkip}
+               className="text-xs text-zinc-300 hover:text-zinc-500 transition-colors underline"
+               title="Pular configuração inicial"
+            >
+               pular
+            </button>
+         </div>
 
        </div>
     </div>
