@@ -27,6 +27,7 @@ export interface Transaction {
   category: Category;
   type: TransactionType;
   isRecurring?: boolean;
+  issuer?: string; // Bank/Card issuer (e.g., "Nubank", "Itaú", "C6")
 }
 
 export interface Insight {

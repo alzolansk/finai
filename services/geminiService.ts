@@ -81,12 +81,17 @@ export const parseImportFile = async (
             Current Month: ${new Date().getMonth() + 1}.
 
             CRITICAL RULES:
-            1. **INVOICE DUE DATE**: Search the document for the "Data de Vencimento" or "Vencimento" (Due Date) of the Invoice/Bill.
+            1. **IDENTIFY ISSUER/BANK**: Detect the bank or card issuer from the document.
+               - Look for logos, headers, or text like "Nubank", "Itaú", "C6 Bank", "Inter", "PicPay", etc.
+               - Return the clean name (e.g., "Nubank", "Itaú", "C6", "Inter", "Bradesco")
+               - If not found, return null
+
+            2. **INVOICE DUE DATE**: Search the document for the "Data de Vencimento" or "Vencimento" (Due Date) of the Invoice/Bill.
                - If found, set 'paymentDate' of ALL extracted items to this Due Date.
                - If NOT found (e.g. bank statement), 'paymentDate' should be the same as 'date'.
                - Also return this due date separately in 'invoiceDueDate' field.
 
-            2. **IGNORE INVOICE PAYMENT LINES**: Do NOT extract the following:
+            3. **IGNORE INVOICE PAYMENT LINES**: Do NOT extract the following:
                - "Pagamento de fatura" / "Payment"
                - "Total da fatura" / "Invoice total"
                - "Valor total" / "Total amount"
@@ -95,22 +100,23 @@ export const parseImportFile = async (
                - Any line that represents the TOTAL or PAYMENT of the invoice itself
                These are summary lines, not individual purchases.
 
-            3. **ONLY EXTRACT INDIVIDUAL PURCHASES**: Extract only actual purchases, subscriptions, and services.
+            4. **ONLY EXTRACT INDIVIDUAL PURCHASES**: Extract only actual purchases, subscriptions, and services.
                Examples: Netflix, Uber, Restaurant, Shopping, etc.
 
-            4. **SANITIZE DESCRIPTIONS**: Shorten and clean merchant names (e.g., "MERCADOLIVRE*VENDEDOR" -> "Mercado Livre").
+            5. **SANITIZE DESCRIPTIONS**: Shorten and clean merchant names (e.g., "MERCADOLIVRE*VENDEDOR" -> "Mercado Livre").
 
-            5. Detect if it is Income or Expense based on context (negative signs usually expense, or "Crédito").
+            6. Detect if it is Income or Expense based on context (negative signs usually expense, or "Crédito").
 
-            6. Map categories intelligently.
+            7. Map categories intelligently.
 
-            7. **DETECT RECURRING SUBSCRIPTIONS**: Identify if a transaction is likely a recurring subscription (Netflix, Spotify, etc.) and set 'isRecurring' to true.
+            8. **DETECT RECURRING SUBSCRIPTIONS**: Identify if a transaction is likely a recurring subscription (Netflix, Spotify, etc.) and set 'isRecurring' to true.
 
-            8. **DETECT INSTALLMENTS**: Look for patterns like "4/6", "parcela 4 de 6", "4x de 6", etc.
+            9. **DETECT INSTALLMENTS**: Look for patterns like "4/6", "parcela 4 de 6", "4x de 6", etc.
                - If found, extract: currentInstallment (e.g., 4), totalInstallments (e.g., 6)
                - The amount should be the installment amount (not total)
 
             Return a JSON object with:
+            - issuer: the bank/card issuer name (clean, capitalized)
             - invoiceDueDate: the invoice due date if found (ISO 8601 YYYY-MM-DD), or null
             - transactions: array of transactions (excluding payment/total lines)`
           }
@@ -121,6 +127,7 @@ export const parseImportFile = async (
         responseSchema: {
           type: Type.OBJECT,
           properties: {
+            issuer: { type: Type.STRING, description: "Bank or card issuer name" },
             invoiceDueDate: { type: Type.STRING, description: "Invoice due date if found" },
             transactions: {
               type: Type.ARRAY,
@@ -147,6 +154,7 @@ export const parseImportFile = async (
     if (response.text) {
       const raw = JSON.parse(response.text);
       const dueDate = raw.invoiceDueDate;
+      const issuer = raw.issuer;
 
       // Filter out recurring subscriptions that already exist
       const filteredTransactions = (raw.transactions || [])
@@ -188,7 +196,8 @@ export const parseImportFile = async (
                 paymentDate: pastPaymentDate.toISOString(),
                 category: t.category,
                 type: t.type,
-                isRecurring: false
+                isRecurring: false,
+                issuer: issuer
               });
             }
 
@@ -201,7 +210,8 @@ export const parseImportFile = async (
               paymentDate: paymentDate.toISOString(),
               category: t.category,
               type: t.type,
-              isRecurring: false
+              isRecurring: false,
+              issuer: issuer
             });
 
             // Create future installments
@@ -217,7 +227,8 @@ export const parseImportFile = async (
                 paymentDate: futurePaymentDate.toISOString(),
                 category: t.category,
                 type: t.type,
-                isRecurring: false
+                isRecurring: false,
+                issuer: issuer
               });
             }
 
@@ -232,7 +243,8 @@ export const parseImportFile = async (
               paymentDate: t.paymentDate || t.date,
               category: t.category,
               type: t.type,
-              isRecurring: t.isRecurring || false
+              isRecurring: t.isRecurring || false,
+              issuer: issuer
             }];
           }
         });

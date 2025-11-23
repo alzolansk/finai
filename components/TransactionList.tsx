@@ -150,6 +150,9 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                     const isExpanded = expandedGroups.has(group.paymentDate);
                     const invoiceDate = new Date(group.paymentDate);
                     const monthName = invoiceDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                    // Get issuer from first transaction in the group
+                    const issuer = group.transactions[0]?.issuer;
+                    const invoiceTitle = issuer ? `${issuer} - ${monthName}` : `Fatura ${monthName}`;
 
                     return (
                       <div key={group.paymentDate}>
@@ -163,7 +166,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                               <FileText className="text-white" size={24} />
                             </div>
                             <div>
-                              <p className="font-bold text-zinc-900">Fatura {monthName}</p>
+                              <p className="font-bold text-zinc-900">{invoiceTitle}</p>
                               <p className="text-xs text-zinc-500 mt-1">
                                 {group.transactions.length} {group.transactions.length === 1 ? 'item' : 'itens'} • Vencimento: {formatDate(group.paymentDate)}
                               </p>
