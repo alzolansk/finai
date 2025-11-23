@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { Category, Transaction, TransactionType } from '../types';
 import { parseTransactionFromText, parseImportFile } from '../services/geminiService';
-import { Mic, Send, Loader2, Wand2, Check, Layers, Upload, FileText, X } from 'lucide-react';
+import { generateInvoiceFingerprint, isInvoiceAlreadyImported, saveImportedInvoice } from '../services/storageService';
+import { Mic, Send, Loader2, Wand2, Check, Layers, Upload, FileText, X, AlertTriangle } from 'lucide-react';
 
 interface AddTransactionProps {
   onAdd: (transactions: Transaction[]) => void;
@@ -15,8 +16,10 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
   const [loading, setLoading] = useState(false);
   const [importSuccess, setImportSuccess] = useState(false);
   const [importDueDate, setImportDueDate] = useState<string | null>(null);
+  const [duplicateDetected, setDuplicateDetected] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState<{ dueDate: string; importedAt: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   // Staging for logic that handles multiple installments
   const [detectedInstallments, setDetectedInstallments] = useState(1);
 
@@ -60,6 +63,8 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
 
     setLoading(true);
     setImportSuccess(false);
+    setDuplicateDetected(false);
+    setDuplicateInfo(null);
     setImportDueDate(null);
     const reader = new FileReader();
 
@@ -70,14 +75,41 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
         try {
             const result = await parseImportFile(base64Data, file.type, existingTransactions);
             if (result.transactions.length > 0) {
-                // Show success state with due date
-                setImportSuccess(true);
-                setImportDueDate(result.dueDate || null);
+                // Generate fingerprint for this invoice
+                const fingerprint = generateInvoiceFingerprint(result.dueDate || null, result.transactions);
 
-                // Wait for animation then add transactions
-                setTimeout(() => {
-                    onAdd(result.transactions);
-                }, 1500);
+                // Check if already imported
+                const existingInvoice = isInvoiceAlreadyImported(fingerprint);
+
+                if (existingInvoice) {
+                    // Duplicate detected!
+                    setDuplicateDetected(true);
+                    setDuplicateInfo({
+                        dueDate: existingInvoice.dueDate,
+                        importedAt: existingInvoice.importedAt
+                    });
+                    setLoading(false);
+                } else {
+                    // Not a duplicate, proceed with import
+                    // Save invoice record
+                    saveImportedInvoice({
+                        id: crypto.randomUUID(),
+                        dueDate: result.dueDate || 'no-date',
+                        totalAmount: result.transactions.reduce((sum, t) => sum + t.amount, 0),
+                        transactionCount: result.transactions.length,
+                        importedAt: Date.now(),
+                        fingerprint: fingerprint
+                    });
+
+                    // Show success state with due date
+                    setImportSuccess(true);
+                    setImportDueDate(result.dueDate || null);
+
+                    // Wait for animation then add transactions
+                    setTimeout(() => {
+                        onAdd(result.transactions);
+                    }, 1500);
+                }
             } else {
                 alert("Não conseguimos identificar transações neste arquivo.");
                 setLoading(false);
@@ -218,14 +250,41 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
 
         {mode === 'import' ? (
              <div className="flex-1 flex flex-col items-center justify-center animate-fadeIn text-center relative">
-                 <button onClick={() => { setMode('ai'); setImportSuccess(false); setImportDueDate(null); }} className="absolute top-0 right-0 p-2 text-zinc-400 hover:text-zinc-800"><X /></button>
+                 <button onClick={() => {
+                     setMode('ai');
+                     setImportSuccess(false);
+                     setDuplicateDetected(false);
+                     setDuplicateInfo(null);
+                     setImportDueDate(null);
+                 }} className="absolute top-0 right-0 p-2 text-zinc-400 hover:text-zinc-800"><X /></button>
 
                  <div className={`w-full max-w-sm h-64 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center gap-4 transition-all ${
+                     duplicateDetected ? 'border-orange-500 bg-orange-50/50' :
                      importSuccess ? 'border-emerald-500 bg-emerald-50/50' :
                      loading ? 'border-emerald-500 bg-emerald-50/50' :
                      'border-zinc-300 hover:border-zinc-800 hover:bg-zinc-50'
                  }`}>
-                     {importSuccess ? (
+                     {duplicateDetected ? (
+                         <>
+                            <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center animate-fadeIn">
+                                <AlertTriangle className="w-12 h-12 text-orange-600" />
+                            </div>
+                            <div className="animate-fadeIn">
+                                <p className="text-orange-800 font-bold text-lg mb-2">Fatura Já Importada!</p>
+                                {duplicateInfo && (
+                                    <div className="text-orange-600 text-sm space-y-1">
+                                        {duplicateInfo.dueDate !== 'no-date' && (
+                                            <p>Vencimento: {new Date(duplicateInfo.dueDate).toLocaleDateString('pt-BR')}</p>
+                                        )}
+                                        <p>Importada em: {new Date(duplicateInfo.importedAt).toLocaleDateString('pt-BR')}</p>
+                                    </div>
+                                )}
+                                <p className="text-orange-700 text-xs mt-3 max-w-xs">
+                                    Esta fatura já foi processada anteriormente. Não é possível importar novamente.
+                                </p>
+                            </div>
+                         </>
+                     ) : importSuccess ? (
                          <>
                             <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center animate-fadeIn">
                                 <Check className="w-12 h-12 text-emerald-600" />
@@ -256,13 +315,15 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                 <p className="font-bold text-zinc-800">Clique para enviar fatura</p>
                                 <p className="text-xs text-zinc-400 mt-1">PDF, JPG, PNG ou CSV</p>
                             </div>
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleFileImport}
-                                accept=".csv, .pdf, image/*"
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            />
+                            {!duplicateDetected && (
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleFileImport}
+                                    accept=".csv, .pdf, image/*"
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                />
+                            )}
                          </>
                      )}
                  </div>
