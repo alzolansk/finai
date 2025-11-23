@@ -91,17 +91,26 @@ export const parseImportFile = async (
                - If NOT found (e.g. bank statement), 'paymentDate' should be the same as 'date'.
                - Also return this due date separately in 'invoiceDueDate' field.
 
-            3. **IGNORE INVOICE PAYMENT LINES**: Do NOT extract the following:
-               - "Pagamento de fatura" / "Payment"
+            3. **SECTION VS PAYMENT LINE DISTINCTION**:
+               IMPORTANT: "Pagamentos e Financiamentos" is a SECTION NAME, NOT a payment line!
+
+               ✅ DO EXTRACT from "Pagamentos e Financiamentos" section:
+               - All items listed under this section (installments, loans, subscriptions)
+               - These are valid purchases/transactions
+
+               ❌ DO NOT EXTRACT these payment summary lines:
+               - "Pagamento em [date]" (e.g., "Pagamento em 05 OUT")
+               - "Pagamento de fatura"
                - "Total da fatura" / "Invoice total"
                - "Valor total" / "Total amount"
                - "Saldo anterior" / "Previous balance"
                - "Saldo atual" / "Current balance"
-               - Any line that represents the TOTAL or PAYMENT of the invoice itself
-               These are summary lines, not individual purchases.
+               These are summary/payment confirmation lines, NOT purchases.
 
-            4. **ONLY EXTRACT INDIVIDUAL PURCHASES**: Extract only actual purchases, subscriptions, and services.
-               Examples: Netflix, Uber, Restaurant, Shopping, etc.
+            4. **EXTRACT ALL INDIVIDUAL ITEMS**: Including:
+               - Items from "Pagamentos e Financiamentos" section (installments, loans)
+               - Regular purchases (Netflix, Uber, Restaurant, Shopping, etc.)
+               - Any actual purchase, subscription, or service charge
 
             5. **SANITIZE DESCRIPTIONS**: Shorten and clean merchant names (e.g., "MERCADOLIVRE*VENDEDOR" -> "Mercado Livre").
 
