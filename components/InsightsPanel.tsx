@@ -116,7 +116,15 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions }) => {
         </button>
       </div>
 
-      {transactions.length < 5 ? (
+      {loading && insights.length === 0 ? (
+        <div className="bg-white rounded-3xl p-10 border border-zinc-100 text-center">
+          <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+             <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+          </div>
+          <h3 className="text-zinc-800 font-bold mb-2">Gerando insights...</h3>
+          <p className="text-zinc-500 max-w-sm mx-auto">Analisando seus hábitos financeiros e identificando oportunidades de economia.</p>
+        </div>
+      ) : transactions.length < 5 ? (
         <div className="bg-white rounded-3xl p-10 border border-zinc-100 text-center">
           <div className="w-16 h-16 bg-zinc-50 rounded-full flex items-center justify-center mx-auto mb-4">
              <Lightbulb className="text-zinc-400" />
