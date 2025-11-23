@@ -85,18 +85,34 @@ export const parseImportFile = async (
                - If found, set 'paymentDate' of ALL extracted items to this Due Date.
                - If NOT found (e.g. bank statement), 'paymentDate' should be the same as 'date'.
                - Also return this due date separately in 'invoiceDueDate' field.
-            2. Ignore totals, sub-totals, or balance lines. Only extract individual purchases/transfers.
-            3. **SANITIZE DESCRIPTIONS**: Shorten and clean merchant names (e.g., "MERCADOLIVRE*VENDEDOR" -> "Mercado Livre").
-            4. Detect if it is Income or Expense based on context (negative signs usually expense, or "Crédito").
-            5. Map categories intelligently.
-            6. **DETECT RECURRING SUBSCRIPTIONS**: Identify if a transaction is likely a recurring subscription (Netflix, Spotify, etc.) and set 'isRecurring' to true.
-            7. **DETECT INSTALLMENTS**: Look for patterns like "4/6", "parcela 4 de 6", "4x de 6", etc.
+
+            2. **IGNORE INVOICE PAYMENT LINES**: Do NOT extract the following:
+               - "Pagamento de fatura" / "Payment"
+               - "Total da fatura" / "Invoice total"
+               - "Valor total" / "Total amount"
+               - "Saldo anterior" / "Previous balance"
+               - "Saldo atual" / "Current balance"
+               - Any line that represents the TOTAL or PAYMENT of the invoice itself
+               These are summary lines, not individual purchases.
+
+            3. **ONLY EXTRACT INDIVIDUAL PURCHASES**: Extract only actual purchases, subscriptions, and services.
+               Examples: Netflix, Uber, Restaurant, Shopping, etc.
+
+            4. **SANITIZE DESCRIPTIONS**: Shorten and clean merchant names (e.g., "MERCADOLIVRE*VENDEDOR" -> "Mercado Livre").
+
+            5. Detect if it is Income or Expense based on context (negative signs usually expense, or "Crédito").
+
+            6. Map categories intelligently.
+
+            7. **DETECT RECURRING SUBSCRIPTIONS**: Identify if a transaction is likely a recurring subscription (Netflix, Spotify, etc.) and set 'isRecurring' to true.
+
+            8. **DETECT INSTALLMENTS**: Look for patterns like "4/6", "parcela 4 de 6", "4x de 6", etc.
                - If found, extract: currentInstallment (e.g., 4), totalInstallments (e.g., 6)
                - The amount should be the installment amount (not total)
 
             Return a JSON object with:
             - invoiceDueDate: the invoice due date if found (ISO 8601 YYYY-MM-DD), or null
-            - transactions: array of transactions`
+            - transactions: array of transactions (excluding payment/total lines)`
           }
         ]
       },
