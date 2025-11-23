@@ -1,0 +1,5 @@
+{
+  "name": "FinAI - Controle Financeiro Inteligente",
+  "description": "Um assistente pessoal financeiro que usa IA para categorizar gastos, identificar padrões e sugerir economias através de conversas naturais.",
+  "requestFramePermissions": []
+}
