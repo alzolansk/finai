@@ -3,7 +3,7 @@ import { Transaction, TransactionType, UserSettings, TimePeriod } from '../types
 import { SavingsReview } from '../services/storageService';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { ArrowUpRight, ArrowDownRight, Target, Wallet, TrendingDown, ChevronLeft, ChevronRight, Calendar, Clock, AlertTriangle, Zap } from 'lucide-react';
-import { getMonthName, filterTransactionsByPeriod } from '../utils/dateUtils';
+import { getMonthName, filterTransactionsByPeriod, projectRecurringTransactions } from '../utils/dateUtils';
 import { calculatePotentialSavings } from '../services/savingsService';
 import { calculateMonthlyForecast, generateSmartAlerts, SmartAlert } from '../services/forecastService';
 import PotentialSavingsCard from './PotentialSavingsCard';
@@ -39,9 +39,20 @@ const Dashboard: React.FC<DashboardProps> = ({
   isTurboMode,
   onToggleTurboMode
 }) => {
-  
+
   // 1. Filter Transactions by the selected period (Using effective paymentDate)
-  const filteredTransactions = filterTransactionsByPeriod(transactions, currentDate, period);
+  // Include projected recurring transactions for the current period
+  const projectedTransactions = useMemo(() =>
+    projectRecurringTransactions(transactions, currentDate),
+    [transactions, currentDate]
+  );
+
+  const allTransactions = useMemo(() =>
+    [...transactions, ...projectedTransactions],
+    [transactions, projectedTransactions]
+  );
+
+  const filteredTransactions = filterTransactionsByPeriod(allTransactions, currentDate, period);
 
   // Calculate Potential Savings
   const potentialSavings = useMemo(() => calculatePotentialSavings(transactions, reviews), [transactions, reviews]);

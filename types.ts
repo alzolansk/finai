@@ -34,6 +34,7 @@ export interface Transaction {
   createdAt?: number; // Timestamp of when the transaction was created (insertion order)
   movementType?: 'regular' | 'internal_transfer' | 'invoice_payment'; // Type of movement for filtering
   ignoredReason?: string; // Reason why this transaction was ignored (for audit purposes)
+  isProjected?: boolean; // Flag to indicate this is a projected recurring transaction (not yet saved to DB)
 }
 
 export interface Insight {

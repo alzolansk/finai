@@ -1,7 +1,7 @@
 ﻿import React, { useState, useMemo } from 'react';
 import { Transaction, TransactionType } from '../types';
-import { Trash2, Search, ArrowLeft, CalendarDays, FileText, ChevronDown, ChevronRight, Building2, SlidersHorizontal, CheckCircle2, Circle } from 'lucide-react';
-import { formatDate } from '../utils/dateUtils';
+import { Trash2, Search, ArrowLeft, CalendarDays, FileText, ChevronDown, ChevronRight, Building2, SlidersHorizontal, CheckCircle2, Circle, Calendar, ChevronLeft as ChevronLeftIcon } from 'lucide-react';
+import { formatDate, projectRecurringTransactions, getMonthName } from '../utils/dateUtils';
 import { getIconForTransaction } from '../utils/iconMapper';
 
 type ViewMode = 'itemized' | 'invoices';
@@ -36,6 +36,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
     transfers: true,
     credit: true
   });
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null); // null means "All months"
 
   const filterOptions: { key: FilterKey; label: string; helper: string }[] = [
     { key: 'installments', label: 'Parcelas', helper: 'Compras divididas' },
@@ -95,11 +96,20 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
     return hasIssuerFlag || hasDifferentPaymentDate;
   };
 
+  // Include projected recurring transactions for the selected month
+  const allTransactions = useMemo(() => {
+    if (!selectedDate) {
+      return transactions; // Show all transactions without projections when "All months" is selected
+    }
+    const projected = projectRecurringTransactions(transactions, selectedDate);
+    return [...transactions, ...projected];
+  }, [transactions, selectedDate]);
+
   const filteredTransactions = useMemo(
     () => {
       const normalizedQuery = normalizeText(filter || '');
 
-      return transactions.filter((t) => {
+      let result = allTransactions.filter((t) => {
         const normalizedDescription = normalizeText(t.description);
         const normalizedCategory = normalizeText(t.category);
 
@@ -110,16 +120,36 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
           (visibilityFilters.credit || !isCreditPurchaseTransaction(t))
         );
       });
+
+      // Apply month filter if a specific month is selected
+      if (selectedDate) {
+        result = result.filter((t) => {
+          const tDate = new Date(t.paymentDate || t.date);
+          return (
+            tDate.getMonth() === selectedDate.getMonth() &&
+            tDate.getFullYear() === selectedDate.getFullYear()
+          );
+        });
+      }
+
+      return result;
     },
-    [transactions, filter, visibilityFilters]
+    [allTransactions, filter, visibilityFilters, selectedDate]
   );
 
   const itemizedTransactions = useMemo(
     () =>
       [...filteredTransactions].sort(
         (a, b) => {
-          // Sort by createdAt timestamp (most recent insertion first)
-          // If createdAt is not available (old data), fallback to payment date sorting
+          // Sort by payment date (most recent first)
+          const dateA = new Date(a.paymentDate || a.date).getTime();
+          const dateB = new Date(b.paymentDate || b.date).getTime();
+
+          if (dateB !== dateA) {
+            return dateB - dateA; // Sort by date descending
+          }
+
+          // If dates are equal, sort by createdAt timestamp (most recent insertion first)
           const aCreated = a.createdAt || 0;
           const bCreated = b.createdAt || 0;
           return bCreated - aCreated;
@@ -127,6 +157,30 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
       ),
     [filteredTransactions]
   );
+
+  const handlePrevMonth = () => {
+    if (!selectedDate) {
+      setSelectedDate(new Date()); // Start with current month if "All months" was selected
+    } else {
+      const newDate = new Date(selectedDate);
+      newDate.setMonth(newDate.getMonth() - 1);
+      setSelectedDate(newDate);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (!selectedDate) {
+      setSelectedDate(new Date()); // Start with current month if "All months" was selected
+    } else {
+      const newDate = new Date(selectedDate);
+      newDate.setMonth(newDate.getMonth() + 1);
+      setSelectedDate(newDate);
+    }
+  };
+
+  const handleShowAllMonths = () => {
+    setSelectedDate(null);
+  };
 
   const issuerGroups = useMemo(() => {
     const expensesOnly = filteredTransactions.filter((t) => t.type === TransactionType.EXPENSE);
@@ -179,18 +233,26 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
     const differentDates = t.paymentDate && t.paymentDate !== t.date;
     const iconConfig = getIconForTransaction(t.description, t.category);
     const IconComponent = iconConfig.icon;
+    const isProjected = t.isProjected || false;
 
     return (
       <div
         key={t.id}
-        className={`${isNested ? 'pl-16' : ''} p-6 flex items-center justify-between hover:bg-zinc-50 transition-colors group ${isNested ? 'border-l-2 border-zinc-200' : ''}`}
+        className={`${isNested ? 'pl-16' : ''} p-6 flex items-center justify-between hover:bg-zinc-50 transition-colors group ${isNested ? 'border-l-2 border-zinc-200' : ''} ${isProjected ? 'bg-blue-50/30' : ''}`}
       >
         <div className="flex items-center gap-4">
           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${t.type === TransactionType.INCOME ? 'bg-emerald-100' : iconConfig.bgColor}`}>
             <IconComponent size={24} className={t.type === TransactionType.INCOME ? 'text-emerald-600' : iconConfig.iconColor} />
           </div>
           <div>
-            <p className="font-bold text-zinc-800">{t.description}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-bold text-zinc-800">{t.description}</p>
+              {isProjected && (
+                <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
+                  Recorrente
+                </span>
+              )}
+            </div>
             <div className="flex flex-col gap-1 text-xs mt-1">
               <div className="flex items-center gap-2">
                 <span className="bg-zinc-100 px-2 py-0.5 rounded text-zinc-500 font-medium uppercase tracking-wide">{t.category}</span>
@@ -208,13 +270,15 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
           <span className={`font-bold text-lg ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-zinc-900'}`}>
             {t.type === TransactionType.EXPENSE && '- '}R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </span>
-          <button
-            onClick={() => onDelete(t.id)}
-            className="p-2 text-zinc-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-            title="Excluir"
-          >
-            <Trash2 size={18} />
-          </button>
+          {!isProjected && (
+            <button
+              onClick={() => onDelete(t.id)}
+              className="p-2 text-zinc-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+              title="Excluir"
+            >
+              <Trash2 size={18} />
+            </button>
+          )}
         </div>
       </div>
     );
@@ -222,13 +286,41 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
 
   return (
     <div className="animate-fadeIn max-w-4xl mx-auto pb-20">
-      <div className="flex items-center gap-4 mb-8">
-        <button onClick={onBack} className="p-3 bg-white rounded-xl shadow-sm border border-zinc-100 hover:bg-zinc-50 text-zinc-600 transition-all">
-           <ArrowLeft size={20} />
-        </button>
-        <div>
-           <h2 className="text-3xl font-light text-zinc-800">Extrato Completo</h2>
-           <p className="text-zinc-400 text-sm">Gerencie todos os seus registros.</p>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
+        <div className="flex items-center gap-4">
+          <button onClick={onBack} className="p-3 bg-white rounded-xl shadow-sm border border-zinc-100 hover:bg-zinc-50 text-zinc-600 transition-all">
+             <ArrowLeft size={20} />
+          </button>
+          <div>
+             <h2 className="text-3xl font-light text-zinc-800">Extrato Completo</h2>
+             <p className="text-zinc-400 text-sm">Gerencie todos os seus registros.</p>
+          </div>
+        </div>
+
+        {/* Month Filter Navigation */}
+        <div className="flex items-center gap-2">
+          {selectedDate && (
+            <button
+              onClick={handleShowAllMonths}
+              className="px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl transition-colors"
+            >
+              Todos os meses
+            </button>
+          )}
+          <div className="flex items-center gap-2 bg-white p-2 rounded-2xl shadow-sm border border-zinc-100">
+            <button onClick={handlePrevMonth} className="p-2 hover:bg-zinc-100 rounded-xl transition-colors text-zinc-600">
+              <ChevronLeftIcon size={20} />
+            </button>
+            <div className="flex items-center gap-2 px-2 min-w-[140px] justify-center">
+              <Calendar size={16} className="text-emerald-600" />
+              <span className="font-bold text-zinc-800 capitalize">
+                 {selectedDate ? getMonthName(selectedDate) : 'Todos'}
+              </span>
+            </div>
+            <button onClick={handleNextMonth} className="p-2 hover:bg-zinc-100 rounded-xl transition-colors text-zinc-600">
+              <ChevronRight size={20} />
+            </button>
+          </div>
         </div>
       </div>
 
