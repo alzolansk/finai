@@ -17,6 +17,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
   const [loading, setLoading] = useState(false);
   const [importSuccess, setImportSuccess] = useState(false);
   const [importDueDate, setImportDueDate] = useState<string | null>(null);
+  const [importDocumentType, setImportDocumentType] = useState<'invoice' | 'bank_statement' | null>(null);
   const [duplicateDetected, setDuplicateDetected] = useState(false);
   const [duplicateInfo, setDuplicateInfo] = useState<{ dueDate: string; importedAt: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -67,6 +68,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
     setDuplicateDetected(false);
     setDuplicateInfo(null);
     setImportDueDate(null);
+    setImportDocumentType(null);
     const reader = new FileReader();
 
     reader.onloadend = async () => {
@@ -76,53 +78,61 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
         try {
             const result = await parseImportFile(base64Data, file.type, file.name, existingTransactions);
             if (result.normalized.length > 0) {
-                // Generate fingerprint for this invoice
-                const fingerprint = generateInvoiceFingerprint(result.dueDate || null, result.normalized);
+                // For bank statements, skip duplicate detection (they have different logic)
+                const isBankStatement = result.documentType === 'bank_statement';
+                
+                if (!isBankStatement) {
+                    // Generate fingerprint for invoices only
+                    const fingerprint = generateInvoiceFingerprint(result.dueDate || null, result.normalized);
 
-                // Check if already imported
-                const existingInvoice = isInvoiceAlreadyImported(fingerprint);
+                    // Check if already imported
+                    const existingInvoice = isInvoiceAlreadyImported(fingerprint);
 
-                if (existingInvoice) {
-                    // Duplicate detected!
-                    setDuplicateDetected(true);
-                    setDuplicateInfo({
-                        dueDate: existingInvoice.dueDate,
-                        importedAt: existingInvoice.importedAt
-                    });
-                    setLoading(false);
-                } else {
-                    // Not a duplicate, proceed with import
-                    // Generate transaction IDs upfront so we can save them with the invoice
-                    const transactionIds = result.normalized.map(() => crypto.randomUUID());
+                    if (existingInvoice) {
+                        // Duplicate detected!
+                        setDuplicateDetected(true);
+                        setDuplicateInfo({
+                            dueDate: existingInvoice.dueDate,
+                            importedAt: existingInvoice.importedAt
+                        });
+                        setLoading(false);
+                        return;
+                    }
+                }
 
-                    // Assign the pre-generated IDs to transactions
-                    const transactionsWithIds = result.normalized.map((t: any, index: number) => ({
-                        ...t,
-                        id: transactionIds[index],
-                        createdAt: Date.now()
-                    }));
+                // Generate transaction IDs upfront so we can save them with the invoice
+                const transactionIds = result.normalized.map(() => crypto.randomUUID());
 
-                    // Save invoice record with transaction IDs
+                // Assign the pre-generated IDs to transactions
+                const transactionsWithIds = result.normalized.map((t: any, index: number) => ({
+                    ...t,
+                    id: transactionIds[index],
+                    createdAt: Date.now()
+                }));
+
+                // Save invoice record only for credit card invoices
+                if (!isBankStatement) {
                     saveImportedInvoice({
                         id: crypto.randomUUID(),
                         dueDate: result.dueDate || 'no-date',
                         totalAmount: result.normalized.reduce((sum, t) => sum + t.amount, 0),
                         transactionCount: result.normalized.length,
                         importedAt: Date.now(),
-                        fingerprint: fingerprint,
+                        fingerprint: generateInvoiceFingerprint(result.dueDate || null, result.normalized),
                         transactionIds: transactionIds,
                         issuer: result.issuer
                     });
-
-                    // Show success state with due date
-                    setImportSuccess(true);
-                    setImportDueDate(result.dueDate || null);
-
-                    // Wait for animation then add transactions
-                    setTimeout(() => {
-                        onAdd(transactionsWithIds);
-                    }, 1500);
                 }
+
+                // Show success state with appropriate info
+                setImportSuccess(true);
+                setImportDueDate(result.dueDate || null);
+                setImportDocumentType(result.documentType || 'invoice');
+
+                // Wait for animation then add transactions
+                setTimeout(() => {
+                    onAdd(transactionsWithIds);
+                }, 1500);
             } else {
                 alert("Não conseguimos identificar transações neste arquivo.");
                 setLoading(false);
@@ -209,7 +219,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
             </h2>
             <p className="text-zinc-400 leading-relaxed">
                 {mode === 'import' 
-                 ? "Envie sua fatura (PDF ou Imagem). Nossa IA detectará a Data de Vencimento e lançará os gastos no mês correto."
+                 ? "Envie sua fatura de cartão ou extrato bancário (PDF ou Imagem). Nossa IA processará automaticamente, aplicando filtros inteligentes para evitar duplicações."
                  : <span>Digite naturalmente e nossa IA extrairá data, valor, categoria e até <span className="text-emerald-400 font-bold">parcelas</span>.</span>
                 }
             </p>
@@ -276,6 +286,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                      setDuplicateDetected(false);
                      setDuplicateInfo(null);
                      setImportDueDate(null);
+                     setImportDocumentType(null);
                  }} className="absolute top-0 right-0 p-2 text-zinc-400 hover:text-zinc-800"><X /></button>
 
                  <div className={`w-full max-w-sm h-64 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center gap-4 transition-all ${
@@ -310,10 +321,17 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                 <Check className="w-12 h-12 text-emerald-600" />
                             </div>
                             <div className="animate-fadeIn">
-                                <p className="text-emerald-800 font-bold text-lg mb-2">Fatura Processada!</p>
-                                {importDueDate && (
+                                <p className="text-emerald-800 font-bold text-lg mb-2">
+                                    {importDocumentType === 'bank_statement' ? 'Extrato Processado!' : 'Fatura Processada!'}
+                                </p>
+                                {importDueDate && importDocumentType === 'invoice' && (
                                     <p className="text-emerald-600 text-sm">
                                         Data de Vencimento: {new Date(importDueDate).toLocaleDateString('pt-BR')}
+                                    </p>
+                                )}
+                                {importDocumentType === 'bank_statement' && (
+                                    <p className="text-emerald-600 text-sm">
+                                        Transações filtradas e categorizadas
                                     </p>
                                 )}
                             </div>
@@ -321,9 +339,9 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                      ) : loading ? (
                          <>
                             <Loader2 className="w-10 h-10 text-emerald-600 animate-spin" />
-                            <p className="text-emerald-700 font-bold">Analisando Fatura...</p>
+                            <p className="text-emerald-700 font-bold">Analisando Documento...</p>
                             <p className="text-emerald-600 text-xs max-w-xs">
-                                Identificando data de vencimento e itens...
+                                Identificando tipo, data e aplicando filtros inteligentes...
                             </p>
                          </>
                      ) : (
@@ -332,8 +350,8 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                 <FileText size={32} />
                             </div>
                             <div>
-                                <p className="font-bold text-zinc-800">Clique para enviar fatura</p>
-                                <p className="text-xs text-zinc-400 mt-1">PDF, JPG, PNG ou CSV</p>
+                                <p className="font-bold text-zinc-800">Clique para enviar documento</p>
+                                <p className="text-xs text-zinc-400 mt-1">Fatura ou Extrato (PDF, JPG, PNG, CSV)</p>
                             </div>
                             {!duplicateDetected && (
                                 <input
@@ -348,7 +366,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                      )}
                  </div>
                  <p className="text-xs text-zinc-400 mt-6 max-w-xs">
-                    Identificaremos automaticamente a data de vencimento e os itens da fatura.
+                    Nossa IA identifica automaticamente se é fatura ou extrato, e aplica filtros para evitar duplicações (transferências internas e pagamentos de faturas são ignorados).
                  </p>
              </div>
         ) : mode === 'ai' ? (

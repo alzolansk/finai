@@ -60,13 +60,14 @@ export const parseTransactionFromText = async (text: string): Promise<Partial<Tr
   }
 };
 
-// 2. Import Tool: Parse File Content (Base64 or Text)
+// 2. Import Tool: Parse File Content (Base64 or Text) - Supports both Invoices and Bank Statements
 export const parseImportFile = async (
   fileData: string,
   mimeType: string,
   fileName: string,
-  existingTransactions: Transaction[] = []
-): Promise<{ normalized: TransacaoNormalizada[]; dueDate?: string; issuer?: string; tipoImportacao: TipoImportacao }> => {
+  existingTransactions: Transaction[] = [],
+  ownerName?: string // Optional: User's name to detect internal transfers
+): Promise<{ normalized: TransacaoNormalizada[]; dueDate?: string; issuer?: string; tipoImportacao: TipoImportacao; documentType?: 'invoice' | 'bank_statement' }> => {
   const startTime = Date.now();
   try {
     const tipoImportacao = detectarTipoImportacao({ name: fileName, type: mimeType });
@@ -147,12 +148,20 @@ export const parseImportFile = async (
             Current Month: ${new Date().getMonth() + 1}.
 
             CRITICAL RULES:
+
+            0. **DOCUMENT TYPE DETECTION**:
+               - Identify if this is a CREDIT CARD INVOICE or a BANK STATEMENT (extrato bancário)
+               - Return 'documentType' as either 'invoice' or 'bank_statement'
+               - Bank statements typically show: deposits (créditos), withdrawals (débitos), transfers, balance
+               - Invoices typically show: purchases, due date, total amount to pay
+
             1. **IDENTIFY ISSUER/BANK**: Detect the bank or card issuer from the document.
                - Look for logos, headers, or text like "Nubank", "Itaú", "C6 Bank", "Inter", "PicPay", etc.
                - Return the clean name (e.g., "Nubank", "Itaú", "C6", "Inter", "Bradesco")
                - If not found, return null
 
-            2. **INVOICE DUE DATE**: Search the document for the "Data de Vencimento" or "Vencimento" (Due Date) of the Invoice/Bill.
+            2. **INVOICE DUE DATE** (For credit card invoices only):
+               - Search the document for the "Data de Vencimento" or "Vencimento" (Due Date) of the Invoice/Bill.
                - If found, set 'paymentDate' of ALL extracted items to this Due Date.
                - If NOT found (e.g. bank statement), 'paymentDate' should be the same as 'date'.
                - Also return this due date separately in 'invoiceDueDate' field.
@@ -173,27 +182,52 @@ export const parseImportFile = async (
                - "Saldo atual" / "Current balance"
                These are summary/payment confirmation lines, NOT purchases.
 
-            4. **EXTRACT ALL INDIVIDUAL ITEMS**: Including:
+            4. **BANK STATEMENT FILTERING** (If documentType is 'bank_statement'):
+               
+               ⚠️ CRITICAL: Apply intelligent filtering to avoid duplicate/irrelevant transactions:
+               
+               a) **INTERNAL TRANSFERS** - Mark with shouldIgnore=true and ignoreReason='internal_transfer':
+                  - Transfers between accounts of the same owner
+                  - Look for patterns: "Transferência para [same name]", "PIX para [same name]"
+                  - "Aplicação", "Resgate", "Poupança"
+                  - Any transaction where origin and destination are the same person
+                  
+               b) **INVOICE PAYMENTS** - Mark with shouldIgnore=true and ignoreReason='invoice_payment':
+                  - Lines that represent credit card bill payments
+                  - Patterns: "Pagamento Fatura", "PGTO CARTÃO", "DÉBITO AUTOMÁTICO FATURA"
+                  - "Fatura Cartão", "Pagamento Nubank/Bradesco/etc"
+                  - These should NOT be counted as expenses (already tracked via invoice import)
+                  
+               c) **BALANCE LINES** - Mark with shouldIgnore=true and ignoreReason='balance_info':
+                  - "Saldo Anterior", "Saldo Atual", "Saldo Disponível"
+                  - Any line that shows balance information, not actual transactions
+               
+               For BANK STATEMENTS, extract ALL lines but mark the ones to ignore.
+               For INVOICES, only extract valid purchases (no payment/balance lines).
+
+            5. **EXTRACT ALL INDIVIDUAL ITEMS**: Including:
                - Items from "Pagamentos e Financiamentos" section (installments, loans)
                - Regular purchases (Netflix, Uber, Restaurant, Shopping, etc.)
                - Any actual purchase, subscription, or service charge
+               - For bank statements: deposits (INCOME) and withdrawals (EXPENSE)
 
-            5. **SANITIZE DESCRIPTIONS**: Shorten and clean merchant names (e.g., "MERCADOLIVRE*VENDEDOR" -> "Mercado Livre").
+            6. **SANITIZE DESCRIPTIONS**: Shorten and clean merchant names (e.g., "MERCADOLIVRE*VENDEDOR" -> "Mercado Livre").
 
-            6. Detect if it is Income or Expense based on context (negative signs usually expense, or "Crédito").
+            7. Detect if it is Income or Expense based on context (negative signs usually expense, or "Crédito" = Income, "Débito" = Expense).
 
-            7. Map categories intelligently.
+            8. Map categories intelligently.
 
-            8. **DETECT RECURRING SUBSCRIPTIONS**: Identify if a transaction is likely a recurring subscription (Netflix, Spotify, etc.) and set 'isRecurring' to true.
+            9. **DETECT RECURRING SUBSCRIPTIONS**: Identify if a transaction is likely a recurring subscription (Netflix, Spotify, etc.) and set 'isRecurring' to true.
 
-            9. **DETECT INSTALLMENTS**: Look for patterns like "4/6", "parcela 4 de 6", "4x de 6", etc.
+            10. **DETECT INSTALLMENTS**: Look for patterns like "4/6", "parcela 4 de 6", "4x de 6", etc.
                - If found, extract: currentInstallment (e.g., 4), totalInstallments (e.g., 6)
                - The amount should be the installment amount (not total)
 
             Return a JSON object with:
+            - documentType: 'invoice' or 'bank_statement'
             - issuer: the bank/card issuer name (clean, capitalized)
             - invoiceDueDate: the invoice due date if found (ISO 8601 YYYY-MM-DD), or null
-            - transactions: array of transactions (excluding payment/total lines)`
+            - transactions: array of transactions with filtering info`
           }
         ]
       },
@@ -202,6 +236,7 @@ export const parseImportFile = async (
         responseSchema: {
           type: Type.OBJECT,
           properties: {
+            documentType: { type: Type.STRING, enum: ["invoice", "bank_statement"], description: "Type of financial document" },
             issuer: { type: Type.STRING, description: "Bank or card issuer name" },
             invoiceDueDate: { type: Type.STRING, description: "Invoice due date if found" },
             transactions: {
@@ -217,7 +252,9 @@ export const parseImportFile = async (
                   type: { type: Type.STRING, enum: ["INCOME", "EXPENSE"] },
                   isRecurring: { type: Type.BOOLEAN, description: "Is this a recurring subscription?" },
                   currentInstallment: { type: Type.INTEGER, description: "Current installment number (e.g., 4)" },
-                  totalInstallments: { type: Type.INTEGER, description: "Total installments (e.g., 6)" }
+                  totalInstallments: { type: Type.INTEGER, description: "Total installments (e.g., 6)" },
+                  shouldIgnore: { type: Type.BOOLEAN, description: "Should this transaction be ignored?" },
+                  ignoreReason: { type: Type.STRING, enum: ["internal_transfer", "invoice_payment", "balance_info", null], description: "Reason to ignore this transaction" }
                 }
               }
             }
@@ -231,16 +268,41 @@ export const parseImportFile = async (
       const raw = JSON.parse(response.text);
       const dueDate = raw.invoiceDueDate;
       const issuer = raw.issuer;
+      const documentType = raw.documentType || 'invoice'; // Default to invoice for backwards compatibility
 
       // Filter out recurring subscriptions that already exist
+      // Also apply intelligent filtering for bank statements
       const filteredTransactions = (raw.transactions || [])
         .filter((t: any) => {
+          // Skip if marked to ignore by AI
+          if (t.shouldIgnore) {
+            console.log(`⚠️ Skipping transaction (${t.ignoreReason}): "${t.description}"`);
+            return false;
+          }
+
+          // Additional client-side filtering for safety
+          if (documentType === 'bank_statement') {
+            // Check for invoice payment patterns
+            if (isPagamentoFaturaDescription(t.description)) {
+              console.log(`⚠️ Skipping invoice payment: "${t.description}"`);
+              return false;
+            }
+
+            // Check for internal transfer patterns
+            if (isLikelyInternalTransfer(t.description, ownerName)) {
+              console.log(`⚠️ Skipping internal transfer: "${t.description}"`);
+              return false;
+            }
+          }
+
+          // Check for duplicate subscriptions
           if (t.isRecurring) {
             if (isDuplicateSubscription(t.description)) {
               console.log(`⚠️ Skipping duplicate recurring subscription: "${t.description}" (already exists in system)`);
               return false;
             }
           }
+          
           return true;
         })
         .flatMap((t: any) => {
@@ -329,7 +391,8 @@ export const parseImportFile = async (
         normalized: filteredTransactions,
         dueDate: dueDate,
         issuer: issuer,
-        tipoImportacao
+        tipoImportacao,
+        documentType: documentType
       };
     }
     return { normalized: [], tipoImportacao };

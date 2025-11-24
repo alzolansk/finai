@@ -10,13 +10,62 @@ export const detectarTipoImportacao = (file: { name: string; type: string }): Ti
 };
 
 export const isPagamentoFaturaDescription = (description: string): boolean => {
-    const lower = description.toLowerCase();
-    return lower.includes('pagamento fatura') || lower.includes('pgto fatura') || lower.includes('pagamento de fatura');
+    const lower = description.toLowerCase().trim();
+    const patterns = [
+        'pagamento fatura',
+        'pgto fatura',
+        'pagamento de fatura',
+        'pagto cartão',
+        'pagamento cartao',
+        'debito automatico fatura',
+        'débito automático fatura',
+        'pag fatura',
+        'fatura cartão',
+        'fatura cartao',
+        'quitação fatura',
+        'quitacao fatura'
+    ];
+    return patterns.some(pattern => lower.includes(pattern));
 };
 
-export const isLikelyInternalTransfer = (description: string): boolean => {
-    const lower = description.toLowerCase();
-    return lower.includes('transferência') || lower.includes('resgate') || lower.includes('aplicação') || lower.includes('saldo anterior');
+export const isLikelyInternalTransfer = (description: string, ownerName?: string): boolean => {
+    const lower = description.toLowerCase().trim();
+    
+    // Generic internal transfer patterns
+    const internalPatterns = [
+        'transferência entre contas',
+        'transferencia entre contas',
+        'resgate',
+        'aplicação',
+        'aplicacao',
+        'saldo anterior',
+        'transferência própria',
+        'transferencia propria',
+        'poupança',
+        'poupanca',
+        'investimento próprio',
+        'investimento proprio'
+    ];
+    
+    if (internalPatterns.some(pattern => lower.includes(pattern))) {
+        return true;
+    }
+    
+    // Check if both origin and destination mention the same owner
+    if (ownerName && lower.includes(ownerName.toLowerCase())) {
+        const transferKeywords = ['transferência', 'transferencia', 'pix', 'ted', 'doc'];
+        if (transferKeywords.some(keyword => lower.includes(keyword))) {
+            // Count how many times the owner name appears
+            const regex = new RegExp(ownerName.toLowerCase(), 'g');
+            const matches = lower.match(regex);
+            // If owner name appears 2+ times in a transfer description, it's likely internal
+            if (matches && matches.length >= 2) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
 };
 
 export const normalizarTransacaoGenerica = (raw: any): TransacaoNormalizada => {

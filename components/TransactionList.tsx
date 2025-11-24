@@ -1,10 +1,11 @@
 ﻿import React, { useState, useMemo } from 'react';
 import { Transaction, TransactionType } from '../types';
-import { Trash2, Search, ArrowLeft, CalendarDays, FileText, ChevronDown, ChevronRight, Building2 } from 'lucide-react';
+import { Trash2, Search, ArrowLeft, CalendarDays, FileText, ChevronDown, ChevronRight, Building2, SlidersHorizontal, CheckCircle2, Circle } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import { getIconForTransaction } from '../utils/iconMapper';
 
 type ViewMode = 'itemized' | 'invoices';
+type FilterKey = 'installments' | 'transfers' | 'credit';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -30,6 +31,19 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
   const [viewMode, setViewMode] = useState<ViewMode>('itemized');
   const [expandedIssuers, setExpandedIssuers] = useState<Set<string>>(new Set());
   const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set());
+  const [visibilityFilters, setVisibilityFilters] = useState<Record<FilterKey, boolean>>({
+    installments: true,
+    transfers: true,
+    credit: true
+  });
+
+  const filterOptions: { key: FilterKey; label: string; helper: string }[] = [
+    { key: 'installments', label: 'Parcelas', helper: 'Compras divididas' },
+    { key: 'transfers', label: 'Transferencias', helper: 'PIX/TED/entre contas' },
+    { key: 'credit', label: 'Credito', helper: 'Compras no cartao' }
+  ];
+
+  const normalizeText = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
   const toggleIssuer = (issuer: string) => {
     setExpandedIssuers((prev) => {
@@ -56,14 +70,48 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
     });
   };
 
+  const toggleVisibilityFilter = (key: FilterKey) => {
+    setVisibilityFilters((prev) => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const isInstallmentTransaction = (t: Transaction) => /\(\d+\/\d+\)/.test(t.description);
+
+  const isTransferTransaction = (t: Transaction) => {
+    if (t.movementType === 'internal_transfer') return true;
+    const normalized = normalizeText(t.description);
+    return /(pix|ted|doc|transferencia|resgate|aplicacao|poupan)/.test(normalized);
+  };
+
+  const isCreditPurchaseTransaction = (t: Transaction) => {
+    if (t.type !== TransactionType.EXPENSE) return false;
+    const hasIssuerFlag = Boolean(t.issuer || t.creditCardIssuer || t.linkedToInvoice);
+    const hasDifferentPaymentDate =
+      !!t.paymentDate &&
+      !!t.date &&
+      new Date(t.paymentDate).getTime() !== new Date(t.date).getTime();
+    return hasIssuerFlag || hasDifferentPaymentDate;
+  };
+
   const filteredTransactions = useMemo(
-    () =>
-      transactions.filter(
-        (t) =>
-          t.description.toLowerCase().includes(filter.toLowerCase()) ||
-          t.category.toLowerCase().includes(filter.toLowerCase())
-      ),
-    [transactions, filter]
+    () => {
+      const normalizedQuery = normalizeText(filter || '');
+
+      return transactions.filter((t) => {
+        const normalizedDescription = normalizeText(t.description);
+        const normalizedCategory = normalizeText(t.category);
+
+        return (
+          (normalizedDescription.includes(normalizedQuery) || normalizedCategory.includes(normalizedQuery)) &&
+          (visibilityFilters.installments || !isInstallmentTransaction(t)) &&
+          (visibilityFilters.transfers || !isTransferTransaction(t)) &&
+          (visibilityFilters.credit || !isCreditPurchaseTransaction(t))
+        );
+      });
+    },
+    [transactions, filter, visibilityFilters]
   );
 
   const itemizedTransactions = useMemo(
@@ -196,6 +244,31 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                     onChange={(e) => setFilter(e.target.value)}
                     className="w-full pl-12 pr-4 py-4 bg-white border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-zinc-900/5 outline-none transition-all text-zinc-700"
                 />
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                <SlidersHorizontal size={16} />
+                <span>Filtros rapidos</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {filterOptions.map((option) => {
+                  const isActive = visibilityFilters[option.key];
+                  return (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => toggleVisibilityFilter(option.key)}
+                      className={`flex items-center gap-3 px-4 py-2 rounded-2xl border transition-all ${isActive ? 'bg-white border-zinc-200 shadow-sm text-zinc-900' : 'bg-zinc-100 border-transparent text-zinc-500 hover:text-zinc-800'}`}
+                    >
+                      {isActive ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Circle size={16} className="text-zinc-400" />}
+                      <div className="text-left leading-tight">
+                        <div className="text-sm font-semibold">{option.label}</div>
+                        <div className="text-[11px] text-zinc-400">{option.helper}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="flex justify-center">
               <div className="inline-flex bg-zinc-100 rounded-full p-1 shadow-inner text-sm font-semibold">

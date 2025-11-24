@@ -32,6 +32,8 @@ export interface Transaction {
   linkedToInvoice?: boolean; // Indicates if this subscription is linked to a credit card invoice
   creditCardIssuer?: string; // Credit card issuer for linked subscriptions
   createdAt?: number; // Timestamp of when the transaction was created (insertion order)
+  movementType?: 'regular' | 'internal_transfer' | 'invoice_payment'; // Type of movement for filtering
+  ignoredReason?: string; // Reason why this transaction was ignored (for audit purposes)
 }
 
 export interface Insight {
