@@ -8,6 +8,7 @@ import { calculatePotentialSavings } from '../services/savingsService';
 import { calculateMonthlyForecast, generateSmartAlerts, SmartAlert } from '../services/forecastService';
 import PotentialSavingsCard from './PotentialSavingsCard';
 import ForecastCard from './ForecastCard';
+import { getIconForTransaction } from '../utils/iconMapper';
 
 interface DashboardProps {
   transactions: Transaction[];
@@ -316,22 +317,25 @@ const Dashboard: React.FC<DashboardProps> = ({
                         const effectiveDate = t.paymentDate || t.date;
                         const isScheduled = t.paymentDate && t.paymentDate !== t.date && new Date(t.paymentDate) > new Date(t.date);
 
+                        const iconConfig = getIconForTransaction(t.description, t.category);
+                        const IconComponent = iconConfig.icon;
+                        
                         return (
-                            <div key={t.id} className="flex justify-between items-center group p-3 hover:bg-zinc-50 rounded-2xl transition-all cursor-default hover:scale-[1.02] active:scale-[0.98]">
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold shadow-sm transition-colors shrink-0 ${t.type === TransactionType.INCOME ? 'bg-emerald-100 text-emerald-600 group-hover:bg-emerald-200' : 'bg-zinc-100 text-zinc-500 group-hover:bg-zinc-200'}`}>
-                                        {t.description.charAt(0).toUpperCase()}
+                            <div key={t.id} className="flex justify-between items-center gap-3 group p-3 hover:bg-zinc-50 rounded-2xl transition-all cursor-default hover:scale-[1.02] active:scale-[0.98]">
+                                <div className="flex items-center gap-4 min-w-0 flex-1">
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm transition-all shrink-0 ${t.type === TransactionType.INCOME ? 'bg-emerald-100 group-hover:bg-emerald-200' : iconConfig.bgColor + ' group-hover:brightness-95'}`}>
+                                        <IconComponent size={20} className={t.type === TransactionType.INCOME ? 'text-emerald-600' : iconConfig.iconColor} />
                                     </div>
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-bold text-zinc-800 group-hover:text-emerald-600 transition-colors truncate">{t.description}</p>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-bold text-zinc-800 group-hover:text-emerald-600 transition-colors truncate" title={t.description}>{t.description}</p>
                                         <div className="flex items-center gap-1">
-                                           <p className="text-[10px] text-zinc-400 uppercase tracking-wide font-medium">{t.category}</p>
-                                           {isScheduled && <Clock size={10} className="text-orange-400" />}
+                                           <p className="text-[10px] text-zinc-400 uppercase tracking-wide font-medium truncate">{t.category}</p>
+                                           {isScheduled && <Clock size={10} className="text-orange-400 shrink-0" />}
                                         </div>
                                     </div>
                                 </div>
-                                <div className="text-right shrink-0 pl-2">
-                                    <span className={`text-sm font-bold block ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-zinc-800'}`}>
+                                <div className="text-right shrink-0">
+                                    <span className={`text-sm font-bold block whitespace-nowrap ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-zinc-800'}`}>
                                         {t.type === TransactionType.EXPENSE && '- '}R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                     </span>
                                     <span className="text-[10px] text-zinc-300">{new Date(effectiveDate).toLocaleDateString('pt-BR', {day: '2-digit', month:'2-digit'})}</span>

@@ -98,7 +98,8 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                     // Assign the pre-generated IDs to transactions
                     const transactionsWithIds = result.normalized.map((t: any, index: number) => ({
                         ...t,
-                        id: transactionIds[index]
+                        id: transactionIds[index],
+                        createdAt: Date.now()
                     }));
 
                     // Save invoice record with transaction IDs
@@ -170,7 +171,8 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                 date: purchaseDateObj.toISOString(), // Purchase date stays same
                 paymentDate: nextPaymentDate.toISOString(), // Payment date shifts
                 isRecurring: false,
-                isAiGenerated: formData.isAiGenerated
+                isAiGenerated: formData.isAiGenerated,
+                createdAt: Date.now()
             });
         }
     } else {
@@ -186,7 +188,8 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
             isRecurring: formData.isRecurring,
             isAiGenerated: formData.isAiGenerated,
             linkedToInvoice: formData.linkedToInvoice,
-            creditCardIssuer: formData.creditCardIssuer
+            creditCardIssuer: formData.creditCardIssuer,
+            createdAt: Date.now()
         });
     }
 

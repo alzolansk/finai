@@ -4,6 +4,7 @@ import { Transaction, TransactionType, Category } from '../types';
 import { ImportedInvoice, getImportedInvoices, AgendaChecklistEntry } from '../services/storageService';
 import { CheckCircle2, Circle, AlertCircle, Calendar, ArrowUpCircle, ArrowDownCircle, Filter, ChevronDown, ChevronUp, Search, ChevronLeft, ChevronRight, X, CreditCard, Receipt, MessageSquare, Send, Link2 } from 'lucide-react';
 import { getMonthName } from '../utils/dateUtils';
+import { getIconForTransaction } from '../utils/iconMapper';
 
 interface AgendaProps {
   transactions: Transaction[];
@@ -389,12 +390,20 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
                                 </td>
                             </tr>
                         ) : (
-                            expenses.map(item => (
+                            expenses.map(item => {
+                                const iconConfig = getIconForTransaction(item.title, item.category);
+                                const IconComponent = iconConfig.icon;
+                                
+                                return (
                                 <tr key={item.id} className="hover:bg-zinc-50/50 transition-colors group">
                                     <td className="p-4">
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${item.isInvoice ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-500'}`}>
-                                                {item.title.substring(0, 2).toUpperCase()}
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${item.isInvoice ? 'bg-zinc-900' : iconConfig.bgColor}`}>
+                                                {item.isInvoice ? (
+                                                    <CreditCard size={16} className="text-white" />
+                                                ) : (
+                                                    <IconComponent size={14} className={iconConfig.iconColor} />
+                                                )}
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2">
@@ -452,7 +461,8 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
                                         )}
                                     </td>
                                 </tr>
-                            ))
+                                );
+                            })
                         )}
                     </tbody>
                     <tfoot>
@@ -494,12 +504,16 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
                                 </td>
                             </tr>
                         ) : (
-                            income.map(item => (
+                            income.map(item => {
+                                const iconConfig = getIconForTransaction(item.title, item.category);
+                                const IconComponent = iconConfig.icon;
+                                
+                                return (
                                 <tr key={item.id} className="hover:bg-zinc-50/50 transition-colors group">
                                     <td className="p-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs font-bold">
-                                                {item.title.substring(0, 2).toUpperCase()}
+                                            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                                                <IconComponent size={14} className="text-emerald-600" />
                                             </div>
                                             <p className="font-bold text-zinc-800">{item.title}</p>
                                         </div>
@@ -540,7 +554,8 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
                                         )}
                                     </td>
                                 </tr>
-                            ))
+                                );
+                            })
                         )}
                     </tbody>
                     <tfoot>
@@ -713,12 +728,16 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
                     t.creditCardIssuer &&
                     selectedInvoice.originalInvoice!.issuer?.toLowerCase().includes(t.creditCardIssuer.toLowerCase())
                   )
-                  .map(sub => (
+                  .map(sub => {
+                    const iconConfig = getIconForTransaction(sub.description, sub.category);
+                    const IconComponent = iconConfig.icon;
+                    
+                    return (
                     <div key={`linked-${sub.id}`} className="bg-blue-50 border-2 border-blue-200 rounded-2xl hover:bg-blue-100 transition-colors group">
                       <div className="flex justify-between items-center p-4">
                         <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 font-bold border border-blue-300 group-hover:border-blue-400 transition-all`}>
-                            {sub.description.substring(0, 1).toUpperCase()}
+                          <div className={`w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center border border-blue-300 group-hover:border-blue-400 transition-all`}>
+                            <IconComponent size={20} className="text-blue-600" />
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
@@ -735,7 +754,8 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
                         </span>
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 }
 
                 {/* Regular invoice transactions */}
@@ -781,12 +801,15 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
                       installmentInfo = { current: currentInstallment, total: totalInstallments, progress, remaining, paid };
                     }
                     
+                    const iconConfig = getIconForTransaction(t.description, t.category);
+                    const IconComponent = iconConfig.icon;
+                    
                     return (
                     <div key={t.id} className="bg-zinc-50 rounded-2xl hover:bg-zinc-100 transition-colors group">
                       <div className="flex justify-between items-center p-4">
                       <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-xl bg-white flex items-center justify-center text-zinc-600 font-bold border border-zinc-200 ${theme.iconHover} transition-all`}>
-                          {t.description.substring(0, 1).toUpperCase()}
+                        <div className={`w-10 h-10 rounded-xl bg-white flex items-center justify-center border border-zinc-200 ${theme.iconHover} transition-all`}>
+                          <IconComponent size={20} className={iconConfig.iconColor} />
                         </div>
                         <div>
                           <p className="font-bold text-zinc-800">{t.description}</p>

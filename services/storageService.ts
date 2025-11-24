@@ -10,7 +10,26 @@ export const getTransactions = (): Transaction[] => {
   const stored = localStorage.getItem(TRANSACTIONS_KEY);
   if (!stored) return [];
   try {
-    return JSON.parse(stored);
+    const transactions = JSON.parse(stored);
+    // Migrate old transactions without createdAt
+    let needsMigration = false;
+    const migrated = transactions.map((t: Transaction, index: number) => {
+      if (!t.createdAt) {
+        needsMigration = true;
+        // Assign timestamps in reverse order (oldest first) to preserve insertion order
+        // Use the payment date as a base timestamp
+        const baseTimestamp = new Date(t.paymentDate || t.date).getTime();
+        return { ...t, createdAt: baseTimestamp - (transactions.length - index) };
+      }
+      return t;
+    });
+    
+    if (needsMigration) {
+      localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
+    
+    return transactions;
   } catch (e) {
     console.error("Failed to parse transactions", e);
     return [];

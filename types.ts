@@ -31,6 +31,7 @@ export interface Transaction {
   isAiGenerated?: boolean;
   linkedToInvoice?: boolean; // Indicates if this subscription is linked to a credit card invoice
   creditCardIssuer?: string; // Credit card issuer for linked subscriptions
+  createdAt?: number; // Timestamp of when the transaction was created (insertion order)
 }
 
 export interface Insight {

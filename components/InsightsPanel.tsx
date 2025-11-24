@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Transaction, Insight, Category, TransactionType } from '../types';
 import { generateInsights } from '../services/geminiService';
 import { Lightbulb, AlertCircle, RefreshCw, CheckCircle2, BadgePercent, Trash2, Edit2, Plus, X, Wand2, Link2 } from 'lucide-react';
+import { getIconForTransaction } from '../utils/iconMapper';
 
 interface InsightsPanelProps {
   transactions: Transaction[];
@@ -137,7 +138,8 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions, onUpdate, o
         amount: Number(formData.amount),
         id: editingTransaction ? editingTransaction.id : crypto.randomUUID(),
         date: formData.date || new Date().toISOString(),
-        isRecurring: true // Ensure it stays recurring
+        isRecurring: true, // Ensure it stays recurring
+        createdAt: editingTransaction ? editingTransaction.createdAt : Date.now()
     } as Transaction;
 
     if (editingTransaction) {
@@ -260,11 +262,19 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions, onUpdate, o
          </div>
          
          <div className="space-y-3">
-            {transactions.filter(t => t.isRecurring).map(t => (
+            {transactions.filter(t => t.isRecurring).map(t => {
+                const iconConfig = getIconForTransaction(t.description, t.category);
+                const IconComponent = iconConfig.icon;
+                
+                return (
                 <div key={t.id} className={`flex items-center justify-between bg-white p-4 rounded-2xl border transition-all group ${t.isAiGenerated ? 'border-emerald-200' : 'border-zinc-100'}`}>
                     <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs ${t.isAiGenerated ? 'bg-emerald-100 text-emerald-600' : 'bg-zinc-100 text-zinc-500'}`}>
-                            {t.isAiGenerated ? <Wand2 size={16} /> : t.description.substring(0,2).toUpperCase()}
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${t.isAiGenerated ? 'bg-emerald-100' : iconConfig.bgColor}`}>
+                            {t.isAiGenerated ? (
+                                <Wand2 size={16} className="text-emerald-600" />
+                            ) : (
+                                <IconComponent size={18} className={iconConfig.iconColor} />
+                            )}
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
@@ -297,7 +307,8 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions, onUpdate, o
                         </div>
                     </div>
                 </div>
-            ))}
+                );
+            })}
             {transactions.filter(t => t.isRecurring).length === 0 && (
                 <div className="text-center py-10 bg-zinc-50 rounded-3xl border border-dashed border-zinc-200">
                     <p className="text-zinc-400 text-sm italic">Nenhuma assinatura detectada.</p>

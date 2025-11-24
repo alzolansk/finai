@@ -2,6 +2,7 @@
 import { Transaction, TransactionType } from '../types';
 import { Trash2, Search, ArrowLeft, CalendarDays, FileText, ChevronDown, ChevronRight, Building2 } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
+import { getIconForTransaction } from '../utils/iconMapper';
 
 type ViewMode = 'itemized' | 'invoices';
 
@@ -68,8 +69,13 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
   const itemizedTransactions = useMemo(
     () =>
       [...filteredTransactions].sort(
-        (a, b) =>
-          new Date(b.paymentDate || b.date).getTime() - new Date(a.paymentDate || a.date).getTime()
+        (a, b) => {
+          // Sort by createdAt timestamp (most recent insertion first)
+          // If createdAt is not available (old data), fallback to payment date sorting
+          const aCreated = a.createdAt || 0;
+          const bCreated = b.createdAt || 0;
+          return bCreated - aCreated;
+        }
       ),
     [filteredTransactions]
   );
@@ -123,6 +129,8 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
   const renderTransaction = (t: Transaction, isNested: boolean = false) => {
     const effectiveDate = t.paymentDate || t.date;
     const differentDates = t.paymentDate && t.paymentDate !== t.date;
+    const iconConfig = getIconForTransaction(t.description, t.category);
+    const IconComponent = iconConfig.icon;
 
     return (
       <div
@@ -130,8 +138,8 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
         className={`${isNested ? 'pl-16' : ''} p-6 flex items-center justify-between hover:bg-zinc-50 transition-colors group ${isNested ? 'border-l-2 border-zinc-200' : ''}`}
       >
         <div className="flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-bold ${t.type === TransactionType.INCOME ? 'bg-emerald-100 text-emerald-600' : 'bg-zinc-100 text-zinc-500'}`}>
-            {t.description.charAt(0).toUpperCase()}
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${t.type === TransactionType.INCOME ? 'bg-emerald-100' : iconConfig.bgColor}`}>
+            <IconComponent size={24} className={t.type === TransactionType.INCOME ? 'text-emerald-600' : iconConfig.iconColor} />
           </div>
           <div>
             <p className="font-bold text-zinc-800">{t.description}</p>

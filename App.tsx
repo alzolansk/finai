@@ -83,7 +83,8 @@ const App: React.FC = () => {
         category: Category.SALARY,
         type: TransactionType.INCOME,
         date: dateNow,
-        isRecurring: true // Assuming salary is recurring
+        isRecurring: true, // Assuming salary is recurring
+        createdAt: Date.now()
     };
 
     // 3. Convert Fixed Expenses to Actual Transactions
@@ -96,7 +97,8 @@ const App: React.FC = () => {
         category: Category.SUBSCRIPTIONS,
         type: TransactionType.EXPENSE,
         date: dateNow,
-        isRecurring: true
+        isRecurring: true,
+        createdAt: Date.now()
       }));
 
     const allNewTransactions = [incomeTransaction, ...expenseTransactions];
