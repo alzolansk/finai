@@ -7,6 +7,7 @@ import PlanningTab from './components/PlanningTab';
 import SavingsPlanPage from './components/SavingsPlanPage';
 import Onboarding from './components/Onboarding';
 import TransactionList from './components/TransactionList';
+import ImportHistoryPage from './components/ImportHistoryPage';
 import { Transaction, UserSettings, ChatMessage, TransactionType, Category, TimePeriod } from './types';
 import { calculateMonthlyForecast, generateSmartAlerts } from './services/forecastService';
 import { getTransactions, saveTransaction, getUserSettings, saveUserSettings, deleteTransaction, updateTransaction, getSavingsReviews, saveSavingsReview, SavingsReview, getAgendaChecklist, toggleAgendaChecklist, AgendaChecklistEntry } from './services/storageService';
@@ -279,12 +280,19 @@ const App: React.FC = () => {
       )}
 
       {activeTab === 'savings-plan' && (
-        <SavingsPlanPage 
+        <SavingsPlanPage
           transactions={transactions}
           settings={settings}
           reviews={reviews}
           onReview={handleOpenReview}
           onBack={() => setActiveTab('dashboard')}
+        />
+      )}
+
+      {activeTab === 'import-history' && (
+        <ImportHistoryPage
+          onBack={() => setActiveTab('dashboard')}
+          onImportDeleted={() => setTransactions(getTransactions())}
         />
       )}
     </Layout>

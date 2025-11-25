@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { Home, Plus, PieChart, MessageSquareText, X, Sparkles, Map, Zap, AlertTriangle, Settings, Trash2, Activity, ChevronDown, ChevronUp, Calendar, Repeat, TrendingUp } from 'lucide-react';
+import { Home, Plus, PieChart, MessageSquareText, X, Sparkles, Map, Zap, AlertTriangle, Settings, Trash2, Activity, ChevronDown, ChevronUp, Calendar, Repeat, TrendingUp, FileText } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { SmartAlert } from '../services/forecastService';
 import { clearAllData, getApiLogs, ApiLog } from '../services/storageService';
@@ -358,6 +358,21 @@ const Layout: React.FC<LayoutProps> = ({
                             </div>
                         </div>
                     )}
+                </div>
+
+                {/* Import History Section */}
+                <div>
+                    <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Dados</h4>
+                    <button
+                        onClick={() => {
+                            setIsSettingsOpen(false);
+                            onTabChange('import-history');
+                        }}
+                        className="w-full py-3 bg-white border border-zinc-200 text-zinc-700 font-medium rounded-xl hover:bg-zinc-50 hover:border-zinc-300 transition-all flex items-center justify-center gap-2 text-sm"
+                    >
+                        <FileText size={16} />
+                        Histórico de Importações
+                    </button>
                 </div>
 
                 <div>
