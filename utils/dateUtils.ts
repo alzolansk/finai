@@ -75,10 +75,10 @@ export const projectRecurringTransactions = (
     const originalDate = new Date(recurring.date);
     const originalPaymentDate = recurring.paymentDate ? new Date(recurring.paymentDate) : null;
 
-    // Only project if the target month is after or equal to the original month
+    // Only project if the target month is AFTER the original month (not the same month)
     if (
       targetYear > originalDate.getFullYear() ||
-      (targetYear === originalDate.getFullYear() && targetMonth >= originalDate.getMonth())
+      (targetYear === originalDate.getFullYear() && targetMonth > originalDate.getMonth())
     ) {
       // Calculate the new dates for the target month
       const dayOfMonth = originalDate.getDate();
