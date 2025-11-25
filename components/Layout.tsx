@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { Home, Plus, PieChart, MessageSquareText, X, Sparkles, Map, Zap, AlertTriangle, Settings, Trash2, Activity, ChevronDown, ChevronUp, Calendar, Repeat, TrendingUp, FileText } from 'lucide-react';
+import { Home, Plus, PieChart, MessageSquareText, X, Sparkles, Zap, AlertTriangle, Settings, Trash2, Activity, ChevronDown, ChevronUp, Calendar, Repeat, TrendingUp, FileText, Heart } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { SmartAlert } from '../services/forecastService';
 import { clearAllData, getApiLogs, ApiLog } from '../services/storageService';
@@ -216,7 +216,7 @@ const Layout: React.FC<LayoutProps> = ({
               onClick={() => onTabChange('planning')}
               className={`p-4 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'planning' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
             >
-              <Map size={24} strokeWidth={activeTab === 'planning' ? 2.5 : 2} />
+              <Heart size={24} strokeWidth={activeTab === 'planning' ? 2.5 : 2} />
             </button>
 
           </nav>

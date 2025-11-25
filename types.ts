@@ -82,3 +82,38 @@ export interface TransacaoNormalizada {
   isRecurring?: boolean;
   issuer?: string;
 }
+
+export enum WishlistItemType {
+  PURCHASE = 'Compra',
+  TRAVEL = 'Viagem',
+  EXPERIENCE = 'Experiência',
+  INVESTMENT = 'Investimento',
+  OTHER = 'Outro'
+}
+
+export enum WishlistPriority {
+  LOW = 'Baixa',
+  MEDIUM = 'Média',
+  HIGH = 'Alta'
+}
+
+export interface WishlistItem {
+  id: string;
+  name: string;
+  description?: string;
+  targetAmount: number;
+  savedAmount: number;
+  type: WishlistItemType;
+  priority: WishlistPriority;
+  targetDate?: string; // ISO string
+  isViable?: boolean; // AI-determined viability
+  viabilityDate?: string; // AI-predicted date when it becomes viable
+  aiAnalysis?: string; // AI suggestions and insights
+  aiRecommendation?: string; // AI recommendation
+  paymentOption?: 'cash' | 'installments'; // Payment method
+  installmentCount?: number; // Number of installments if applicable
+  installmentAmount?: number; // Monthly installment value
+  priceResearchConfidence?: 'high' | 'medium' | 'low'; // AI price research confidence
+  createdAt: number;
+  updatedAt?: number;
+}

@@ -3,14 +3,14 @@ import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import AddTransaction from './components/AddTransaction';
 import InsightsPanel from './components/InsightsPanel';
-import PlanningTab from './components/PlanningTab';
+import WishlistTab from './components/WishlistTab';
 import SavingsPlanPage from './components/SavingsPlanPage';
 import Onboarding from './components/Onboarding';
 import TransactionList from './components/TransactionList';
 import ImportHistoryPage from './components/ImportHistoryPage';
-import { Transaction, UserSettings, ChatMessage, TransactionType, Category, TimePeriod } from './types';
-import { calculateMonthlyForecast, generateSmartAlerts } from './services/forecastService';
-import { getTransactions, saveTransaction, getUserSettings, saveUserSettings, deleteTransaction, updateTransaction, getSavingsReviews, saveSavingsReview, SavingsReview, getAgendaChecklist, toggleAgendaChecklist, AgendaChecklistEntry } from './services/storageService';
+import { Transaction, UserSettings, ChatMessage, TransactionType, Category, TimePeriod, WishlistItem } from './types';
+import { generateSmartAlerts } from './services/forecastService';
+import { getTransactions, saveTransaction, getUserSettings, saveUserSettings, deleteTransaction, updateTransaction, getSavingsReviews, saveSavingsReview, SavingsReview, getAgendaChecklist, toggleAgendaChecklist, AgendaChecklistEntry, getWishlistItems, saveWishlistItem, deleteWishlistItem } from './services/storageService';
 import { chatWithAdvisor } from './services/geminiService';
 import { SavingsPlanAction } from './services/savingsService';
 import ReviewRecommendationPanel from './components/ReviewRecommendationPanel';
@@ -34,6 +34,7 @@ const App: React.FC = () => {
   // Global State
   const [isTurboMode, setIsTurboMode] = useState(false);
   const [reviews, setReviews] = useState<SavingsReview[]>([]);
+  const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
 
   // Review Panel State
   const [isReviewPanelOpen, setIsReviewPanelOpen] = useState(false);
@@ -48,6 +49,7 @@ const App: React.FC = () => {
     setSettings(getUserSettings());
     setReviews(getSavingsReviews());
     setAgendaChecklist(getAgendaChecklist());
+    setWishlistItems(getWishlistItems());
   }, []);
 
   const handleAddTransactions = (newTransactions: Transaction[]) => {
@@ -173,7 +175,7 @@ const App: React.FC = () => {
     // For invoices, use the original invoice ID (without month suffix)
     // For one-off items, use the item ID
     let targetId: string;
-    
+
     if (item.isInvoice && item.originalInvoice) {
       targetId = item.originalInvoice.id;
     } else if (item.originalTransaction) {
@@ -181,15 +183,30 @@ const App: React.FC = () => {
     } else {
       targetId = item.id;
     }
-    
+
     const entry: AgendaChecklistEntry = {
         targetId: targetId,
         monthKey: item.dueDate.substring(0, 7), // YYYY-MM
         paidAt: new Date().toISOString()
     };
-    
+
     const updated = toggleAgendaChecklist(entry);
     setAgendaChecklist(updated);
+  };
+
+  const handleAddWishlistItem = (item: WishlistItem) => {
+    const updated = saveWishlistItem(item);
+    setWishlistItems(updated);
+  };
+
+  const handleUpdateWishlistItem = (item: WishlistItem) => {
+    const updated = saveWishlistItem(item);
+    setWishlistItems(updated);
+  };
+
+  const handleDeleteWishlistItem = (id: string) => {
+    const updated = deleteWishlistItem(id);
+    setWishlistItems(updated);
   };
 
   if (!settings || !settings.onboardingCompleted) {
@@ -272,10 +289,13 @@ const App: React.FC = () => {
       )}
 
       {activeTab === 'planning' && (
-        <PlanningTab 
+        <WishlistTab
           transactions={transactions}
           settings={settings}
-          forecast={calculateMonthlyForecast(transactions, currentDate, settings, isTurboMode)}
+          wishlistItems={wishlistItems}
+          onAddItem={handleAddWishlistItem}
+          onUpdateItem={handleUpdateWishlistItem}
+          onDeleteItem={handleDeleteWishlistItem}
         />
       )}
 

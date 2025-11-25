@@ -597,7 +597,7 @@ export const calculateBudgetGoal = async (income: number, fixedExpenses: {descri
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `User Income: ${income}. Fixed Expenses: ${JSON.stringify(fixedExpenses)} (Total: ${fixedTotal}).
-      Suggest a realistic monthly savings goal (metas). 
+      Suggest a realistic monthly savings goal (metas).
       Rule: 50/30/20 rule or similar, tailored to their remaining budget.
       Return JSON.`,
       config: {
@@ -611,7 +611,7 @@ export const calculateBudgetGoal = async (income: number, fixedExpenses: {descri
         }
       }
     });
-    
+
     if (response.text) {
         logApiCall({ endpoint: 'calculateBudgetGoal', status: 'success', duration: Date.now() - startTime });
         return JSON.parse(response.text);
@@ -620,5 +620,177 @@ export const calculateBudgetGoal = async (income: number, fixedExpenses: {descri
   } catch (e) {
     logApiCall({ endpoint: 'calculateBudgetGoal', status: 'error', duration: Date.now() - startTime, error: String(e) });
     return { recommendedGoal: income * 0.2, reasoning: "Padrao de 20% aplicado." };
+  }
+};
+
+// 6. Wishlist: Research product/service price
+export const researchWishlistItem = async (itemName: string): Promise<{
+  estimatedPrice: number;
+  priceRange: { min: number; max: number };
+  description: string;
+  suggestions: string[];
+  confidence: 'high' | 'medium' | 'low';
+}> => {
+  const startTime = Date.now();
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `O usuário deseja adicionar "${itemName}" à lista de desejos.
+
+      Sua tarefa:
+      1. Identifique o que é este item (produto, viagem, experiência, serviço, etc.)
+      2. Pesquise e estime o preço médio atual no Brasil em Reais (R$)
+      3. Forneça uma faixa de preço (mínimo e máximo)
+      4. Dê uma breve descrição do item
+      5. Forneça 2-3 sugestões práticas para o usuário (ex: "Considere comprar em promoções", "Pesquise em sites de comparação")
+      6. Indique o nível de confiança da estimativa: 'high' (produto comum com preço bem definido), 'medium' (preço variável), 'low' (item muito genérico ou sem informações claras)
+
+      Casos especiais:
+      - Se for VIAGEM: calcule o custo total estimado incluindo passagens, hospedagem (3-5 dias), alimentação e passeios
+      - Se for EXPERIÊNCIA: estime o custo total da experiência
+      - Se for produto GENÉRICO (ex: "celular"): use o preço médio de modelos populares
+
+      Data atual: ${new Date().toLocaleDateString('pt-BR')}
+
+      Retorne JSON com as informações.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            estimatedPrice: { type: Type.NUMBER, description: "Preço médio estimado em R$" },
+            priceRange: {
+              type: Type.OBJECT,
+              properties: {
+                min: { type: Type.NUMBER },
+                max: { type: Type.NUMBER }
+              }
+            },
+            description: { type: Type.STRING, description: "Descrição breve do item" },
+            suggestions: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: "2-3 dicas práticas"
+            },
+            confidence: { type: Type.STRING, enum: ["high", "medium", "low"] }
+          }
+        }
+      }
+    });
+
+    if (response.text) {
+      logApiCall({ endpoint: 'researchWishlistItem', status: 'success', duration: Date.now() - startTime });
+      return JSON.parse(response.text);
+    }
+
+    throw new Error("No response from AI");
+  } catch (error) {
+    logApiCall({ endpoint: 'researchWishlistItem', status: 'error', duration: Date.now() - startTime, error: String(error) });
+    console.error("Research error:", error);
+    // Fallback response
+    return {
+      estimatedPrice: 0,
+      priceRange: { min: 0, max: 0 },
+      description: "Não foi possível estimar o preço automaticamente. Por favor, insira manualmente.",
+      suggestions: ["Pesquise em sites de comparação de preços", "Aguarde promoções sazonais"],
+      confidence: 'low'
+    };
+  }
+};
+
+// 7. Wishlist: Analyze viability with payment options
+export const analyzeWishlistViability = async (
+  itemName: string,
+  targetAmount: number,
+  monthlyIncome: number,
+  monthlyExpenses: number,
+  paymentOption: 'cash' | 'installments',
+  installmentCount?: number
+): Promise<{
+  isViable: boolean;
+  viabilityDate: string | null;
+  analysis: string;
+  recommendation: string;
+  monthsNeeded: number;
+  installmentAmount?: number;
+  installmentImpact?: string;
+}> => {
+  const startTime = Date.now();
+  try {
+    const monthlySavings = monthlyIncome - monthlyExpenses;
+    const installmentAmount = installmentCount ? targetAmount / installmentCount : 0;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `Analise a viabilidade deste objetivo financeiro:
+
+      Item: ${itemName}
+      Valor Total: R$ ${targetAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+      Renda Mensal: R$ ${monthlyIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+      Despesas Mensais: R$ ${monthlyExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+      Economia Mensal Disponível: R$ ${monthlySavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+
+      Forma de Pagamento: ${paymentOption === 'cash' ? 'À Vista' : `Parcelado em ${installmentCount}x`}
+      ${paymentOption === 'installments' ? `Valor da Parcela: R$ ${installmentAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}
+
+      Data Atual: ${new Date().toISOString()}
+
+      Tarefas:
+      1. Determine se é viável no momento (considere que é viável se o impacto for <= 30% da renda líquida)
+      2. Se NÃO for viável agora, calcule em quantos meses será viável
+      3. Calcule a data estimada de viabilidade (formato ISO)
+      4. Forneça uma análise clara e objetiva (máx 2 frases)
+      5. Dê uma recomendação prática
+      6. ${paymentOption === 'installments' ? 'Analise o impacto da parcela no orçamento mensal (percentual da renda líquida)' : ''}
+
+      Critérios de viabilidade:
+      - À Vista: usuário tem economia suficiente OU pode economizar em até 3 meses
+      - Parcelado: parcela representa no máximo 30% da renda líquida disponível
+
+      Retorne JSON com análise detalhada.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            isViable: { type: Type.BOOLEAN },
+            viabilityDate: { type: Type.STRING, description: "Data ISO quando será viável, ou null se já for viável" },
+            analysis: { type: Type.STRING, description: "Análise objetiva em 1-2 frases" },
+            recommendation: { type: Type.STRING, description: "Recomendação prática" },
+            monthsNeeded: { type: Type.INTEGER, description: "Meses necessários para alcançar" },
+            installmentAmount: { type: Type.NUMBER, description: "Valor da parcela (se parcelado)" },
+            installmentImpact: { type: Type.STRING, description: "Análise do impacto da parcela (se parcelado)" }
+          }
+        }
+      }
+    });
+
+    if (response.text) {
+      logApiCall({ endpoint: 'analyzeWishlistViability', status: 'success', duration: Date.now() - startTime });
+      return JSON.parse(response.text);
+    }
+
+    throw new Error("No response from AI");
+  } catch (error) {
+    logApiCall({ endpoint: 'analyzeWishlistViability', status: 'error', duration: Date.now() - startTime, error: String(error) });
+    console.error("Viability analysis error:", error);
+
+    // Fallback calculation
+    const monthlySavings = monthlyIncome - monthlyExpenses;
+    const monthsNeeded = monthlySavings > 0 ? Math.ceil(targetAmount / monthlySavings) : 999;
+    const viabilityDate = new Date();
+    viabilityDate.setMonth(viabilityDate.getMonth() + monthsNeeded);
+
+    return {
+      isViable: monthsNeeded <= 3,
+      viabilityDate: monthsNeeded > 3 ? viabilityDate.toISOString() : null,
+      analysis: monthlySavings > 0
+        ? `Você precisará economizar por ${monthsNeeded} meses para alcançar este objetivo.`
+        : "Suas despesas excedem sua renda. Revise seu orçamento antes de fazer novos planos.",
+      recommendation: "Considere aumentar sua renda ou reduzir despesas para acelerar.",
+      monthsNeeded,
+      installmentAmount: installmentCount ? targetAmount / installmentCount : undefined,
+      installmentImpact: installmentCount ? "Análise indisponível no momento." : undefined
+    };
   }
 };

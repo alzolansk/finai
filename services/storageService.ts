@@ -1,8 +1,9 @@
-import { Transaction, TransactionType, UserSettings } from '../types';
+import { Transaction, TransactionType, UserSettings, WishlistItem } from '../types';
 
 const TRANSACTIONS_KEY = 'finai_transactions';
 const SETTINGS_KEY = 'finai_settings';
 const SAVINGS_REVIEWS_KEY = 'finai_savings_reviews';
+const WISHLIST_KEY = 'finai_wishlist';
 
 // --- Transactions ---
 
@@ -220,6 +221,8 @@ export const clearAllData = (): void => {
   localStorage.removeItem(SAVINGS_REVIEWS_KEY);
   localStorage.removeItem(IMPORTED_INVOICES_KEY);
   localStorage.removeItem(API_LOGS_KEY);
+  localStorage.removeItem(WISHLIST_KEY);
+  localStorage.removeItem(AGENDA_CHECKLIST_KEY);
 };
 
 // --- API Monitoring ---
@@ -284,7 +287,7 @@ export const getAgendaChecklist = (): AgendaChecklistEntry[] => {
 export const toggleAgendaChecklist = (entry: AgendaChecklistEntry): AgendaChecklistEntry[] => {
   const current = getAgendaChecklist();
   const index = current.findIndex(e => e.targetId === entry.targetId && e.monthKey === entry.monthKey);
-  
+
   let updated;
   if (index >= 0) {
     // Remove if exists (toggle off)
@@ -293,7 +296,56 @@ export const toggleAgendaChecklist = (entry: AgendaChecklistEntry): AgendaCheckl
     // Add if not exists (toggle on)
     updated = [...current, entry];
   }
-  
+
   localStorage.setItem(AGENDA_CHECKLIST_KEY, JSON.stringify(updated));
   return updated;
+};
+
+// --- Wishlist Items ---
+
+export const getWishlistItems = (): WishlistItem[] => {
+  const stored = localStorage.getItem(WISHLIST_KEY);
+  if (!stored) return [];
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return [];
+  }
+};
+
+export const saveWishlistItem = (item: WishlistItem): WishlistItem[] => {
+  const current = getWishlistItems();
+  const index = current.findIndex(w => w.id === item.id);
+
+  let updated;
+  if (index >= 0) {
+    updated = [...current];
+    updated[index] = { ...item, updatedAt: Date.now() };
+  } else {
+    updated = [item, ...current];
+  }
+
+  localStorage.setItem(WISHLIST_KEY, JSON.stringify(updated));
+  return updated;
+};
+
+export const deleteWishlistItem = (id: string): WishlistItem[] => {
+  const current = getWishlistItems();
+  const updated = current.filter(w => w.id !== id);
+  localStorage.setItem(WISHLIST_KEY, JSON.stringify(updated));
+  return updated;
+};
+
+export const updateWishlistItemAmount = (id: string, savedAmount: number): WishlistItem[] => {
+  const current = getWishlistItems();
+  const index = current.findIndex(w => w.id === id);
+
+  if (index >= 0) {
+    const updated = [...current];
+    updated[index] = { ...updated[index], savedAmount, updatedAt: Date.now() };
+    localStorage.setItem(WISHLIST_KEY, JSON.stringify(updated));
+    return updated;
+  }
+
+  return current;
 };
