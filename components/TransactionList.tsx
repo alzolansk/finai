@@ -286,63 +286,64 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
 
   return (
     <div className="animate-fadeIn max-w-4xl mx-auto pb-20">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-3 bg-white rounded-xl shadow-sm border border-zinc-100 hover:bg-zinc-50 text-zinc-600 transition-all">
-             <ArrowLeft size={20} />
-          </button>
-          <div>
-             <h2 className="text-3xl font-light text-zinc-800">Extrato Completo</h2>
-             <p className="text-zinc-400 text-sm">Gerencie todos os seus registros.</p>
-          </div>
-        </div>
-
-        {/* Month Filter Navigation */}
-        <div className="flex items-center gap-2">
-          {selectedDate && (
-            <button
-              onClick={handleShowAllMonths}
-              className="px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl transition-colors"
-            >
-              Todos os meses
-            </button>
-          )}
-          <div className="flex items-center gap-2 bg-white p-2 rounded-2xl shadow-sm border border-zinc-100">
-            <button onClick={handlePrevMonth} className="p-2 hover:bg-zinc-100 rounded-xl transition-colors text-zinc-600">
-              <ChevronLeftIcon size={20} />
-            </button>
-            <div className="flex items-center gap-2 px-2 min-w-[140px] justify-center">
-              <Calendar size={16} className="text-emerald-600" />
-              <span className="font-bold text-zinc-800 capitalize">
-                 {selectedDate ? getMonthName(selectedDate) : 'Todos'}
-              </span>
-            </div>
-            <button onClick={handleNextMonth} className="p-2 hover:bg-zinc-100 rounded-xl transition-colors text-zinc-600">
-              <ChevronRight size={20} />
-            </button>
-          </div>
+      {/* Simplified Header */}
+      <div className="flex items-center gap-4 mb-6">
+        <button onClick={onBack} className="p-3 bg-white rounded-xl shadow-sm border border-zinc-100 hover:bg-zinc-50 text-zinc-600 transition-all">
+           <ArrowLeft size={20} />
+        </button>
+        <div>
+           <h2 className="text-3xl font-light text-zinc-800">Extrato Completo</h2>
+           <p className="text-zinc-400 text-sm">Gerencie todos os seus registros.</p>
         </div>
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 overflow-hidden">
-        {/* Search Bar */}
-        <div className="p-6 border-b border-zinc-100 bg-zinc-50/50 space-y-4">
-            <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-400" size={20} />
-                <input
-                    type="text"
-                    placeholder="Buscar por nome ou categoria..."
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 bg-white border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-zinc-900/5 outline-none transition-all text-zinc-700"
-                />
+        {/* Unified Control Bar */}
+        <div className="p-6 border-b border-zinc-100 space-y-4">
+            {/* Search + Month Selector */}
+            <div className="flex flex-col md:flex-row gap-3">
+                <div className="relative flex-1">
+                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-400" size={18} />
+                    <input
+                        type="text"
+                        placeholder="Buscar transação..."
+                        value={filter}
+                        onChange={(e) => setFilter(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all text-sm"
+                    />
+                </div>
+
+                {/* Compact Month Selector */}
+                <div className="flex items-center gap-2">
+                  {selectedDate && (
+                    <button
+                      onClick={handleShowAllMonths}
+                      className="px-3 py-3 text-xs font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl transition-colors whitespace-nowrap"
+                    >
+                      Limpar
+                    </button>
+                  )}
+                  <div className="flex items-center bg-zinc-50 border border-zinc-200 rounded-xl overflow-hidden">
+                    <button onClick={handlePrevMonth} className="p-3 hover:bg-zinc-100 transition-colors text-zinc-600">
+                      <ChevronLeftIcon size={16} />
+                    </button>
+                    <div className="flex items-center gap-1.5 px-3 min-w-[120px] justify-center border-x border-zinc-200">
+                      <Calendar size={14} className="text-emerald-600" />
+                      <span className="text-sm font-semibold text-zinc-800 capitalize">
+                         {selectedDate ? getMonthName(selectedDate) : 'Todos'}
+                      </span>
+                    </div>
+                    <button onClick={handleNextMonth} className="p-3 hover:bg-zinc-100 transition-colors text-zinc-600">
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                <SlidersHorizontal size={16} />
-                <span>Filtros rapidos</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
+
+            {/* Compact Filters Row */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* Quick Filters */}
+              <div className="flex items-center gap-2">
                 {filterOptions.map((option) => {
                   const isActive = visibilityFilters[option.key];
                   return (
@@ -350,31 +351,40 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                       key={option.key}
                       type="button"
                       onClick={() => toggleVisibilityFilter(option.key)}
-                      className={`flex items-center gap-3 px-4 py-2 rounded-2xl border transition-all ${isActive ? 'bg-white border-zinc-200 shadow-sm text-zinc-900' : 'bg-zinc-100 border-transparent text-zinc-500 hover:text-zinc-800'}`}
+                      title={option.helper}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        isActive
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-zinc-100 text-zinc-500 border border-transparent hover:bg-zinc-200'
+                      }`}
                     >
-                      {isActive ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Circle size={16} className="text-zinc-400" />}
-                      <div className="text-left leading-tight">
-                        <div className="text-sm font-semibold">{option.label}</div>
-                        <div className="text-[11px] text-zinc-400">{option.helper}</div>
-                      </div>
+                      {option.label}
                     </button>
                   );
                 })}
               </div>
-            </div>
-            <div className="flex justify-center">
-              <div className="inline-flex bg-zinc-100 rounded-full p-1 shadow-inner text-sm font-semibold">
+
+              {/* View Mode Toggle */}
+              <div className="inline-flex bg-zinc-100 rounded-lg p-0.5">
                 <button
                   type="button"
                   onClick={() => setViewMode('itemized')}
-                  className={`px-5 py-2 rounded-full transition-all ${viewMode === 'itemized' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}
+                  className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    viewMode === 'itemized'
+                      ? 'bg-white text-zinc-900 shadow-sm'
+                      : 'text-zinc-500 hover:text-zinc-800'
+                  }`}
                 >
                   Itemizado
                 </button>
                 <button
                   type="button"
                   onClick={() => setViewMode('invoices')}
-                  className={`px-5 py-2 rounded-full transition-all ${viewMode === 'invoices' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}
+                  className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    viewMode === 'invoices'
+                      ? 'bg-white text-zinc-900 shadow-sm'
+                      : 'text-zinc-500 hover:text-zinc-800'
+                  }`}
                 >
                   Faturas
                 </button>
