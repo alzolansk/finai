@@ -36,6 +36,11 @@ export interface Transaction {
   ignoredReason?: string; // Reason why this transaction was ignored (for audit purposes)
   isProjected?: boolean; // Flag to indicate this is a projected recurring transaction (not yet saved to DB)
   isCreditPurchase?: boolean; // Marks that the expense was made on credit and paid on the invoice due date
+  tags?: string[]; // Custom tags for advanced filtering (e.g., "viagem", "reembolso")
+  isDuplicate?: boolean; // Flag to mark as potential duplicate
+  duplicateOf?: string; // Reference to original transaction ID
+  isReimbursable?: boolean; // Flag for expenses paid by others (friends using your card)
+  reimbursedBy?: string; // Name of person who will reimburse
 }
 
 export interface Insight {
@@ -134,4 +139,27 @@ export interface WishlistItem {
   createdAt: number;
   updatedAt?: number;
   createdViaChat?: boolean; // Flag to indicate item was added by the chat assistant
+}
+
+// Advanced Filter Types
+export interface AdvancedFilter {
+  id: string;
+  name: string;
+  dateRange?: { start: string; end: string };
+  categories?: Category[];
+  minAmount?: number;
+  maxAmount?: number;
+  types?: TransactionType[];
+  issuers?: string[];
+  tags?: string[];
+  status?: ('recorrente' | 'parcelado' | 'pago' | 'pendente')[];
+  createdAt: number;
+}
+
+// Budget/Goal Types
+export interface CategoryBudget {
+  category: Category;
+  limit: number;
+  spent: number;
+  month: string; // YYYY-MM format
 }

@@ -15,7 +15,7 @@ interface DashboardProps {
   settings: UserSettings | null;
   reviews: SavingsReview[];
   alerts: SmartAlert[];
-  onViewAllHistory: () => void;
+  onViewAllHistory: () => void; // Navigate to Explore page
   onViewSavingsPlan: () => void;
   currentDate: Date;
   onDateChange: (date: Date) => void;

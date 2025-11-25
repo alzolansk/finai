@@ -6,8 +6,10 @@ import InsightsPanel from './components/InsightsPanel';
 import WishlistTab from './components/WishlistTab';
 import SavingsPlanPage from './components/SavingsPlanPage';
 import Onboarding from './components/Onboarding';
-import TransactionList from './components/TransactionList';
 import ImportHistoryPage from './components/ImportHistoryPage';
+import ExplorePage from './components/ExplorePage';
+import ReportsPage from './components/ReportsPage';
+import DuplicatesPage from './components/DuplicatesPage';
 import { Transaction, UserSettings, ChatMessage, TransactionType, Category, TimePeriod, WishlistItem, WishlistPriority, WishlistItemType } from './types';
 import { generateSmartAlerts } from './services/forecastService';
 import { getTransactions, saveTransaction, getUserSettings, saveUserSettings, deleteTransaction, updateTransaction, getSavingsReviews, saveSavingsReview, SavingsReview, getAgendaChecklist, toggleAgendaChecklist, AgendaChecklistEntry, getWishlistItems, saveWishlistItem, deleteWishlistItem, getImportedInvoices } from './services/storageService';
@@ -302,6 +304,36 @@ const App: React.FC = () => {
     setWishlistItems(updated);
   };
 
+  const handleMarkAsDuplicate = (transactionId: string, originalId: string) => {
+    const transaction = transactions.find(t => t.id === transactionId);
+    if (!transaction) return;
+
+    const updatedTransaction: Transaction = {
+      ...transaction,
+      isDuplicate: true,
+      duplicateOf: originalId,
+      ignoredReason: undefined
+    };
+
+    const updated = updateTransaction(updatedTransaction);
+    setTransactions(updated);
+  };
+
+  const handleIgnoreDuplicate = (transactionId: string) => {
+    const transaction = transactions.find(t => t.id === transactionId);
+    if (!transaction) return;
+
+    const updatedTransaction: Transaction = {
+      ...transaction,
+      ignoredReason: 'Marcada como não duplicata pelo usuário',
+      isDuplicate: false,
+      duplicateOf: undefined
+    };
+
+    const updated = updateTransaction(updatedTransaction);
+    setTransactions(updated);
+  };
+
   const handleChatAction = async (message: ChatMessage, actionId: string) => {
     if (!message.cta || message.cta.type !== 'wishlist_add') return;
 
@@ -412,12 +444,12 @@ const App: React.FC = () => {
       }
     >
       {activeTab === 'dashboard' && (
-        <Dashboard 
-          transactions={transactions} 
+        <Dashboard
+          transactions={transactions}
           settings={settings}
           reviews={reviews}
           alerts={alerts}
-          onViewAllHistory={() => setActiveTab('history')}
+          onViewAllHistory={() => setActiveTab('explore')}
           onViewSavingsPlan={() => setActiveTab('savings-plan')}
           currentDate={currentDate}
           onDateChange={setCurrentDate}
@@ -427,13 +459,6 @@ const App: React.FC = () => {
         />
       )}
       
-      {activeTab === 'history' && (
-          <TransactionList 
-            transactions={transactions} 
-            onDelete={handleDeleteTransaction}
-            onBack={() => setActiveTab('dashboard')}
-          />
-      )}
 
       {activeTab === 'add' && (
         <AddTransaction
@@ -487,6 +512,29 @@ const App: React.FC = () => {
         <ImportHistoryPage
           onBack={() => setActiveTab('dashboard')}
           onImportDeleted={() => setTransactions(getTransactions())}
+        />
+      )}
+
+      {activeTab === 'explore' && (
+        <ExplorePage
+          transactions={transactions}
+          onDelete={handleDeleteTransaction}
+          onUpdateTransaction={handleUpdateTransaction}
+        />
+      )}
+
+      {activeTab === 'reports' && (
+        <ReportsPage
+          transactions={transactions}
+          settings={settings}
+        />
+      )}
+
+      {activeTab === 'duplicates' && (
+        <DuplicatesPage
+          transactions={transactions}
+          onMarkAsDuplicate={handleMarkAsDuplicate}
+          onIgnoreDuplicate={handleIgnoreDuplicate}
         />
       )}
     </Layout>

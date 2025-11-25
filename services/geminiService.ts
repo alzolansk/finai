@@ -4,8 +4,32 @@ import { detectarTipoImportacao, normalizarTransacaoGenerica, isPagamentoFaturaD
 import { logApiCall } from './storageService';
 import { parseLocalDate } from '../utils/dateUtils';
 
-// Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });  
+// Get API Key from localStorage
+const getApiKey = (): string | null => {
+  return localStorage.getItem('finai_gemini_api_key');
+};
+
+// Initialize Gemini Client (lazy initialization)
+let ai: GoogleGenAI | null = null;
+
+const getAI = (): GoogleGenAI => {
+  const apiKey = getApiKey();
+
+  if (!apiKey) {
+    throw new Error('API_KEY_NOT_CONFIGURED');
+  }
+
+  if (!ai) {
+    ai = new GoogleGenAI({ apiKey });
+  }
+
+  return ai;
+};
+
+// Reset AI instance when API key changes
+export const resetAIInstance = () => {
+  ai = null;
+};  
 
 // 1. Smart Entry: Parse natural language into a Transaction object
 export const parseTransactionFromText = async (text: string): Promise<Partial<Transaction> & { installments?: number }> => {

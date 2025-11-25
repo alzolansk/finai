@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { Home, Plus, PieChart, MessageSquareText, X, Sparkles, Zap, AlertTriangle, Settings, Trash2, Activity, ChevronDown, ChevronUp, Calendar, Repeat, TrendingUp, FileText, Heart } from 'lucide-react';
+import { Home, Plus, PieChart, MessageSquareText, X, Sparkles, Zap, AlertTriangle, Settings, Trash2, Activity, ChevronDown, ChevronUp, Calendar, Repeat, TrendingUp, FileText, Heart, Search, BarChart3 } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { SmartAlert } from '../services/forecastService';
 import { clearAllData, getApiLogs, ApiLog } from '../services/storageService';
@@ -186,42 +186,63 @@ const Layout: React.FC<LayoutProps> = ({
         {/* Floating Island Navigation */}
         <div className="fixed inset-x-0 bottom-8 flex justify-center z-40 pointer-events-none">
           <div className="animate-slideUp pointer-events-auto">
-          <nav className="bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 text-zinc-400 rounded-2xl px-2 py-2 shadow-2xl shadow-zinc-900/40 flex items-center gap-2 transition-all hover:scale-[1.01]">
-            
+          <nav className="bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 text-zinc-400 rounded-2xl px-2 py-2 shadow-2xl shadow-zinc-900/40 flex items-center gap-1 transition-all hover:scale-[1.01]">
+
             <button
               onClick={() => onTabChange('dashboard')}
-              className={`p-4 rounded-xl transition-all duration-300 flex items-center gap-2 hover:scale-110 active:scale-90 ${activeTab === 'dashboard' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              className={`p-3 rounded-xl transition-all duration-300 flex items-center gap-2 hover:scale-110 active:scale-90 ${activeTab === 'dashboard' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              title="Dashboard"
             >
-              <Home size={24} strokeWidth={activeTab === 'dashboard' ? 2.5 : 2} />
+              <Home size={20} strokeWidth={activeTab === 'dashboard' ? 2.5 : 2} />
             </button>
 
             <button
               onClick={() => onTabChange('insights')}
-              className={`p-4 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'insights' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'insights' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              title="Insights"
             >
-              <PieChart size={24} strokeWidth={activeTab === 'insights' ? 2.5 : 2} />
+              <PieChart size={20} strokeWidth={activeTab === 'insights' ? 2.5 : 2} />
+            </button>
+
+            <button
+              onClick={() => onTabChange('explore')}
+              className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'explore' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              title="Explorar"
+            >
+              <Search size={20} strokeWidth={activeTab === 'explore' ? 2.5 : 2} />
+            </button>
+
+            <button
+              onClick={() => onTabChange('reports')}
+              className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'reports' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              title="Relatórios"
+            >
+              <BarChart3 size={20} strokeWidth={activeTab === 'reports' ? 2.5 : 2} />
             </button>
 
             {/* Prominent Add Button (central) */}
             <button
               onClick={() => onTabChange('add')}
-              className="bg-emerald-500 text-white p-4 mx-2 rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 hover:scale-110 active:scale-95 transition-all group"
+              className="bg-emerald-500 text-white p-3 mx-1 rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 hover:scale-110 active:scale-95 transition-all group"
+              title="Adicionar"
             >
-              <Plus size={24} strokeWidth={3} className="group-hover:rotate-90 transition-transform duration-300" />
+              <Plus size={22} strokeWidth={3} className="group-hover:rotate-90 transition-transform duration-300" />
             </button>
 
             <button
               onClick={() => onTabChange('agenda')}
-              className={`p-4 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'agenda' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'agenda' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              title="Agenda"
             >
-              <Calendar size={24} strokeWidth={activeTab === 'agenda' ? 2.5 : 2} />
+              <Calendar size={20} strokeWidth={activeTab === 'agenda' ? 2.5 : 2} />
             </button>
 
             <button
               onClick={() => onTabChange('planning')}
-              className={`p-4 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'planning' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'planning' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              title="Lista de Desejos"
             >
-              <Heart size={24} strokeWidth={activeTab === 'planning' ? 2.5 : 2} />
+              <Heart size={20} strokeWidth={activeTab === 'planning' ? 2.5 : 2} />
             </button>
 
           </nav>
@@ -393,16 +414,28 @@ const Layout: React.FC<LayoutProps> = ({
                 {/* Import History Section */}
                 <div>
                     <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Dados</h4>
-                    <button
-                        onClick={() => {
-                            setIsSettingsOpen(false);
-                            onTabChange('import-history');
-                        }}
-                        className="w-full py-3 bg-white border border-zinc-200 text-zinc-700 font-medium rounded-xl hover:bg-zinc-50 hover:border-zinc-300 transition-all flex items-center justify-center gap-2 text-sm"
-                    >
-                        <FileText size={16} />
-                        Histórico de Importações
-                    </button>
+                    <div className="space-y-2">
+                        <button
+                            onClick={() => {
+                                setIsSettingsOpen(false);
+                                onTabChange('import-history');
+                            }}
+                            className="w-full py-3 bg-white border border-zinc-200 text-zinc-700 font-medium rounded-xl hover:bg-zinc-50 hover:border-zinc-300 transition-all flex items-center justify-center gap-2 text-sm"
+                        >
+                            <FileText size={16} />
+                            Histórico de Importações
+                        </button>
+                        <button
+                            onClick={() => {
+                                setIsSettingsOpen(false);
+                                onTabChange('duplicates');
+                            }}
+                            className="w-full py-3 bg-white border border-zinc-200 text-zinc-700 font-medium rounded-xl hover:bg-zinc-50 hover:border-zinc-300 transition-all flex items-center justify-center gap-2 text-sm"
+                        >
+                            <AlertTriangle size={16} />
+                            Auditoria de Duplicados
+                        </button>
+                    </div>
                 </div>
 
                 <div>
