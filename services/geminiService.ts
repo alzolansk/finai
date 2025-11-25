@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { Transaction, Category, TransactionType, Insight, TipoImportacao, TransacaoNormalizada } from '../types';
+import { Transaction, Category, TransactionType, Insight, TipoImportacao, TransacaoNormalizada, WishlistItem, ChatCTA } from '../types';
 import { detectarTipoImportacao, normalizarTransacaoGenerica, isPagamentoFaturaDescription, isLikelyInternalTransfer, parseSpreadsheet } from '../utils/importUtils';
 import { logApiCall } from './storageService';
 import { parseLocalDate } from '../utils/dateUtils';
@@ -459,10 +459,83 @@ export const generateInsights = async (transactions: Transaction[]): Promise<Ins
   }
 };
 
+interface AdvisorContext {
+  wishlistItems?: WishlistItem[];
+  upcomingPayments?: {
+    title: string;
+    amount: number;
+    dueDate: string;
+    category?: string;
+    type: TransactionType;
+    status?: 'pending' | 'paid' | 'overdue';
+    source?: 'transaction' | 'invoice';
+  }[];
+  invoiceSummaries?: {
+    title: string;
+    issuer?: string;
+    dueDate?: string;
+    amount: number;
+    itemCount?: number;
+    currentMonthTotal?: number;
+  }[];
+  invoiceFocus?: {
+    title: string;
+    issuer?: string;
+    dueDate?: string;
+    amount: number;
+    items: {
+      description: string;
+      amount: number;
+      category?: string;
+      date?: string;
+      paymentDate?: string;
+      type?: TransactionType;
+      isRecurring?: boolean;
+      linkedToInvoice?: boolean;
+      issuer?: string;
+    }[];
+  };
+}
+
 // 4. Chat with Financial Advisor
-export const chatWithAdvisor = async (history: {role: string, parts: {text: string}[]}[], transactions: Transaction[]): Promise<string> => {
+export const chatWithAdvisor = async (
+  history: {role: string, parts: {text: string}[]}[],
+  transactions: Transaction[],
+  context: AdvisorContext = {}
+): Promise<{ text: string; cta?: ChatCTA }> => {
   const startTime = Date.now();
   const lastUserMsg = history[history.length - 1].parts[0].text.toLowerCase();
+  const wishlistItems = context.wishlistItems || [];
+  const invoiceSummaries = context.invoiceSummaries || [];
+  const invoiceFocus = context.invoiceFocus;
+
+  // Default agenda/payments window (next 60 days)
+  const fallbackUpcoming = (() => {
+    const now = new Date();
+    const horizon = new Date();
+    horizon.setMonth(horizon.getMonth() + 2);
+
+    return transactions
+      .filter(t => t.type === TransactionType.EXPENSE)
+      .filter(t => {
+        const due = new Date(t.paymentDate || t.date);
+        return due >= now && due <= horizon;
+      })
+      .sort((a, b) => new Date(a.paymentDate || a.date).getTime() - new Date(b.paymentDate || b.date).getTime())
+      .slice(0, 12)
+      .map(t => ({
+        title: t.description,
+        amount: t.amount,
+        dueDate: t.paymentDate || t.date,
+        category: t.category,
+        type: t.type,
+        source: (t.issuer || (t.isCreditPurchase && t.creditCardIssuer)) ? 'invoice' : 'transaction'
+      }));
+  })();
+
+  const paymentsContext = (context.upcomingPayments && context.upcomingPayments.length > 0)
+    ? context.upcomingPayments
+    : fallbackUpcoming;
 
   // Quick snapshot (last 3 months, usando paymentDate se existir)
   const monthlyBuckets: Record<string, { income: number; expense: number }> = {};
@@ -559,35 +632,102 @@ export const chatWithAdvisor = async (history: {role: string, parts: {text: stri
     .map(t => `${t.date}: ${t.description} - R$ ${t.amount} (${t.category})`)
     .join('\n');
 
+  // Enrich context with wishlist, agenda and invoices
+  const wishlistMatches = wishlistItems.filter(item => lastUserMsg.includes(item.name.toLowerCase()));
+  const wishlistForPrompt = (wishlistMatches.length ? wishlistMatches : wishlistItems).slice(0, 10);
+  const wishlistSummary = wishlistForPrompt
+    .map(item => {
+      const progress = item.targetAmount > 0 ? Math.round((item.savedAmount / item.targetAmount) * 100) : 0;
+      const viability = item.isViable ? 'viavel' : item.viabilityDate ? `planejando (viavel em ${item.viabilityDate})` : 'planejando';
+      const installments = item.paymentOption === 'installments' && item.installmentCount && item.installmentAmount
+        ? ` | ${item.installmentCount}x de R$ ${item.installmentAmount.toFixed(2)}`
+        : '';
+      return `${item.name} -> alvo R$ ${item.targetAmount.toFixed(2)}, guardado R$ ${item.savedAmount.toFixed(2)} (${progress}%), status ${viability}${installments}`;
+    })
+    .join('\n');
+
+  const paymentSummary = paymentsContext
+    .slice(0, 15)
+    .map(p => `${p.dueDate}: ${p.title} - R$ ${p.amount.toFixed(2)} (${p.category || 'Sem categoria'}) [${p.source || 'transaction'}]`)
+    .join('\n');
+
+  const invoiceSummaryText = invoiceSummaries
+    .slice(0, 6)
+    .map(inv => `${inv.title || 'Fatura'} (${inv.issuer || 'Cartao'}), venc ${inv.dueDate || 'sem data'}, total R$ ${inv.amount.toFixed(2)}, mes atual R$ ${(inv.currentMonthTotal ?? inv.amount).toFixed(2)}, itens ${inv.itemCount ?? 'n/d'}`)
+    .join('\n');
+
+  const invoiceFocusText = invoiceFocus
+    ? `Fatura em foco: ${invoiceFocus.title} (${invoiceFocus.issuer || 'Cartao'}), venc ${invoiceFocus.dueDate || 'sem data'}, total R$ ${invoiceFocus.amount.toFixed(2)}. Itens:\n${invoiceFocus.items.slice(0, 40).map(item => `${item.paymentDate || item.date || 's/data'}: ${item.description} - R$ ${(item.amount || 0).toFixed(2)} (${item.category || 'Sem categoria'})`).join('\n')}`
+    : '';
+
   try {
     const chat = ai.chats.create({
       model: "gemini-2.5-flash",
       config: {
-        systemInstruction: `You are FinAI, a sophisticated financial advisor.
-        Contexto financeiro do usuário: ${snapshotText}
-        User's transactions (${relevantTransactions.length} transactions analyzed):
+        systemInstruction: `Voce e FinAI, assistente financeiro central. Voce enxerga transacoes, lista de desejos inteligentes e agenda de pagamentos do app.
+        Contexto financeiro (ultimos meses): ${snapshotText}
+        Transacoes relevantes (${relevantTransactions.length} analisadas):
         ${summary}
 
-        Responda em Português, bem curto (até ~120 palavras).
+        Contexto extra do app:
+        - Desejos (${wishlistItems.length}): ${wishlistSummary || 'nenhum desejo cadastrado.'}
+        - Agenda/Pagamentos proximos (${paymentsContext.length}): ${paymentSummary || 'sem vencimentos relevantes.'}
+        - Faturas importadas (${invoiceSummaries.length}): ${invoiceSummaryText || 'nenhuma fatura salva.'}
+        ${invoiceFocusText ? `- ${invoiceFocusText}` : ''}
+
+        Regras:
+        - Antes de dizer que algo nao existe, cheque desejos e faturas listadas acima.
+        - Se a pergunta for sobre metas/desejos, responda com valor alvo, quanto ja foi guardado, parcela/forma de pagamento e viabilidade.
+        - Se for sobre faturas/pagamentos, priorize a fatura em foco quando houver e detalhe valores e vencimento.
+        - Se o usuario perguntar sobre comprar/adicionar algum item, SEMPRE inclua o CTA de adicionar a lista de desejos.
+        - Responda em Portugues, curto (ate ~120 palavras).
         Formato fixo:
-        1) Julgamento direto em 1 frase (ex: "Veredito: risco moderado" ou "Veredito: viável").
-        2) 2-3 bullets rápidos sobre impacto no fluxo de caixa e % da renda média.
-        3) 2 bullets de recomendações práticas (limite saudável da parcela / adiar / negociar / alternativa mais barata).
-        Sem parágrafos longos; frases curtas; valores sempre em BRL (R$) usando números do histórico quando possível.`
+        1) Julgamento direto em 1 frase (ex: "Veredito: risco moderado" ou "Veredito: viavel").
+        2) 2-3 bullets rapidos sobre impacto no fluxo de caixa e % da renda media.
+        3) 2 bullets de recomendacoes praticas (limite saudavel da parcela / adiar / negociar / alternativa mais barata).
+        Sem paragrafos longos; frases curtas; valores sempre em BRL (R$) usando dados reais quando possivel.
+        Opcionalmente, se fizer sentido sugerir adicionar algo na lista de desejos, acrescente NO FINAL uma linha 'CTA: {"type":"wishlist_add","name":"NOME_DO_ITEM","rationale":"por que adicionar","suggestedPrice":1234.56}'.`
       },
       history: history
     });
 
-    const response = await chat.sendMessage({ message: lastUserMsg });
+      const response = await chat.sendMessage({ message: lastUserMsg });
 
-    logApiCall({ endpoint: 'chatWithAdvisor', status: 'success', duration: Date.now() - startTime });
-    return response.text || "Desculpe, nao entendi.";
-  } catch (error) {
-    logApiCall({ endpoint: 'chatWithAdvisor', status: 'error', duration: Date.now() - startTime, error: String(error) });
-    console.error("Chat error:", error);
-    return "Desculpe, estou com dificuldade de conexao no momento.";
-  }
-};
+      const rawText = response.text || "Desculpe, nao entendi.";
+      let cta: ChatCTA | undefined;
+
+      const cleanedLines: string[] = [];
+      rawText.split('\n').forEach(line => {
+        const match = line.trim().match(/^CTA:\s*(\{.*\})/);
+        if (match) {
+          try {
+            const parsed = JSON.parse(match[1]);
+            if (parsed?.type === 'wishlist_add' && parsed?.name) {
+              cta = {
+                type: 'wishlist_add',
+                name: parsed.name,
+                rationale: parsed.rationale,
+                suggestedPrice: parsed.suggestedPrice
+              };
+            }
+          } catch (e) {
+            console.warn('Failed to parse CTA', e);
+          }
+        } else {
+          cleanedLines.push(line);
+        }
+      });
+
+      const finalText = cleanedLines.join('\n').trim();
+
+      logApiCall({ endpoint: 'chatWithAdvisor', status: 'success', duration: Date.now() - startTime });
+      return { text: finalText, cta };
+    } catch (error) {
+      logApiCall({ endpoint: 'chatWithAdvisor', status: 'error', duration: Date.now() - startTime, error: String(error) });
+      console.error("Chat error:", error);
+      return { text: "Desculpe, estou com dificuldade de conexao no momento." };
+    }
+  };
 
 // 5. Onboarding: Calculate Goals
 export const calculateBudgetGoal = async (income: number, fixedExpenses: {description: string, amount: number}[]): Promise<{ recommendedGoal: number, reasoning: string }> => {

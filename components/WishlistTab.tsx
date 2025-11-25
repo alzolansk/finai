@@ -26,6 +26,7 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [conversationStep, setConversationStep] = useState<ConversationStep>('idle');
   const [isLoading, setIsLoading] = useState(false);
+  const [expandedAnalyses, setExpandedAnalyses] = useState<Record<string, boolean>>({});
 
   // Conversation state
   const [itemName, setItemName] = useState('');
@@ -269,6 +270,13 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
     const priorityOrder = { [WishlistPriority.HIGH]: 3, [WishlistPriority.MEDIUM]: 2, [WishlistPriority.LOW]: 1 };
     return priorityOrder[b.priority] - priorityOrder[a.priority];
   });
+
+  const toggleAnalysis = (id: string) => {
+    setExpandedAnalyses(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
 
   return (
     <div className="space-y-8 pb-20 animate-fadeIn">
@@ -656,6 +664,7 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
         {sortedItems.map(item => {
           const progress = (item.savedAmount / item.targetAmount) * 100;
           const remaining = item.targetAmount - item.savedAmount;
+          const isAnalysisExpanded = expandedAnalyses[item.id];
 
           return (
             <div key={item.id} className="bg-white rounded-3xl p-6 border border-zinc-100 shadow-sm hover:shadow-md transition-all">
@@ -719,25 +728,47 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
                 </div>
               </div>
 
-              {/* AI Analysis */}
+              {/* AI Analysis (click to expand) */}
               {item.aiAnalysis && (
-                <div className={`rounded-xl p-4 mb-4 ${
-                  item.isViable ? 'bg-emerald-50 border border-emerald-100' : 'bg-orange-50 border border-orange-100'
-                }`}>
-                  <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-lg shrink-0 ${
-                      item.isViable ? 'bg-emerald-100 text-emerald-600' : 'bg-orange-100 text-orange-600'
-                    }`}>
+                <div className="mb-4 space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleAnalysis(item.id)}
+                    className="flex items-center gap-3 text-left"
+                  >
+                    <div
+                      className={`w-9 h-9 rounded-full border flex items-center justify-center ${
+                        item.isViable ? 'border-emerald-200 bg-emerald-50 text-emerald-600' : 'border-orange-200 bg-orange-50 text-orange-600'
+                      }`}
+                      title={`${item.aiAnalysis}${item.aiRecommendation ? ' • ' + item.aiRecommendation : ''}`}
+                    >
                       <Sparkles size={18} />
                     </div>
-                    <div className="flex-1">
-                      <h4 className="font-bold text-sm mb-1 text-zinc-800">Análise IA</h4>
-                      <p className="text-sm text-zinc-700 mb-2">{item.aiAnalysis}</p>
-                      {item.aiRecommendation && (
-                        <p className="text-xs text-zinc-600 italic">💡 {item.aiRecommendation}</p>
-                      )}
+                    <span className="text-xs font-semibold text-zinc-600">
+                      {isAnalysisExpanded ? 'Esconder análise' : 'Ver análise IA'}
+                    </span>
+                  </button>
+
+                  {isAnalysisExpanded && (
+                    <div className={`rounded-xl p-4 ${
+                      item.isViable ? 'bg-emerald-50 border border-emerald-100' : 'bg-orange-50 border border-orange-100'
+                    }`}>
+                      <div className="flex items-start gap-3">
+                        <div className={`p-2 rounded-lg shrink-0 ${
+                          item.isViable ? 'bg-emerald-100 text-emerald-600' : 'bg-orange-100 text-orange-600'
+                        }`}>
+                          <Sparkles size={18} />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-bold text-sm mb-1 text-zinc-800">Analise IA</h4>
+                          <p className="text-sm text-zinc-700 mb-2">{item.aiAnalysis}</p>
+                          {item.aiRecommendation && (
+                            <p className="text-xs text-zinc-600 italic">Recomendação: {item.aiRecommendation}</p>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 

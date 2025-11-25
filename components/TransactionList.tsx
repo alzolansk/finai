@@ -187,7 +187,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
     const issuerMap = new Map<string, Map<string, Transaction[]>>();
 
     expensesOnly.forEach((t) => {
-      const issuer = t.issuer || 'Outros';
+      const issuer = t.issuer || t.creditCardIssuer || 'Outros';
       const paymentKey = t.paymentDate || t.date;
 
       if (!issuerMap.has(issuer)) {

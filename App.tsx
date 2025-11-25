@@ -8,10 +8,10 @@ import SavingsPlanPage from './components/SavingsPlanPage';
 import Onboarding from './components/Onboarding';
 import TransactionList from './components/TransactionList';
 import ImportHistoryPage from './components/ImportHistoryPage';
-import { Transaction, UserSettings, ChatMessage, TransactionType, Category, TimePeriod, WishlistItem } from './types';
+import { Transaction, UserSettings, ChatMessage, TransactionType, Category, TimePeriod, WishlistItem, WishlistPriority, WishlistItemType } from './types';
 import { generateSmartAlerts } from './services/forecastService';
-import { getTransactions, saveTransaction, getUserSettings, saveUserSettings, deleteTransaction, updateTransaction, getSavingsReviews, saveSavingsReview, SavingsReview, getAgendaChecklist, toggleAgendaChecklist, AgendaChecklistEntry, getWishlistItems, saveWishlistItem, deleteWishlistItem } from './services/storageService';
-import { chatWithAdvisor } from './services/geminiService';
+import { getTransactions, saveTransaction, getUserSettings, saveUserSettings, deleteTransaction, updateTransaction, getSavingsReviews, saveSavingsReview, SavingsReview, getAgendaChecklist, toggleAgendaChecklist, AgendaChecklistEntry, getWishlistItems, saveWishlistItem, deleteWishlistItem, getImportedInvoices } from './services/storageService';
+import { chatWithAdvisor, researchWishlistItem, analyzeWishlistViability } from './services/geminiService';
 import { SavingsPlanAction } from './services/savingsService';
 import ReviewRecommendationPanel from './components/ReviewRecommendationPanel';
 import Agenda, { AgendaItem } from './components/Agenda';
@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [chatActionLoadingId, setChatActionLoadingId] = useState<string | null>(null);
 
   // Global State
   const [isTurboMode, setIsTurboMode] = useState(false);
@@ -117,6 +118,25 @@ const App: React.FC = () => {
     setTransactions(currentAll);
   };
 
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+
+  const isPurchaseIntent = (text: string) => {
+    const lower = text.toLowerCase();
+    const keywords = ['comprar', 'posso comprar', 'consigo comprar', 'compraria', 'adicionar na lista', 'colocar na lista', 'botar na lista'];
+    return keywords.some(k => lower.includes(k));
+  };
+
+  const extractItemName = (text: string) => {
+    const lower = text.toLowerCase();
+    const idx = lower.indexOf('comprar');
+    if (idx >= 0) {
+      const sliced = text.substring(idx + 'comprar'.length).replace(/\?/g, '').trim();
+      if (sliced.length > 0) return sliced;
+    }
+    return text.replace(/\?/g, '').trim();
+  };
+
   const handleSendMessage = async (text: string) => {
     const newMessage: ChatMessage = {
       id: crypto.randomUUID(),
@@ -131,20 +151,93 @@ const App: React.FC = () => {
 
     try {
       // Format history for Gemini
-      const apiHistory = updatedMessages.map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.text }]
-      }));
+        const apiHistory = updatedMessages.map(m => ({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.text }]
+        }));
 
-      const responseText = await chatWithAdvisor(apiHistory, transactions);
-      
-      const botMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        text: responseText,
-        timestamp: Date.now()
-      };
-      setChatMessages(prev => [...prev, botMessage]);
+        const invoiceSnapshots = getImportedInvoices()
+          .slice(0, 8)
+          .map(inv => {
+            const issuerLower = inv.issuer?.toLowerCase();
+            const items = inv.transactionIds
+              ? transactions.filter(t => inv.transactionIds!.includes(t.id))
+              : transactions.filter(t => {
+                  if (!issuerLower) return false;
+                  const transactionIssuer = t.issuer?.toLowerCase();
+                  const cardIssuer = t.creditCardIssuer?.toLowerCase();
+
+                  return (transactionIssuer && transactionIssuer.includes(issuerLower)) ||
+                         (cardIssuer && cardIssuer.includes(issuerLower));
+                });
+
+            const currentMonthTotal = items
+              .filter(t => {
+                const d = new Date(t.paymentDate || t.date);
+                return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+              })
+              .reduce((sum, t) => sum + t.amount, 0);
+
+            return {
+              title: `Fatura ${inv.issuer || 'Cartao'}`,
+              issuer: inv.issuer,
+              dueDate: inv.dueDate,
+              amount: inv.totalAmount,
+              itemCount: inv.transactionIds?.length || inv.transactionCount,
+              currentMonthTotal
+            };
+          });
+
+        const now = new Date();
+        const horizon = new Date();
+        horizon.setMonth(horizon.getMonth() + 2);
+        const upcomingPayments = transactions
+          .filter(t => t.type === TransactionType.EXPENSE)
+          .filter(t => {
+            const due = new Date(t.paymentDate || t.date);
+            return due >= now && due <= horizon;
+          })
+          .sort((a, b) => new Date(a.paymentDate || a.date).getTime() - new Date(b.paymentDate || b.date).getTime())
+          .slice(0, 20)
+          .map(t => ({
+            title: t.description,
+            amount: t.amount,
+            dueDate: t.paymentDate || t.date,
+            category: t.category,
+            type: t.type,
+            status: 'pending' as const,
+            source: (t.issuer || (t.isCreditPurchase && t.creditCardIssuer)) ? 'invoice' : 'transaction'
+          }));
+
+        const response = await chatWithAdvisor(apiHistory, transactions, {
+          wishlistItems,
+          upcomingPayments,
+          invoiceSummaries: invoiceSnapshots
+        });
+
+        const botMessage: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          text: response.text,
+          timestamp: Date.now(),
+          cta: response.cta,
+          uiActions: response.cta?.type === 'wishlist_add' ? [
+            { id: 'cta-yes', label: 'Sim', action: 'approve_cta' },
+            { id: 'cta-no', label: 'Nao', action: 'reject_cta' }
+          ] : undefined
+        };
+
+        // Fallback CTA if the model didn't emit but intent is purchase
+        if (!botMessage.cta && isPurchaseIntent(text)) {
+          const name = extractItemName(text);
+          botMessage.cta = { type: 'wishlist_add', name };
+          botMessage.uiActions = [
+            { id: 'cta-yes', label: 'Sim', action: 'approve_cta' },
+            { id: 'cta-no', label: 'Nao', action: 'reject_cta' }
+          ];
+        }
+
+        setChatMessages(prev => [...prev, botMessage]);
     } catch (e) {
       console.error(e);
     } finally {
@@ -209,6 +302,85 @@ const App: React.FC = () => {
     setWishlistItems(updated);
   };
 
+  const handleChatAction = async (message: ChatMessage, actionId: string) => {
+    if (!message.cta || message.cta.type !== 'wishlist_add') return;
+
+    if (actionId === 'cta-no') {
+      setChatMessages(prev => prev.map(m => m.id === message.id ? { ...m, uiActions: undefined, ctaStatus: 'rejected' } : m));
+      return;
+    }
+
+    const loadingKey = `${message.id}:${actionId}`;
+    setChatActionLoadingId(loadingKey);
+
+    try {
+      const itemName = message.cta.name;
+      const priceData = await researchWishlistItem(itemName);
+
+      // Calculate monthly expenses (average of last 3 months)
+      const now = new Date();
+      const months = [0, 1, 2].map(offset => {
+        const d = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+        return `${d.getFullYear()}-${d.getMonth()}`;
+      });
+      const monthlyExpenses = months.reduce((sum, key) => {
+        const [y, m] = key.split('-').map(Number);
+        const total = transactions
+          .filter(t => t.type === TransactionType.EXPENSE)
+          .filter(t => {
+            const d = new Date(t.paymentDate || t.date);
+            return d.getFullYear() === y && d.getMonth() === m;
+          })
+          .reduce((s, t) => s + t.amount, 0);
+        return sum + total;
+      }, 0) / (months.length || 1);
+
+      const viability = await analyzeWishlistViability(
+        itemName,
+        priceData.estimatedPrice,
+        settings?.monthlyIncome || 0,
+        monthlyExpenses || 0,
+        'cash'
+      );
+
+      const newItem: WishlistItem = {
+        id: crypto.randomUUID(),
+        name: itemName,
+        description: priceData.description,
+        targetAmount: priceData.estimatedPrice,
+        savedAmount: 0,
+        type: WishlistItemType.PURCHASE,
+        priority: WishlistPriority.MEDIUM,
+        paymentOption: 'cash',
+        isViable: viability.isViable,
+        viabilityDate: viability.viabilityDate || undefined,
+        aiAnalysis: viability.analysis,
+        aiRecommendation: viability.recommendation,
+        priceResearchConfidence: priceData.confidence,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        createdViaChat: true
+      };
+
+      const updated = saveWishlistItem(newItem);
+      setWishlistItems(updated);
+
+      setChatMessages(prev => prev.map(m => m.id === message.id ? { ...m, uiActions: undefined, ctaStatus: 'approved' } : m));
+
+      const confirmMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        text: `Adicionei "${itemName}" na Lista de Desejos com valor estimado de R$ ${priceData.estimatedPrice.toFixed(2)} (via chat). Viabilidade: ${viability.isViable ? 'viavel agora' : 'planejando'}.`,
+        timestamp: Date.now()
+      };
+      setChatMessages(prev => [...prev, confirmMessage]);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setChatActionLoadingId(null);
+    }
+  };
+
   if (!settings || !settings.onboardingCompleted) {
     return <Onboarding onComplete={handleOnboardingComplete} />;
   }
@@ -225,6 +397,8 @@ const App: React.FC = () => {
       chatMessages={chatMessages}
       onSendMessage={handleSendMessage}
       isChatLoading={isChatLoading}
+      onChatAction={handleChatAction}
+      chatActionLoadingId={chatActionLoadingId}
       alerts={alerts}
       isTurboMode={isTurboMode}
       onToggleTurboMode={() => setIsTurboMode(!isTurboMode)}

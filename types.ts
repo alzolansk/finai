@@ -35,6 +35,7 @@ export interface Transaction {
   movementType?: 'regular' | 'internal_transfer' | 'invoice_payment'; // Type of movement for filtering
   ignoredReason?: string; // Reason why this transaction was ignored (for audit purposes)
   isProjected?: boolean; // Flag to indicate this is a projected recurring transaction (not yet saved to DB)
+  isCreditPurchase?: boolean; // Marks that the expense was made on credit and paid on the invoice due date
 }
 
 export interface Insight {
@@ -59,6 +60,22 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   text: string;
   timestamp: number;
+  uiActions?: ChatAction[];
+  cta?: ChatCTA;
+  ctaStatus?: 'approved' | 'rejected';
+}
+
+export interface ChatAction {
+  id: string;
+  label: string;
+  action: 'approve_cta' | 'reject_cta';
+}
+
+export interface ChatCTA {
+  type: 'wishlist_add';
+  name: string;
+  rationale?: string;
+  suggestedPrice?: number;
 }
 
 export interface UserSettings {
@@ -116,4 +133,5 @@ export interface WishlistItem {
   priceResearchConfidence?: 'high' | 'medium' | 'low'; // AI price research confidence
   createdAt: number;
   updatedAt?: number;
+  createdViaChat?: boolean; // Flag to indicate item was added by the chat assistant
 }

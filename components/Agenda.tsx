@@ -5,6 +5,7 @@ import { ImportedInvoice, getImportedInvoices, AgendaChecklistEntry } from '../s
 import { CheckCircle2, Circle, AlertCircle, Calendar, ArrowUpCircle, ArrowDownCircle, Filter, ChevronDown, ChevronUp, Search, ChevronLeft, ChevronRight, X, CreditCard, Receipt, MessageSquare, Send, Link2 } from 'lucide-react';
 import { getMonthName } from '../utils/dateUtils';
 import { getIconForTransaction } from '../utils/iconMapper';
+import { chatWithAdvisor } from '../services/geminiService';
 
 interface AgendaProps {
   transactions: Transaction[];
@@ -33,6 +34,8 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
   const [typeFilter, setTypeFilter] = useState<'all' | 'expense' | 'income'>('all');
   const [selectedInvoice, setSelectedInvoice] = useState<AgendaItem | null>(null);
   const [invoiceQuestion, setInvoiceQuestion] = useState('');
+  const [invoiceAnswer, setInvoiceAnswer] = useState<string | null>(null);
+  const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [isAskingAI, setIsAskingAI] = useState(false);
   const [invoiceItemFilter, setInvoiceItemFilter] = useState<'all' | 'installments' | 'single' | 'subscriptions'>('all');
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
@@ -50,6 +53,61 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
     const newDate = new Date(currentDate);
     newDate.setMonth(newDate.getMonth() + 1);
     onDateChange(newDate);
+  };
+
+  const handleAskInvoiceAI = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedInvoice || !invoiceQuestion.trim()) return;
+
+    setIsAskingAI(true);
+    setInvoiceAnswer(null);
+    setInvoiceError(null);
+
+    const invoiceIssuer = selectedInvoice.originalInvoice?.issuer?.toLowerCase();
+    const invoiceTransactions = selectedInvoice.originalInvoice?.transactionIds
+      ? transactions.filter(t => selectedInvoice.originalInvoice!.transactionIds!.includes(t.id))
+      : transactions.filter(t => {
+          if (!invoiceIssuer) return false;
+          const normalizedIssuer = t.issuer?.toLowerCase();
+          const normalizedCardIssuer = t.creditCardIssuer?.toLowerCase();
+
+          return (normalizedIssuer && normalizedIssuer.includes(invoiceIssuer)) ||
+                 (normalizedCardIssuer && normalizedCardIssuer.includes(invoiceIssuer));
+        });
+
+    try {
+      const response = await chatWithAdvisor(
+        [{ role: 'user', parts: [{ text: invoiceQuestion }] }],
+        transactions,
+        {
+          invoiceFocus: {
+            title: selectedInvoice.title,
+            issuer: selectedInvoice.originalInvoice?.issuer,
+            dueDate: selectedInvoice.dueDate,
+            amount: selectedInvoice.amount,
+            items: invoiceTransactions.map(t => ({
+              description: t.description,
+              amount: t.amount,
+              category: t.category,
+              date: t.date,
+              paymentDate: t.paymentDate,
+              type: t.type,
+              isRecurring: t.isRecurring,
+              linkedToInvoice: t.linkedToInvoice,
+              issuer: t.issuer
+            }))
+          }
+        }
+      );
+
+      setInvoiceAnswer(response.text);
+      setInvoiceQuestion('');
+    } catch (err) {
+      console.error(err);
+      setInvoiceError('Nao consegui analisar esta fatura agora. Tente novamente em instantes.');
+    } finally {
+      setIsAskingAI(false);
+    }
   };
 
   const agendaItems = useMemo(() => {
@@ -74,25 +132,70 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
       invoicesByIssuer.get(issuer)!.push(inv);
     });
 
+    const hasInvoiceForIssuer = (t: Transaction) => {
+      const issuerKey = (t.issuer || t.creditCardIssuer || '').toLowerCase();
+      if (!issuerKey) return false;
+      return Array.from(invoicesByIssuer.keys()).some(key => key.includes(issuerKey));
+    };
+
+    // Ensure manual credit purchases also generate an invoice bucket (even without imported invoices)
+    const manualCreditByIssuer = new Map<string, Transaction[]>();
+    transactions
+      .filter(t => t.isCreditPurchase && (t.creditCardIssuer || t.issuer) && !t.isRecurring)
+      .forEach(t => {
+        const issuerKey = (t.creditCardIssuer || t.issuer || '').toLowerCase();
+        if (!manualCreditByIssuer.has(issuerKey)) {
+          manualCreditByIssuer.set(issuerKey, []);
+        }
+        manualCreditByIssuer.get(issuerKey)!.push(t);
+      });
+
+    manualCreditByIssuer.forEach((issuerTransactions, issuerKey) => {
+      if (invoicesByIssuer.has(issuerKey)) return;
+
+      const preferredDate = issuerTransactions
+        .map(t => new Date(t.paymentDate || t.date))
+        .sort((a, b) => b.getTime() - a.getTime())[0];
+
+      invoicesByIssuer.set(issuerKey, [{
+        id: `manual-${issuerKey}`,
+        dueDate: preferredDate.toISOString(),
+        totalAmount: issuerTransactions.reduce((sum, t) => sum + t.amount, 0),
+        transactionCount: issuerTransactions.length,
+        importedAt: Date.now(),
+        fingerprint: `manual-${issuerKey}`,
+        transactionIds: issuerTransactions.map(t => t.id),
+        issuer: issuerTransactions[0].creditCardIssuer || issuerTransactions[0].issuer
+      }]);
+    });
+
     // For each issuer, check if there are transactions in the current month
     invoicesByIssuer.forEach((issuerInvoices, issuer) => {
       // Find all transactions for this issuer that have paymentDate in current month
       const monthTransactions = transactions.filter(t => {
         const tPaymentDate = new Date(t.paymentDate || t.date);
         const isInCurrentMonth = tPaymentDate.getMonth() === currentMonth && tPaymentDate.getFullYear() === currentYear;
-        
-        // Check if this transaction belongs to any invoice from this issuer
-        const belongsToIssuer = issuerInvoices.some(inv => 
+
+        if (!isInCurrentMonth) return false;
+
+        // Check if this transaction belongs to any invoice from this issuer (imported)
+        const belongsToImportedInvoice = issuerInvoices.some(inv =>
           inv.transactionIds?.includes(t.id)
         );
-        
-        return isInCurrentMonth && belongsToIssuer;
+
+        // OR check if it's a manual credit purchase for this issuer
+        const isManualCreditPurchase = t.isCreditPurchase &&
+                                       t.creditCardIssuer &&
+                                       issuer.includes(t.creditCardIssuer.toLowerCase()) &&
+                                       !t.isRecurring; // Exclude recurring (they're handled separately)
+
+        return belongsToImportedInvoice || isManualCreditPurchase;
       });
 
       // Find linked subscriptions for this issuer
-      const linkedSubscriptions = transactions.filter(t => 
-        t.isRecurring && 
-        t.linkedToInvoice && 
+      const linkedSubscriptions = transactions.filter(t =>
+        t.isRecurring &&
+        t.linkedToInvoice &&
         t.creditCardIssuer &&
         issuer.includes(t.creditCardIssuer.toLowerCase())
       );
@@ -163,41 +266,19 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
         // Skip if this subscription is linked to a credit card invoice
         // (it will be shown inside the invoice details)
         if (def.linkedToInvoice && def.creditCardIssuer) {
-            // Find the corresponding invoice for this month
-            const linkedInvoice = invoices.find(inv => {
-                const invDate = new Date(inv.dueDate);
-                const isThisMonth = invDate.getMonth() === currentMonth && invDate.getFullYear() === currentYear;
-                return isThisMonth && inv.issuer?.toLowerCase().includes(def.creditCardIssuer!.toLowerCase());
-            });
+            // Check if there's an invoice for this issuer in the current month
+            const hasInvoiceThisMonth = Array.from(invoicesByIssuer.keys()).some(issuerKey =>
+                issuerKey.includes(def.creditCardIssuer!.toLowerCase())
+            );
 
-            if (linkedInvoice) {
-                // Use invoice due date for linked subscriptions
-                const invoiceDueDate = new Date(linkedInvoice.dueDate);
-                const manualCheck = isMarkedPaid(def.id, invoiceDueDate);
-                
-                // Check if occurred using the invoice due date
-                const occurredInMonth = transactions.find(t => 
-                    t.description.toLowerCase().trim() === def.description.toLowerCase().trim() &&
-                    new Date(t.date).getMonth() === currentMonth &&
-                    new Date(t.date).getFullYear() === currentYear
-                );
-
-                const status = (occurredInMonth || manualCheck) ? 'paid' : (new Date() > invoiceDueDate ? 'overdue' : 'pending');
-
-                items.push({
-                    id: def.id,
-                    title: def.description,
-                    amount: def.amount,
-                    dueDate: linkedInvoice.dueDate, // Use invoice due date
-                    type: def.type,
-                    category: def.category,
-                    status,
-                    paidAt: occurredInMonth?.date || manualCheck?.paidAt,
-                    isInvoice: false,
-                    originalTransaction: def
-                });
-                return; // Skip normal processing
+            // If there's an invoice, skip adding this as a separate item
+            // It will be shown inside the invoice modal
+            if (hasInvoiceThisMonth) {
+                return; // Skip - will be shown inside invoice
             }
+
+            // If no invoice this month, treat as normal recurring item
+            // This handles edge cases where user creates subscription but hasn't imported invoice yet
         }
 
         // Normal processing for non-linked subscriptions
@@ -235,8 +316,9 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
     transactions.forEach(t => {
         const pDate = new Date(t.paymentDate || t.date);
         const isThisMonth = pDate.getMonth() === currentMonth && pDate.getFullYear() === currentYear;
+        const isCoveredByInvoice = hasInvoiceForIssuer(t);
         
-        if (isThisMonth && !t.isRecurring && !t.issuer) {
+        if (isThisMonth && !t.isRecurring && !isCoveredByInvoice) {
              const manualCheck = isMarkedPaid(t.id, pDate);
              const isFuture = pDate > new Date();
              
@@ -618,7 +700,7 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
         const theme = getBankTheme();
         
         return createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn" onClick={() => setSelectedInvoice(null)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn" onClick={() => { setSelectedInvoice(null); setInvoiceQuestion(''); setInvoiceAnswer(null); setInvoiceError(null); }}>
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden animate-scaleIn" onClick={(e) => e.stopPropagation()}>
             
             {/* Header */}
@@ -634,7 +716,7 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
                     <p className="text-zinc-300 text-sm">Vencimento: {new Date(selectedInvoice.dueDate).toLocaleDateString('pt-BR')}</p>
                   </div>
                 </div>
-                <button onClick={() => setSelectedInvoice(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white">
+                <button onClick={() => { setSelectedInvoice(null); setInvoiceQuestion(''); setInvoiceAnswer(null); setInvoiceError(null); }} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white">
                   <X size={24} />
                 </button>
               </div>
@@ -761,12 +843,20 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
                 {/* Regular invoice transactions */}
                 {(invoiceItemFilter !== 'subscriptions') && transactions
                   .filter(t => {
-                    // Check if transaction belongs to any invoice from this issuer
-                    const belongsToIssuer = getImportedInvoices()
-                      .filter(inv => inv.issuer?.toLowerCase() === selectedInvoice.originalInvoice!.issuer?.toLowerCase())
+                    const issuer = selectedInvoice.originalInvoice!.issuer?.toLowerCase() || '';
+
+                    // Check if transaction belongs to any invoice from this issuer (imported)
+                    const belongsToImportedInvoice = getImportedInvoices()
+                      .filter(inv => inv.issuer?.toLowerCase() === issuer)
                       .some(inv => inv.transactionIds?.includes(t.id));
-                    
-                    if (!belongsToIssuer) return false;
+
+                    // OR check if it's a manual credit purchase for this issuer
+                    const isManualCreditPurchase = t.isCreditPurchase &&
+                                                   t.creditCardIssuer &&
+                                                   issuer.includes(t.creditCardIssuer.toLowerCase()) &&
+                                                   !t.isRecurring; // Exclude recurring (they're shown separately)
+
+                    if (!belongsToImportedInvoice && !isManualCreditPurchase) return false;
                     
                     const tPaymentDate = new Date(t.paymentDate || t.date);
                     const isInCurrentMonth = tPaymentDate.getMonth() === currentMonth && tPaymentDate.getFullYear() === currentYear;
@@ -866,34 +956,35 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
                 <MessageSquare size={16} className={theme.aiIcon} />
                 Perguntar à IA sobre esta fatura
               </h4>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                if (invoiceQuestion.trim()) {
-                  setIsAskingAI(true);
-                  // TODO: Integrate with chatWithAdvisor
-                  setTimeout(() => {
-                    alert('Funcionalidade de IA em desenvolvimento. Pergunta: ' + invoiceQuestion);
-                    setInvoiceQuestion('');
-                    setIsAskingAI(false);
-                  }, 1000);
-                }
-              }} className="flex gap-2">
+                            <form onSubmit={handleAskInvoiceAI} className="flex gap-2">
                 <input 
                   type="text" 
                   value={invoiceQuestion}
                   onChange={(e) => setInvoiceQuestion(e.target.value)}
-                  placeholder="Ex: Por que este valor está alto?"
+                  placeholder="Ex: Por que este valor esta alto?"
                   className={`flex-1 px-4 py-3 bg-white border border-zinc-200 rounded-xl focus:ring-2 ${theme.ring} focus:border-transparent outline-none text-sm`}
                   disabled={isAskingAI}
                 />
                 <button 
-                  type="submit"
+                  type="submit" 
                   disabled={!invoiceQuestion.trim() || isAskingAI}
                   className={`px-6 py-3 ${theme.button} text-white rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2`}
                 >
                   {isAskingAI ? 'Perguntando...' : <><Send size={16} /> Perguntar</>}
                 </button>
               </form>
+
+              {invoiceAnswer && (
+                <div className="mt-3 bg-white border border-zinc-200 rounded-xl p-4 text-sm text-zinc-700 whitespace-pre-wrap">
+                  {invoiceAnswer}
+                </div>
+              )}
+
+              {invoiceError && (
+                <div className="mt-3 bg-rose-50 border border-rose-200 rounded-xl p-3 text-sm text-rose-700">
+                  {invoiceError}
+                </div>
+              )}
             </div>
 
           </div>

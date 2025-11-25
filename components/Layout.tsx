@@ -13,6 +13,8 @@ interface LayoutProps {
   chatMessages: ChatMessage[];
   onSendMessage: (text: string) => void;
   isChatLoading: boolean;
+  onChatAction?: (message: ChatMessage, actionId: string) => void;
+  chatActionLoadingId?: string | null;
   extraPanel?: ReactNode;
   alerts?: SmartAlert[];
   isTurboMode?: boolean;
@@ -39,6 +41,8 @@ const Layout: React.FC<LayoutProps> = ({
   onToggleChat,
   chatMessages,
   onSendMessage,
+  onChatAction,
+  chatActionLoadingId,
   isChatLoading,
   extraPanel,
   alerts = [],
@@ -180,7 +184,8 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
 
         {/* Floating Island Navigation */}
-        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-40 animate-slideUp">
+        <div className="fixed inset-x-0 bottom-8 flex justify-center z-40 pointer-events-none">
+          <div className="animate-slideUp pointer-events-auto">
           <nav className="bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 text-zinc-400 rounded-2xl px-2 py-2 shadow-2xl shadow-zinc-900/40 flex items-center gap-2 transition-all hover:scale-[1.01]">
             
             <button
@@ -189,20 +194,20 @@ const Layout: React.FC<LayoutProps> = ({
             >
               <Home size={24} strokeWidth={activeTab === 'dashboard' ? 2.5 : 2} />
             </button>
-            
-            {/* Prominent Add Button */}
-            <button
-              onClick={() => onTabChange('add')}
-              className="bg-emerald-500 text-white p-4 mx-2 rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 hover:scale-110 active:scale-95 transition-all group"
-            >
-              <Plus size={24} strokeWidth={3} className="group-hover:rotate-90 transition-transform duration-300" />
-            </button>
 
             <button
               onClick={() => onTabChange('insights')}
               className={`p-4 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'insights' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
             >
               <PieChart size={24} strokeWidth={activeTab === 'insights' ? 2.5 : 2} />
+            </button>
+
+            {/* Prominent Add Button (central) */}
+            <button
+              onClick={() => onTabChange('add')}
+              className="bg-emerald-500 text-white p-4 mx-2 rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 hover:scale-110 active:scale-95 transition-all group"
+            >
+              <Plus size={24} strokeWidth={3} className="group-hover:rotate-90 transition-transform duration-300" />
             </button>
 
             <button
@@ -220,6 +225,7 @@ const Layout: React.FC<LayoutProps> = ({
             </button>
 
           </nav>
+          </div>
         </div>
       </main>
 
@@ -258,6 +264,30 @@ const Layout: React.FC<LayoutProps> = ({
                     : 'bg-white border border-zinc-100 text-zinc-700 rounded-bl-sm'
                   }`}>
                     {msg.role === 'assistant' ? formatMessageText(msg.text) : msg.text}
+                    {msg.role === 'assistant' && msg.uiActions && (
+                      <div className="flex gap-2 mt-3">
+                        {msg.uiActions.map(action => {
+                          const loading = chatActionLoadingId === `${msg.id}:${action.id}`;
+                          const disabled = !!msg.ctaStatus || loading || isChatLoading;
+                          return (
+                            <button
+                              key={action.id}
+                              disabled={disabled}
+                              onClick={() => onChatAction && onChatAction(msg, action.id)}
+                              className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all ${action.action === 'approve_cta' ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-500' : 'bg-zinc-100 text-zinc-600 border-zinc-200 hover:bg-zinc-200'} ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+                            >
+                              {loading ? 'Processando...' : action.label}
+                            </button>
+                          );
+                        })}
+                        {msg.ctaStatus === 'approved' && (
+                          <span className="text-[11px] text-emerald-700 font-bold">Adicionado via chat</span>
+                        )}
+                        {msg.ctaStatus === 'rejected' && (
+                          <span className="text-[11px] text-zinc-500 font-bold">A��o descartada</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                </div>
              ))}

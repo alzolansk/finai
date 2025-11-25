@@ -349,3 +349,133 @@ export const updateWishlistItemAmount = (id: string, savedAmount: number): Wishl
 
   return current;
 };
+
+// --- Credit Card Intelligence ---
+
+export interface CreditCardInfo {
+  issuer: string;
+  mostCommonDueDay: number; // Day of month (1-31)
+  lastInvoiceDate?: string;
+  transactionCount: number;
+}
+
+/**
+ * Analyzes transaction history to extract credit card patterns
+ * Returns list of credit cards with their most common due dates
+ */
+export const getCreditCardHistory = (): CreditCardInfo[] => {
+  const transactions = getTransactions();
+  const invoices = getImportedInvoices();
+
+  // Map to store issuer -> due days frequency
+  const issuerData = new Map<string, { dueDays: number[], lastDate: string, count: number }>();
+
+  // 1. Analyze imported invoices (more reliable for due dates)
+  invoices.forEach(invoice => {
+    if (invoice.issuer && invoice.dueDate && invoice.dueDate !== 'no-date') {
+      const dueDay = new Date(invoice.dueDate).getDate();
+      const existing = issuerData.get(invoice.issuer);
+
+      if (existing) {
+        existing.dueDays.push(dueDay);
+        existing.count += invoice.transactionCount;
+        // Keep most recent date
+        if (new Date(invoice.dueDate) > new Date(existing.lastDate)) {
+          existing.lastDate = invoice.dueDate;
+        }
+      } else {
+        issuerData.set(invoice.issuer, {
+          dueDays: [dueDay],
+          lastDate: invoice.dueDate,
+          count: invoice.transactionCount
+        });
+      }
+    }
+  });
+
+  // 2. Also check transactions with creditCardIssuer (for recurring subscriptions)
+  transactions.forEach(t => {
+    if (t.creditCardIssuer && t.isCreditPurchase && t.paymentDate) {
+      const dueDay = new Date(t.paymentDate).getDate();
+      const existing = issuerData.get(t.creditCardIssuer);
+
+      if (existing) {
+        existing.dueDays.push(dueDay);
+        existing.count += 1;
+        if (new Date(t.paymentDate) > new Date(existing.lastDate)) {
+          existing.lastDate = t.paymentDate;
+        }
+      } else {
+        issuerData.set(t.creditCardIssuer, {
+          dueDays: [dueDay],
+          lastDate: t.paymentDate,
+          count: 1
+        });
+      }
+    }
+  });
+
+  // 3. Calculate most common due day for each issuer
+  const result: CreditCardInfo[] = [];
+
+  issuerData.forEach((data, issuer) => {
+    // Find most frequent due day
+    const dayFrequency = new Map<number, number>();
+    data.dueDays.forEach(day => {
+      dayFrequency.set(day, (dayFrequency.get(day) || 0) + 1);
+    });
+
+    let mostCommonDay = data.dueDays[0];
+    let maxFrequency = 0;
+
+    dayFrequency.forEach((freq, day) => {
+      if (freq > maxFrequency) {
+        maxFrequency = freq;
+        mostCommonDay = day;
+      }
+    });
+
+    result.push({
+      issuer,
+      mostCommonDueDay: mostCommonDay,
+      lastInvoiceDate: data.lastDate,
+      transactionCount: data.count
+    });
+  });
+
+  // Sort by transaction count (most used cards first)
+  return result.sort((a, b) => b.transactionCount - a.transactionCount);
+};
+
+/**
+ * Suggests a due date for a credit card based on history
+ * Returns suggested date in ISO format (YYYY-MM-DD)
+ */
+export const suggestCreditCardDueDate = (issuer: string): string | null => {
+  const cards = getCreditCardHistory();
+  const card = cards.find(c => c.issuer.toLowerCase() === issuer.toLowerCase());
+
+  if (!card) return null;
+
+  // Calculate next occurrence of the due day
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  const currentDay = today.getDate();
+
+  // If the due day hasn't passed this month, use current month
+  // Otherwise, use next month
+  let targetMonth = currentMonth;
+  let targetYear = currentYear;
+
+  if (currentDay >= card.mostCommonDueDay) {
+    targetMonth += 1;
+    if (targetMonth > 11) {
+      targetMonth = 0;
+      targetYear += 1;
+    }
+  }
+
+  const suggestedDate = new Date(targetYear, targetMonth, card.mostCommonDueDay);
+  return suggestedDate.toISOString().split('T')[0];
+};

@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { Category, Transaction, TransactionType } from '../types';
 import { parseTransactionFromText, parseImportFile } from '../services/geminiService';
-import { generateInvoiceFingerprint, isInvoiceAlreadyImported, saveImportedInvoice } from '../services/storageService';
+import { generateInvoiceFingerprint, isInvoiceAlreadyImported, saveImportedInvoice, getCreditCardHistory, suggestCreditCardDueDate } from '../services/storageService';
 import { parseLocalDate } from '../utils/dateUtils';
-import { Mic, Send, Loader2, Wand2, Check, Layers, Upload, FileText, X, AlertTriangle } from 'lucide-react';
+import { Mic, Send, Loader2, Wand2, Check, Layers, Upload, FileText, X, AlertTriangle, Sparkles, TrendingDown, TrendingUp, Wallet, CreditCard, Banknote } from 'lucide-react';
 
 interface AddTransactionProps {
   onAdd: (transactions: Transaction[]) => void;
@@ -25,6 +25,11 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
   // Staging for logic that handles multiple installments
   const [detectedInstallments, setDetectedInstallments] = useState(1);
 
+  // Credit card autocomplete
+  const [creditCardInput, setCreditCardInput] = useState('');
+  const [showCardSuggestions, setShowCardSuggestions] = useState(false);
+  const [availableCards, setAvailableCards] = useState(getCreditCardHistory());
+
   const [formData, setFormData] = useState<Partial<Transaction>>({
     description: '',
     amount: 0,
@@ -32,8 +37,10 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
     type: TransactionType.EXPENSE,
     date: new Date().toISOString().split('T')[0],
     paymentDate: new Date().toISOString().split('T')[0], // Default payment date is today
-    isRecurring: false
+    isRecurring: false,
+    isCreditPurchase: false
   });
+  const toInputDate = (date: Date) => date.toISOString().split('T')[0];
 
   const handleAiSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +54,8 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
           ...result,
           date: result.date ? new Date(result.date).toISOString().split('T')[0] : formData.date,
           // If AI detected a payment date, use it, else default to date or today
-          paymentDate: result.paymentDate ? new Date(result.paymentDate).toISOString().split('T')[0] : (result.date || formData.date)
+          paymentDate: result.paymentDate ? new Date(result.paymentDate).toISOString().split('T')[0] : (result.date || formData.date),
+          isCreditPurchase: false
         });
         setDetectedInstallments(result.installments || 1);
         setMode('manual');
@@ -146,11 +154,51 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
     reader.readAsDataURL(file);
   };
 
+  const handleCreditToggle = (checked: boolean) => {
+    setFormData(prev => {
+      const purchaseDate = prev.date ? parseLocalDate(prev.date) : new Date();
+      const suggestedPaymentDate = toInputDate(new Date(purchaseDate.getFullYear(), purchaseDate.getMonth() + 1, purchaseDate.getDate()));
+      const shouldAutoSet = checked && (!prev.paymentDate || prev.paymentDate === prev.date);
+
+      return {
+        ...prev,
+        isCreditPurchase: checked,
+        paymentDate: shouldAutoSet
+          ? suggestedPaymentDate
+          : (prev.paymentDate || prev.date || suggestedPaymentDate)
+      };
+    });
+  };
+
+  const handleCardSelection = (issuer: string) => {
+    setCreditCardInput(issuer);
+    setShowCardSuggestions(false);
+
+    // Auto-fill due date based on history
+    const suggestedDate = suggestCreditCardDueDate(issuer);
+    if (suggestedDate) {
+      setFormData(prev => ({
+        ...prev,
+        paymentDate: suggestedDate,
+        creditCardIssuer: issuer
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, creditCardIssuer: issuer }));
+    }
+  };
+
+  const handleCardInputChange = (value: string) => {
+    setCreditCardInput(value);
+    setShowCardSuggestions(value.length > 0);
+    setFormData(prev => ({ ...prev, creditCardIssuer: value }));
+  };
+
   const handleFinalSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.description || !formData.amount) return;
 
     const baseAmount = Number(formData.amount);
+    const creditIssuer = formData.isCreditPurchase ? formData.creditCardIssuer : undefined;
     // Use parseLocalDate to ensure we get 00:00:00 Local Time, avoiding timezone shifts
     const purchaseDateObj = formData.date ? parseLocalDate(formData.date) : new Date();
     const paymentDateObj = formData.paymentDate ? parseLocalDate(formData.paymentDate) : (formData.date ? parseLocalDate(formData.date) : new Date());
@@ -182,6 +230,10 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                 paymentDate: nextPaymentDate.toISOString(), // Payment date shifts
                 isRecurring: false,
                 isAiGenerated: formData.isAiGenerated,
+                isCreditPurchase: formData.isCreditPurchase,
+                creditCardIssuer: creditIssuer,
+                issuer: creditIssuer,
+                linkedToInvoice: formData.linkedToInvoice,
                 createdAt: Date.now()
             });
         }
@@ -197,8 +249,10 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
             paymentDate: paymentDateObj.toISOString(),
             isRecurring: formData.isRecurring,
             isAiGenerated: formData.isAiGenerated,
+            isCreditPurchase: formData.isCreditPurchase,
             linkedToInvoice: formData.linkedToInvoice,
-            creditCardIssuer: formData.creditCardIssuer,
+            creditCardIssuer: creditIssuer,
+            issuer: creditIssuer,
             createdAt: Date.now()
         });
     }
@@ -390,57 +444,66 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                 </form>
              </div>
         ) : (
-            <form onSubmit={handleFinalSubmit} className="space-y-5 animate-fadeIn">
-                
-                {detectedInstallments > 1 && (
-                    <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex items-center gap-3 animate-slideUp">
-                        <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                            <Layers size={16} />
-                        </div>
-                        <div>
-                            <p className="text-emerald-900 font-bold text-sm">Parcelamento Detectado</p>
-                            <p className="text-emerald-700 text-xs">Serão criados {detectedInstallments} registros de R$ {(Number(formData.amount) / detectedInstallments).toFixed(2)}</p>
-                        </div>
-                        <button 
-                            type="button" 
-                            onClick={() => setDetectedInstallments(1)} 
-                            className="ml-auto text-xs text-zinc-400 underline hover:text-zinc-800"
+            <form onSubmit={handleFinalSubmit} className="space-y-6 animate-fadeIn">
+
+                {/* STEP 1: TIPO - Primeira pergunta mental do usuário */}
+                <div>
+                    <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-3">É uma entrada ou saída?</label>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setFormData({...formData, type: TransactionType.EXPENSE})}
+                            className={`p-4 rounded-2xl font-bold text-sm transition-all border-2 flex items-center justify-center gap-2 ${formData.type === TransactionType.EXPENSE ? 'bg-red-50 text-red-700 border-red-300 shadow-sm' : 'bg-white text-zinc-400 border-zinc-200 hover:border-zinc-300'}`}
                         >
-                            Cancelar
+                            <TrendingDown size={20} />
+                            Despesa
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setFormData({...formData, type: TransactionType.INCOME})}
+                            className={`p-4 rounded-2xl font-bold text-sm transition-all border-2 flex items-center justify-center gap-2 ${formData.type === TransactionType.INCOME ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm' : 'bg-white text-zinc-400 border-zinc-200 hover:border-zinc-300'}`}
+                        >
+                            <TrendingUp size={20} />
+                            Receita
                         </button>
                     </div>
-                )}
+                </div>
 
+                {/* STEP 2: DESCRIÇÃO */}
                 <div>
-                    <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-2">Descrição</label>
+                    <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-2">
+                        {formData.type === TransactionType.INCOME ? 'De onde veio?' : 'No que gastou?'}
+                    </label>
                     <input
                         type="text"
                         required
                         value={formData.description}
                         onChange={(e) => setFormData({...formData, description: e.target.value})}
                         className="w-full p-4 bg-zinc-50 border-none rounded-2xl focus:ring-2 focus:ring-zinc-200 outline-none transition-all text-zinc-800 font-medium"
-                        placeholder="Nome do gasto"
+                        placeholder={formData.type === TransactionType.INCOME ? 'Ex: Salário, Freelance...' : 'Ex: Mercado, Uber...'}
                     />
                 </div>
 
+                {/* STEP 3: VALOR E CATEGORIA */}
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-2">Valor Total</label>
+                        <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-2">Quanto?</label>
                         <input
                             type="number"
                             required
                             step="0.01"
                             value={formData.amount}
                             onChange={(e) => setFormData({...formData, amount: Number(e.target.value)})}
-                            className="w-full p-4 bg-zinc-50 border-none rounded-2xl focus:ring-2 focus:ring-zinc-200 outline-none transition-all text-zinc-800 font-bold"
+                            className="w-full p-4 bg-zinc-50 border-none rounded-2xl focus:ring-2 focus:ring-zinc-200 outline-none transition-all text-zinc-800 font-bold text-lg"
+                            placeholder="0,00"
                         />
                     </div>
-                     <div>
+                    <div>
                         <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-2">Categoria</label>
                         <select
                             value={formData.category}
                             onChange={(e) => setFormData({...formData, category: e.target.value as Category})}
-                            className="w-full p-4 bg-zinc-50 border-none rounded-2xl focus:ring-2 focus:ring-zinc-200 outline-none transition-all text-zinc-800 cursor-pointer appearance-none"
+                            className="w-full p-4 bg-zinc-50 border-none rounded-2xl focus:ring-2 focus:ring-zinc-200 outline-none transition-all text-zinc-800 cursor-pointer"
                         >
                             {Object.values(Category).map(c => (
                                 <option key={c} value={c}>{c}</option>
@@ -449,107 +512,363 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-2">Data da Compra</label>
-                        <input
-                            type="date"
-                            required
-                            value={formData.date}
-                            onChange={(e) => setFormData({...formData, date: e.target.value})}
-                            className="w-full p-4 bg-zinc-50 border-none rounded-2xl focus:ring-2 focus:ring-zinc-200 outline-none transition-all text-zinc-600"
-                        />
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-emerald-600 uppercase tracking-wider block mb-2">Data do Pagamento</label>
-                        <input
-                            type="date"
-                            required
-                            value={formData.paymentDate}
-                            onChange={(e) => setFormData({...formData, paymentDate: e.target.value})}
-                            className="w-full p-4 bg-emerald-50 border-none rounded-2xl focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-emerald-800 font-medium"
-                            title="Se for crédito, coloque o vencimento da fatura"
-                        />
-                    </div>
-                </div>
-
-                <div className="flex gap-4 pt-2">
-                     <button
-                        type="button"
-                        onClick={() => setFormData({...formData, type: TransactionType.EXPENSE})}
-                        className={`flex-1 p-4 rounded-2xl font-bold text-sm transition-all border ${formData.type === TransactionType.EXPENSE ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-400 border-zinc-200 hover:border-zinc-300'}`}
-                     >
-                        Despesa
-                     </button>
-                     <button
-                        type="button"
-                        onClick={() => setFormData({...formData, type: TransactionType.INCOME})}
-                        className={`flex-1 p-4 rounded-2xl font-bold text-sm transition-all border ${formData.type === TransactionType.INCOME ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-zinc-400 border-zinc-200 hover:border-zinc-300'}`}
-                     >
-                        Receita
-                     </button>
-                </div>
-
-                <div className="flex items-center gap-3 pt-2">
-                    <input
-                        type="checkbox"
-                        id="isRecurring"
-                        checked={formData.isRecurring || false}
-                        onChange={(e) => setFormData({...formData, isRecurring: e.target.checked})}
-                        className="w-5 h-5 rounded border-2 border-zinc-300 text-emerald-600 focus:ring-2 focus:ring-emerald-200 cursor-pointer"
-                    />
-                    <label htmlFor="isRecurring" className="text-sm text-zinc-600 cursor-pointer select-none">
-                        É uma assinatura/gasto fixo?
+                {/* STEP 4: DATA */}
+                <div>
+                    <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-2">
+                        {formData.type === TransactionType.INCOME ? 'Quando recebeu?' : 'Quando foi?'}
                     </label>
+                    <input
+                        type="date"
+                        required
+                        value={formData.date}
+                        onChange={(e) => setFormData({...formData, date: e.target.value})}
+                        className="w-full p-4 bg-zinc-50 border-none rounded-2xl focus:ring-2 focus:ring-zinc-200 outline-none transition-all text-zinc-700 font-medium"
+                    />
                 </div>
 
-                {/* Credit Card Association - only show for recurring expenses */}
-                {formData.isRecurring && formData.type === TransactionType.EXPENSE && (
-                    <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 space-y-3 animate-slideUp">
-                        <div className="flex items-center gap-3">
-                            <input
-                                type="checkbox"
-                                id="linkedToInvoice"
-                                checked={formData.linkedToInvoice || false}
-                                onChange={(e) => {
-                                    const checked = e.target.checked;
-                                    setFormData({
-                                        ...formData, 
-                                        linkedToInvoice: checked,
-                                        creditCardIssuer: checked ? formData.creditCardIssuer : undefined
-                                    });
-                                }}
-                                className="w-5 h-5 rounded border-2 border-zinc-300 text-zinc-900 focus:ring-2 focus:ring-zinc-200 cursor-pointer"
-                            />
-                            <label htmlFor="linkedToInvoice" className="text-sm text-zinc-700 cursor-pointer select-none font-medium">
-                                Vincular a um cartão de crédito
-                            </label>
+                {/* STEP 5: FORMA DE PAGAMENTO (só para despesas) */}
+                {formData.type === TransactionType.EXPENSE && (
+                    <>
+                        <div className="border-t border-zinc-100 pt-4">
+                            <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-3">Como pagou?</label>
+                            <div className="space-y-3">
+                                {/* Opção: À vista */}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setFormData({
+                                            ...formData,
+                                            isCreditPurchase: false,
+                                            paymentDate: formData.date
+                                        });
+                                        setDetectedInstallments(1);
+                                    }}
+                                    className={`w-full p-4 rounded-2xl transition-all border-2 ${
+                                        !formData.isCreditPurchase
+                                            ? 'bg-zinc-900 text-white border-zinc-900 shadow-lg'
+                                            : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-300'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2 rounded-lg ${!formData.isCreditPurchase ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
+                                            <Banknote size={20} className={!formData.isCreditPurchase ? 'text-white' : 'text-zinc-600'} />
+                                        </div>
+                                        <div className="text-left flex-1">
+                                            <div className="font-bold mb-0.5">À vista / Débito / Pix</div>
+                                            <div className="text-xs opacity-70">Pagamento imediato</div>
+                                        </div>
+                                    </div>
+                                </button>
+
+                                {/* Opção: Cartão de Crédito */}
+                                <button
+                                    type="button"
+                                    onClick={() => handleCreditToggle(true)}
+                                    className={`w-full p-4 rounded-2xl transition-all border-2 ${
+                                        formData.isCreditPurchase
+                                            ? 'bg-emerald-900 text-white border-emerald-900 shadow-lg'
+                                            : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-300'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2 rounded-lg ${formData.isCreditPurchase ? 'bg-emerald-800' : 'bg-zinc-100'}`}>
+                                            <CreditCard size={20} className={formData.isCreditPurchase ? 'text-white' : 'text-zinc-600'} />
+                                        </div>
+                                        <div className="text-left flex-1">
+                                            <div className="font-bold mb-0.5">Cartão de Crédito</div>
+                                            <div className="text-xs opacity-70">Pago na fatura do cartão</div>
+                                        </div>
+                                    </div>
+                                </button>
+                            </div>
                         </div>
 
-                        {formData.linkedToInvoice && (
-                            <div className="pl-8 animate-fadeIn">
-                                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-2">Cartão</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={formData.creditCardIssuer || ''}
-                                    onChange={(e) => setFormData({...formData, creditCardIssuer: e.target.value})}
-                                    className="w-full p-3 bg-white border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-300 outline-none transition-all text-zinc-800"
-                                    placeholder="Ex: Nubank, Itaú, C6 Bank"
-                                />
-                                <p className="text-xs text-zinc-500 mt-2">
-                                    Esta assinatura será automaticamente incluída nas faturas futuras deste cartão
-                                </p>
+                        {/* Detalhes do Cartão de Crédito */}
+                        {formData.isCreditPurchase && (
+                            <div className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-5 space-y-4 animate-slideUp">
+                                <div className="flex items-center gap-2 text-emerald-900 font-bold">
+                                    <CreditCard size={20} />
+                                    Detalhes do Crédito
+                                </div>
+
+                                {/* Parcelas */}
+                                {detectedInstallments > 1 ? (
+                                    <div className="bg-white rounded-xl p-4 border border-emerald-200">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <Layers size={16} className="text-emerald-600" />
+                                                <span className="text-sm font-bold text-emerald-900">Parcelado Detectado</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setDetectedInstallments(1)}
+                                                className="text-xs text-zinc-400 hover:text-zinc-800 underline"
+                                            >
+                                                Cancelar
+                                            </button>
+                                        </div>
+                                        <p className="text-emerald-700 text-sm">
+                                            {detectedInstallments}x de R$ {(Number(formData.amount) / detectedInstallments).toFixed(2)}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-emerald-800">Parcelar compra?</label>
+                                        <div className="flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setDetectedInstallments(1)}
+                                                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                                                    detectedInstallments === 1
+                                                        ? 'bg-white text-emerald-900 shadow-sm'
+                                                        : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                                                }`}
+                                            >
+                                                À vista
+                                            </button>
+                                            {[2, 3, 6, 12].map(n => (
+                                                <button
+                                                    key={n}
+                                                    type="button"
+                                                    onClick={() => setDetectedInstallments(n)}
+                                                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                                                        detectedInstallments === n
+                                                            ? 'bg-white text-emerald-900 shadow-sm'
+                                                            : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                                                    }`}
+                                                >
+                                                    {n}x
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Campo de Cartão de Crédito com Autocomplete */}
+                                <div className="relative">
+                                    <label className="text-xs font-bold text-emerald-800 block mb-2 flex items-center gap-2">
+                                        Qual cartão?
+                                        {availableCards.length > 0 && (
+                                            <span className="text-emerald-600 flex items-center gap-1">
+                                                <Sparkles size={12} />
+                                                <span className="text-[10px]">IA sugere datas</span>
+                                            </span>
+                                        )}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={creditCardInput}
+                                        onChange={(e) => handleCardInputChange(e.target.value)}
+                                        onFocus={() => setShowCardSuggestions(creditCardInput.length > 0 || availableCards.length > 0)}
+                                        onBlur={() => setTimeout(() => setShowCardSuggestions(false), 200)}
+                                        className="w-full p-3 bg-white border border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-400 outline-none transition-all text-emerald-900 font-medium"
+                                        placeholder="Ex: Nubank, Itaú, C6 Bank"
+                                    />
+
+                                    {/* Dropdown de Sugestões */}
+                                    {showCardSuggestions && availableCards.length > 0 && (
+                                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-emerald-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
+                                            {availableCards
+                                                .filter(card => card.issuer.toLowerCase().includes(creditCardInput.toLowerCase()))
+                                                .map((card, idx) => (
+                                                    <button
+                                                        key={idx}
+                                                        type="button"
+                                                        onClick={() => handleCardSelection(card.issuer)}
+                                                        className="w-full p-3 text-left hover:bg-emerald-50 transition-colors border-b border-emerald-100 last:border-b-0 flex items-center justify-between"
+                                                    >
+                                                        <div>
+                                                            <div className="font-medium text-emerald-900">{card.issuer}</div>
+                                                            <div className="text-xs text-emerald-600">
+                                                                Vence dia {card.mostCommonDueDay}
+                                                            </div>
+                                                        </div>
+                                                        <Sparkles size={14} className="text-emerald-400" />
+                                                    </button>
+                                                ))}
+
+                                            {availableCards.filter(card => card.issuer.toLowerCase().includes(creditCardInput.toLowerCase())).length === 0 && creditCardInput && (
+                                                <div className="p-3 text-xs text-zinc-500 text-center">
+                                                    Novo cartão - será adicionado ao histórico
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Data de Vencimento da Fatura */}
+                                <div>
+                                    <label className="text-xs font-bold text-emerald-800 block mb-2">
+                                        Vencimento da Fatura {detectedInstallments > 1 ? '(primeira)' : ''}
+                                    </label>
+                                    <input
+                                        type="date"
+                                        required
+                                        value={formData.paymentDate}
+                                        onChange={(e) => setFormData({...formData, paymentDate: e.target.value})}
+                                        className="w-full p-3 bg-white border border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-400 outline-none transition-all text-emerald-900 font-medium"
+                                    />
+                                    {creditCardInput && suggestCreditCardDueDate(creditCardInput) && (
+                                        <p className="text-xs text-emerald-600 mt-2 flex items-center gap-1">
+                                            <Sparkles size={12} />
+                                            Data sugerida baseada em histórico
+                                        </p>
+                                    )}
+                                </div>
                             </div>
+                        )}
+                    </>
+                )}
+
+                {/* Recorrência */}
+                <div className="border-t border-zinc-100 pt-4">
+                    <div className="flex items-center gap-3">
+                        <input
+                            type="checkbox"
+                            id="isRecurring"
+                            checked={formData.isRecurring || false}
+                            onChange={(e) => {
+                                const isRecurring = e.target.checked;
+                                setFormData({
+                                    ...formData,
+                                    isRecurring,
+                                    // Se marcar como recorrente E já tem cartão de crédito, vincular automaticamente
+                                    linkedToInvoice: isRecurring && formData.isCreditPurchase && creditCardInput ? true : formData.linkedToInvoice,
+                                    creditCardIssuer: isRecurring && formData.isCreditPurchase && creditCardInput ? creditCardInput : formData.creditCardIssuer
+                                });
+                            }}
+                            className="w-5 h-5 rounded border-2 border-zinc-300 text-emerald-600 focus:ring-2 focus:ring-emerald-200 cursor-pointer"
+                        />
+                        <div className="flex flex-col">
+                            <label htmlFor="isRecurring" className="text-sm text-zinc-700 cursor-pointer select-none font-medium">
+                                {formData.type === TransactionType.INCOME ? 'Receita recorrente?' : 'Assinatura ou gasto fixo?'}
+                            </label>
+                            <span className="text-xs text-zinc-500">
+                                {formData.type === TransactionType.INCOME
+                                    ? 'Ex: Salário, aluguel recebido'
+                                    : 'Ex: Netflix, academia, internet'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Vincular cartão (apenas para recorrentes de despesa) */}
+                {formData.isRecurring && formData.type === TransactionType.EXPENSE && (
+                    <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 space-y-3 animate-slideUp">
+                        {/* Se já escolheu crédito, apenas confirma o vínculo */}
+                        {formData.isCreditPurchase && creditCardInput ? (
+                            <div className="flex items-start gap-3">
+                                <input
+                                    type="checkbox"
+                                    id="linkedToInvoice"
+                                    checked={formData.linkedToInvoice !== false}
+                                    onChange={(e) => {
+                                        setFormData({
+                                            ...formData,
+                                            linkedToInvoice: e.target.checked,
+                                            creditCardIssuer: e.target.checked ? creditCardInput : undefined
+                                        });
+                                    }}
+                                    className="w-5 h-5 rounded border-2 border-zinc-300 text-zinc-900 focus:ring-2 focus:ring-zinc-200 cursor-pointer mt-0.5"
+                                />
+                                <div className="flex-1">
+                                    <label htmlFor="linkedToInvoice" className="text-sm text-zinc-700 cursor-pointer select-none font-medium block">
+                                        Vincular ao cartão <span className="font-bold text-emerald-700">{creditCardInput}</span>?
+                                    </label>
+                                    <p className="text-xs text-zinc-500 mt-1">
+                                        Esta assinatura será incluída automaticamente nas faturas futuras deste cartão
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            /* Se não escolheu crédito, mostra opção de vincular a qualquer cartão */
+                            <>
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="checkbox"
+                                        id="linkedToInvoice"
+                                        checked={formData.linkedToInvoice || false}
+                                        onChange={(e) => {
+                                            const checked = e.target.checked;
+                                            setFormData({
+                                                ...formData,
+                                                linkedToInvoice: checked,
+                                                creditCardIssuer: checked ? formData.creditCardIssuer : undefined
+                                            });
+                                        }}
+                                        className="w-5 h-5 rounded border-2 border-zinc-300 text-zinc-900 focus:ring-2 focus:ring-zinc-200 cursor-pointer"
+                                    />
+                                    <label htmlFor="linkedToInvoice" className="text-sm text-zinc-700 cursor-pointer select-none font-medium">
+                                        Vincular a um cartão de crédito
+                                    </label>
+                                </div>
+
+                                {formData.linkedToInvoice && (
+                                    <div className="pl-8 animate-fadeIn space-y-2">
+                                        <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block">Qual cartão?</label>
+
+                                        {/* Reutilizar autocomplete de cartões */}
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                required
+                                                value={formData.creditCardIssuer || ''}
+                                                onChange={(e) => {
+                                                    setFormData({...formData, creditCardIssuer: e.target.value});
+                                                    setShowCardSuggestions(true);
+                                                }}
+                                                onFocus={() => setShowCardSuggestions(availableCards.length > 0)}
+                                                onBlur={() => setTimeout(() => setShowCardSuggestions(false), 200)}
+                                                className="w-full p-3 bg-white border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-300 outline-none transition-all text-zinc-800"
+                                                placeholder="Ex: Nubank, Itaú, C6 Bank"
+                                            />
+
+                                            {/* Dropdown de Sugestões para assinatura */}
+                                            {showCardSuggestions && availableCards.length > 0 && (
+                                                <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-zinc-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
+                                                    {availableCards
+                                                        .filter(card => card.issuer.toLowerCase().includes((formData.creditCardIssuer || '').toLowerCase()))
+                                                        .map((card, idx) => (
+                                                            <button
+                                                                key={idx}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setFormData({...formData, creditCardIssuer: card.issuer});
+                                                                    setShowCardSuggestions(false);
+                                                                }}
+                                                                className="w-full p-3 text-left hover:bg-zinc-50 transition-colors border-b border-zinc-100 last:border-b-0"
+                                                            >
+                                                                <div className="font-medium text-zinc-900">{card.issuer}</div>
+                                                                <div className="text-xs text-zinc-600">
+                                                                    Vence dia {card.mostCommonDueDay}
+                                                                </div>
+                                                            </button>
+                                                        ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <p className="text-xs text-zinc-500">
+                                            Esta assinatura será incluída automaticamente nas faturas futuras
+                                        </p>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 )}
 
                 <button
                     type="submit"
-                    className="w-full py-5 bg-zinc-900 text-white rounded-2xl font-bold hover:bg-zinc-800 hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] transition-all"
+                    className="w-full py-5 bg-zinc-900 text-white rounded-2xl font-bold hover:bg-zinc-800 hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] transition-all mt-6 flex items-center justify-center gap-2"
                 >
-                    {detectedInstallments > 1 ? `Salvar ${detectedInstallments} Parcelas` : 'Salvar Registro'}
+                    <Check size={20} />
+                    {detectedInstallments > 1
+                        ? `Salvar ${detectedInstallments} Parcelas`
+                        : formData.type === TransactionType.INCOME
+                            ? 'Salvar Receita'
+                            : 'Salvar Despesa'}
                 </button>
             </form>
         )}
