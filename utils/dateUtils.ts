@@ -13,7 +13,7 @@ export const filterTransactionsByPeriod = (
     // CRITICAL: Use paymentDate if available for Cash Flow view. 
     // If not, fall back to date.
     const effectiveDateStr = t.paymentDate || t.date;
-    const tDate = new Date(effectiveDateStr);
+    const tDate = normalizeToLocalDate(effectiveDateStr) || new Date(effectiveDateStr);
     
     if (period === 'month') {
       return (
@@ -55,6 +55,14 @@ export const parseLocalDate = (dateString: string): Date => {
   return new Date(year, month - 1, day);
 };
 
+// Normalize any ISO/string date into a local Date at midnight to avoid timezone shifts
+const normalizeToLocalDate = (dateString?: string): Date | null => {
+  if (!dateString) return null;
+  const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+};
+
 /**
  * Projects recurring transactions into future months
  * @param transactions - All transactions
@@ -72,16 +80,21 @@ export const projectRecurringTransactions = (
   const targetMonth = targetDate.getMonth();
 
   recurringTransactions.forEach(recurring => {
-    const originalDate = new Date(recurring.date);
-    const originalPaymentDate = recurring.paymentDate ? new Date(recurring.paymentDate) : null;
+    // Anchor recurrence on the cash-flow date (paymentDate if available)
+    const anchorDate = normalizeToLocalDate(recurring.paymentDate || recurring.date);
+    const paymentAnchorDate = normalizeToLocalDate(recurring.paymentDate || recurring.date);
+
+    if (!anchorDate) {
+      return;
+    }
 
     // Only project if the target month is AFTER the original month (not the same month)
     if (
-      targetYear > originalDate.getFullYear() ||
-      (targetYear === originalDate.getFullYear() && targetMonth > originalDate.getMonth())
+      targetYear > anchorDate.getFullYear() ||
+      (targetYear === anchorDate.getFullYear() && targetMonth > anchorDate.getMonth())
     ) {
       // Calculate the new dates for the target month
-      const dayOfMonth = originalDate.getDate();
+      const dayOfMonth = anchorDate.getDate();
       const projectedDate = new Date(targetYear, targetMonth, dayOfMonth);
 
       // Handle edge case where day doesn't exist in target month (e.g., Feb 31 -> Feb 28)
@@ -90,21 +103,21 @@ export const projectRecurringTransactions = (
       }
 
       let projectedPaymentDate: string | undefined;
-      if (originalPaymentDate) {
-        const paymentDayOfMonth = originalPaymentDate.getDate();
-        const newPaymentDate = new Date(targetYear, targetMonth, paymentDayOfMonth);
+      const paymentDayOfMonth = (paymentAnchorDate || anchorDate).getDate();
+      const newPaymentDate = new Date(targetYear, targetMonth, paymentDayOfMonth);
 
-        if (newPaymentDate.getMonth() !== targetMonth) {
-          newPaymentDate.setDate(0);
-        }
-
-        projectedPaymentDate = newPaymentDate.toISOString().split('T')[0];
+      if (newPaymentDate.getMonth() !== targetMonth) {
+        newPaymentDate.setDate(0);
       }
+
+      // Store as full ISO to keep consistency with saved transactions
+      projectedPaymentDate = newPaymentDate.toISOString();
 
       // Check if this projection already exists as a real transaction in the target month
       const alreadyExists = transactions.some(t => {
-        const tDate = new Date(t.paymentDate || t.date);
+        const tDate = normalizeToLocalDate(t.paymentDate || t.date);
         return (
+          tDate &&
           t.description === recurring.description &&
           tDate.getFullYear() === targetYear &&
           tDate.getMonth() === targetMonth &&
@@ -117,7 +130,7 @@ export const projectRecurringTransactions = (
         projected.push({
           ...recurring,
           id: `projected-${recurring.id}-${targetYear}-${targetMonth}`,
-          date: projectedDate.toISOString().split('T')[0],
+          date: projectedDate.toISOString(),
           paymentDate: projectedPaymentDate,
           isProjected: true, // Flag to indicate this is a projected transaction
         } as Transaction & { isProjected?: boolean });

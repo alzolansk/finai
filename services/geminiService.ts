@@ -464,6 +464,36 @@ export const chatWithAdvisor = async (history: {role: string, parts: {text: stri
   const startTime = Date.now();
   const lastUserMsg = history[history.length - 1].parts[0].text.toLowerCase();
 
+  // Quick snapshot (last 3 months, usando paymentDate se existir)
+  const monthlyBuckets: Record<string, { income: number; expense: number }> = {};
+  transactions.forEach(t => {
+    const effectiveDate = new Date(t.paymentDate || t.date);
+    const ym = `${effectiveDate.getFullYear()}-${String(effectiveDate.getMonth() + 1).padStart(2, '0')}`;
+    if (!monthlyBuckets[ym]) {
+      monthlyBuckets[ym] = { income: 0, expense: 0 };
+    }
+    if (t.type === TransactionType.INCOME) {
+      monthlyBuckets[ym].income += t.amount;
+    } else {
+      monthlyBuckets[ym].expense += t.amount;
+    }
+  });
+
+  const sortedMonths = Object.keys(monthlyBuckets).sort((a, b) => new Date(b + '-01').getTime() - new Date(a + '-01').getTime());
+  const recentMonths = sortedMonths.slice(0, 3);
+  const recentStats = recentMonths.map(m => {
+    const data = monthlyBuckets[m];
+    return { month: m, income: data.income, expense: data.expense, balance: data.income - data.expense };
+  });
+
+  const avgIncome = recentStats.length ? recentStats.reduce((s, m) => s + m.income, 0) / recentStats.length : 0;
+  const avgExpense = recentStats.length ? recentStats.reduce((s, m) => s + m.expense, 0) / recentStats.length : 0;
+  const avgBalance = avgIncome - avgExpense;
+
+  const snapshotText = recentStats.length
+    ? `Média 3m: receita R$ ${avgIncome.toFixed(2)}, despesa R$ ${avgExpense.toFixed(2)}, saldo R$ ${avgBalance.toFixed(2)}. Meses: ${recentStats.map(m => `${m.month} (R$ ${m.income.toFixed(0)} vs R$ ${m.expense.toFixed(0)} = R$ ${m.balance.toFixed(0)})`).join(' | ')}`
+    : 'Sem histórico suficiente para média.';
+
   // Define keywords and categories to look for
   const categoryKeywords: { [key: string]: string[] } = {
     [Category.FOOD]: ['comida', 'alimentação', 'restaurante', 'ifood', 'delivery', 'mercado', 'supermercado'],
@@ -534,14 +564,16 @@ export const chatWithAdvisor = async (history: {role: string, parts: {text: stri
       model: "gemini-2.5-flash",
       config: {
         systemInstruction: `You are FinAI, a sophisticated financial advisor.
+        Contexto financeiro do usuário: ${snapshotText}
         User's transactions (${relevantTransactions.length} transactions analyzed):
         ${summary}
 
-        Answer questions about their spending, habits, and give advice.
-        Be concise, professional but friendly.
-        Values are in BRL (R$).
-        Language: Portuguese.
-        When analyzing data, be specific and use actual numbers from the transactions.`
+        Responda em Português, bem curto (até ~120 palavras).
+        Formato fixo:
+        1) Julgamento direto em 1 frase (ex: "Veredito: risco moderado" ou "Veredito: viável").
+        2) 2-3 bullets rápidos sobre impacto no fluxo de caixa e % da renda média.
+        3) 2 bullets de recomendações práticas (limite saudável da parcela / adiar / negociar / alternativa mais barata).
+        Sem parágrafos longos; frases curtas; valores sempre em BRL (R$) usando números do histórico quando possível.`
       },
       history: history
     });
