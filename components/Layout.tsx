@@ -186,64 +186,67 @@ const Layout: React.FC<LayoutProps> = ({
         {/* Floating Island Navigation */}
         <div className="fixed inset-x-0 bottom-8 flex justify-center z-40 pointer-events-none">
           <div className="animate-slideUp pointer-events-auto">
-          <nav className="bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 text-zinc-400 rounded-2xl px-2 py-2 shadow-2xl shadow-zinc-900/40 flex items-center gap-1 transition-all hover:scale-[1.01]">
+          <nav className="bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 text-zinc-400 rounded-2xl px-3 py-2 shadow-2xl shadow-zinc-900/40 flex items-center gap-2 transition-all hover:scale-[1.01] w-full max-w-3xl">
+            <div className="flex items-center gap-1 flex-1 justify-end">
+              <button
+                onClick={() => onTabChange('dashboard')}
+                className={`p-3 rounded-xl transition-all duration-300 flex items-center gap-2 hover:scale-110 active:scale-90 ${activeTab === 'dashboard' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+                title="Dashboard"
+              >
+                <Home size={20} strokeWidth={activeTab === 'dashboard' ? 2.5 : 2} />
+              </button>
 
-            <button
-              onClick={() => onTabChange('dashboard')}
-              className={`p-3 rounded-xl transition-all duration-300 flex items-center gap-2 hover:scale-110 active:scale-90 ${activeTab === 'dashboard' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
-              title="Dashboard"
-            >
-              <Home size={20} strokeWidth={activeTab === 'dashboard' ? 2.5 : 2} />
-            </button>
+              <button
+                onClick={() => onTabChange('insights')}
+                className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'insights' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+                title="Insights"
+              >
+                <PieChart size={20} strokeWidth={activeTab === 'insights' ? 2.5 : 2} />
+              </button>
 
-            <button
-              onClick={() => onTabChange('insights')}
-              className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'insights' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
-              title="Insights"
-            >
-              <PieChart size={20} strokeWidth={activeTab === 'insights' ? 2.5 : 2} />
-            </button>
+              <button
+                onClick={() => onTabChange('explore')}
+                className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'explore' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+                title="Explorar"
+              >
+                <Search size={20} strokeWidth={activeTab === 'explore' ? 2.5 : 2} />
+              </button>
+            </div>
 
-            <button
-              onClick={() => onTabChange('explore')}
-              className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'explore' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
-              title="Explorar"
-            >
-              <Search size={20} strokeWidth={activeTab === 'explore' ? 2.5 : 2} />
-            </button>
-
-            <button
-              onClick={() => onTabChange('reports')}
-              className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'reports' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
-              title="Relatórios"
-            >
-              <BarChart3 size={20} strokeWidth={activeTab === 'reports' ? 2.5 : 2} />
-            </button>
-
-            {/* Prominent Add Button (central) */}
+            {/* Prominent Add Button (always centered) */}
             <button
               onClick={() => onTabChange('add')}
-              className="bg-emerald-500 text-white p-3 mx-1 rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 hover:scale-110 active:scale-95 transition-all group"
+              className="bg-emerald-500 text-white p-3 rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 hover:scale-110 active:scale-95 transition-all group flex-shrink-0"
               title="Adicionar"
             >
               <Plus size={22} strokeWidth={3} className="group-hover:rotate-90 transition-transform duration-300" />
             </button>
 
-            <button
-              onClick={() => onTabChange('agenda')}
-              className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'agenda' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
-              title="Agenda"
-            >
-              <Calendar size={20} strokeWidth={activeTab === 'agenda' ? 2.5 : 2} />
-            </button>
+            <div className="flex items-center gap-1 flex-1 justify-start">
+              <button
+                onClick={() => onTabChange('reports')}
+                className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'reports' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+                title="Relatórios"
+              >
+                <BarChart3 size={20} strokeWidth={activeTab === 'reports' ? 2.5 : 2} />
+              </button>
 
-            <button
-              onClick={() => onTabChange('planning')}
-              className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'planning' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
-              title="Lista de Desejos"
-            >
-              <Heart size={20} strokeWidth={activeTab === 'planning' ? 2.5 : 2} />
-            </button>
+              <button
+                onClick={() => onTabChange('agenda')}
+                className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'agenda' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+                title="Agenda"
+              >
+                <Calendar size={20} strokeWidth={activeTab === 'agenda' ? 2.5 : 2} />
+              </button>
+
+              <button
+                onClick={() => onTabChange('planning')}
+                className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'planning' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+                title="Lista de Desejos"
+              >
+                <Heart size={20} strokeWidth={activeTab === 'planning' ? 2.5 : 2} />
+              </button>
+            </div>
 
           </nav>
           </div>

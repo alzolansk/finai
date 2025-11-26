@@ -247,6 +247,11 @@ export const parseImportFile = async (
                - If found, extract: currentInstallment (e.g., 4), totalInstallments (e.g., 6)
                - The amount should be the installment amount (not total)
 
+            11. **DETECT REIMBURSABLE EXPENSES**:
+                - If the description hints someone used the user's card and will pay back (e.g., "paguei para amiga me reembolsar", "fulana usou meu cartao", "reembolso no vencimento"), mark isReimbursable=true.
+                - Capture the person's name in 'reimbursedBy' when present.
+                - Keep as EXPENSE, set paymentDate as usual (invoice due date if available).
+
             Return a JSON object with:
             - documentType: 'invoice' or 'bank_statement'
             - issuer: the bank/card issuer name (clean, capitalized)
@@ -278,7 +283,9 @@ export const parseImportFile = async (
                   currentInstallment: { type: Type.INTEGER, description: "Current installment number (e.g., 4)" },
                   totalInstallments: { type: Type.INTEGER, description: "Total installments (e.g., 6)" },
                   shouldIgnore: { type: Type.BOOLEAN, description: "Should this transaction be ignored?" },
-                  ignoreReason: { type: Type.STRING, enum: ["internal_transfer", "invoice_payment", "balance_info", null], description: "Reason to ignore this transaction" }
+                  ignoreReason: { type: Type.STRING, enum: ["internal_transfer", "invoice_payment", "balance_info", null], description: "Reason to ignore this transaction" },
+                  isReimbursable: { type: Type.BOOLEAN, description: "True if someone else will reimburse the user" },
+                  reimbursedBy: { type: Type.STRING, description: "Name of the person who will reimburse, if available" }
                 }
               }
             }
@@ -356,7 +363,9 @@ export const parseImportFile = async (
                 type: t.type,
                 isRecurring: false,
                 issuer: issuer,
-                isAiGenerated: true
+                isAiGenerated: true,
+                isReimbursable: !!t.isReimbursable,
+                reimbursedBy: t.reimbursedBy
               });
             }
 
@@ -371,7 +380,9 @@ export const parseImportFile = async (
               type: t.type,
               isRecurring: false,
               issuer: issuer,
-              isAiGenerated: true
+              isAiGenerated: true,
+              isReimbursable: !!t.isReimbursable,
+              reimbursedBy: t.reimbursedBy
             });
 
             // Create future installments
@@ -389,7 +400,9 @@ export const parseImportFile = async (
                 type: t.type,
                 isRecurring: false,
                 issuer: issuer,
-                isAiGenerated: true
+                isAiGenerated: true,
+                isReimbursable: !!t.isReimbursable,
+                reimbursedBy: t.reimbursedBy
               });
             }
 
@@ -406,7 +419,9 @@ export const parseImportFile = async (
               type: t.type,
               isRecurring: t.isRecurring || false,
               issuer: issuer,
-              isAiGenerated: true
+              isAiGenerated: true,
+              isReimbursable: !!t.isReimbursable,
+              reimbursedBy: t.reimbursedBy
             }];
           }
         });

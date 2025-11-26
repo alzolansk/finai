@@ -18,6 +18,7 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
   const [showFilters, setShowFilters] = useState(false);
   const [dateRangeStart, setDateRangeStart] = useState('');
   const [dateRangeEnd, setDateRangeEnd] = useState('');
+  const [dateFieldMode, setDateFieldMode] = useState<'payment' | 'purchase'>('payment');
   const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
   const [minAmount, setMinAmount] = useState<number | ''>('');
   const [maxAmount, setMaxAmount] = useState<number | ''>('');
@@ -100,7 +101,8 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
       }
 
       // Date range
-      const tDate = new Date(t.paymentDate || t.date);
+      const baseDateValue = dateFieldMode === 'payment' ? (t.paymentDate || t.date) : t.date;
+      const tDate = new Date(baseDateValue);
       if (dateRangeStart && tDate < new Date(dateRangeStart)) return false;
       if (dateRangeEnd && tDate > new Date(dateRangeEnd)) return false;
 
@@ -140,7 +142,7 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
 
       return true;
     });
-  }, [transactions, searchQuery, dateRangeStart, dateRangeEnd, selectedCategories, minAmount, maxAmount, selectedTypes, selectedIssuers, selectedTags, selectedStatus]);
+  }, [transactions, searchQuery, dateRangeStart, dateRangeEnd, selectedCategories, minAmount, maxAmount, selectedTypes, selectedIssuers, selectedTags, selectedStatus, dateFieldMode]);
 
   // Save current filter
   const saveCurrentFilter = () => {
@@ -150,6 +152,7 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
       id: crypto.randomUUID(),
       name: filterName,
       dateRange: dateRangeStart || dateRangeEnd ? { start: dateRangeStart, end: dateRangeEnd } : undefined,
+      dateField: dateFieldMode,
       categories: selectedCategories.length > 0 ? selectedCategories : undefined,
       minAmount: minAmount !== '' ? minAmount : undefined,
       maxAmount: maxAmount !== '' ? maxAmount : undefined,
@@ -171,6 +174,7 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
   const loadFilter = (filter: AdvancedFilter) => {
     setDateRangeStart(filter.dateRange?.start || '');
     setDateRangeEnd(filter.dateRange?.end || '');
+    setDateFieldMode(filter.dateField || 'payment');
     setSelectedCategories(filter.categories || []);
     setMinAmount(filter.minAmount ?? '');
     setMaxAmount(filter.maxAmount ?? '');
@@ -199,6 +203,7 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
     setSelectedIssuers([]);
     setSelectedTags([]);
     setSelectedStatus([]);
+    setDateFieldMode('payment');
   };
 
   // Tag management
@@ -266,7 +271,8 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
     ...selectedTypes,
     ...selectedIssuers,
     ...selectedTags,
-    ...selectedStatus
+    ...selectedStatus,
+    dateFieldMode !== 'payment' ? 'dateField' : null
   ].filter(Boolean).length;
 
   // Toggle functions for invoice view
@@ -417,10 +423,36 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             {/* Date Range */}
             <div>
-              <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                <Calendar size={12} className="inline mr-1" />
-                Período
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                  <Calendar size={12} className="inline mr-1" />
+                  Período
+                </label>
+                <div className="inline-flex bg-zinc-100 rounded-lg p-0.5 text-[11px] font-medium text-zinc-600">
+                  <button
+                    type="button"
+                    onClick={() => setDateFieldMode('payment')}
+                    className={`px-2.5 py-1 rounded-md transition-all ${
+                      dateFieldMode === 'payment'
+                        ? 'bg-white text-zinc-900 shadow-sm'
+                        : 'text-zinc-500 hover:text-zinc-800'
+                    }`}
+                  >
+                    Vencimento
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDateFieldMode('purchase')}
+                    className={`px-2.5 py-1 rounded-md transition-all ${
+                      dateFieldMode === 'purchase'
+                        ? 'bg-white text-zinc-900 shadow-sm'
+                        : 'text-zinc-500 hover:text-zinc-800'
+                    }`}
+                  >
+                    Compra
+                  </button>
+                </div>
+              </div>
               <div className="flex gap-2">
                 <input
                   type="date"
@@ -658,6 +690,8 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
             filteredTransactions.map(t => {
               const iconConfig = getIconForTransaction(t.description, t.category);
               const IconComponent = iconConfig.icon;
+              const baseDateValue = dateFieldMode === 'payment' ? (t.paymentDate || t.date) : t.date;
+              const dateLabel = dateFieldMode === 'payment' ? 'Vencimento' : 'Compra';
 
               return (
                 <div key={t.id} className="p-6 hover:bg-zinc-50 transition-colors group">
@@ -676,7 +710,7 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
                           <span className="bg-zinc-100 px-2 py-0.5 rounded text-[10px] text-zinc-500 font-medium uppercase">
                             {t.category}
                           </span>
-                          <span className="text-xs text-zinc-400">{formatDate(t.paymentDate || t.date)}</span>
+                          <span className="text-xs text-zinc-400">{dateLabel}: {formatDate(baseDateValue)}</span>
                           {t.isReimbursable && (
                             <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
                               💰 {t.reimbursedBy || 'Reembolsável'}

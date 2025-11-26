@@ -103,6 +103,8 @@ export interface TransacaoNormalizada {
   paymentDate?: string;
   isRecurring?: boolean;
   issuer?: string;
+  isReimbursable?: boolean;
+  reimbursedBy?: string;
 }
 
 export enum WishlistItemType {
@@ -146,6 +148,7 @@ export interface AdvancedFilter {
   id: string;
   name: string;
   dateRange?: { start: string; end: string };
+  dateField?: 'payment' | 'purchase';
   categories?: Category[];
   minAmount?: number;
   maxAmount?: number;
