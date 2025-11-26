@@ -28,10 +28,16 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
   // Credit card autocomplete
   const [creditCardInput, setCreditCardInput] = useState('');
   const [showCardSuggestions, setShowCardSuggestions] = useState(false);
-  const [availableCards, setAvailableCards] = useState(getCreditCardHistory());
+  const availableCardsData = getCreditCardHistory();
+  const [availableCards, setAvailableCards] = useState(availableCardsData);
 
   // AI date change animation
   const [dateChangedByAI, setDateChangedByAI] = useState(false);
+
+  // Debug: log available cards on mount
+  React.useEffect(() => {
+    console.log('💳 Available cards:', availableCards);
+  }, []);
 
   const [formData, setFormData] = useState<Partial<Transaction>>({
     description: '',
@@ -178,12 +184,17 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
   };
 
   const handleCardSelection = (issuer: string) => {
+    console.log('🔍 handleCardSelection called with issuer:', issuer);
+
     setCreditCardInput(issuer);
     setShowCardSuggestions(false);
 
     // Auto-fill due date based on history
     const suggestedDate = suggestCreditCardDueDate(issuer);
+    console.log('📅 Suggested date for', issuer, ':', suggestedDate);
+
     if (suggestedDate) {
+      console.log('✅ Setting payment date to:', suggestedDate);
       setFormData(prev => ({
         ...prev,
         paymentDate: suggestedDate,
@@ -194,6 +205,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
       setDateChangedByAI(true);
       setTimeout(() => setDateChangedByAI(false), 2000);
     } else {
+      console.log('❌ No suggested date found, just setting issuer');
       setFormData(prev => ({ ...prev, creditCardIssuer: issuer }));
     }
   };
