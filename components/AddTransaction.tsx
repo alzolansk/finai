@@ -714,7 +714,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                         value={creditCardInput}
                                         onChange={(e) => handleCardInputChange(e.target.value)}
                                         onFocus={() => setShowCardSuggestions(creditCardInput.length > 0 || availableCards.length > 0)}
-                                        onBlur={() => setTimeout(() => setShowCardSuggestions(false), 200)}
+                                        onBlur={() => setTimeout(() => setShowCardSuggestions(false), 300)}
                                         className="w-full p-3 bg-white border border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-400 outline-none transition-all text-emerald-900 font-medium"
                                         placeholder="Ex: Nubank, Itaú, C6 Bank"
                                     />
@@ -728,7 +728,10 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                                     <button
                                                         key={idx}
                                                         type="button"
-                                                        onClick={() => handleCardSelection(card.issuer)}
+                                                        onMouseDown={(e) => {
+                                                            e.preventDefault(); // Previne o blur
+                                                            handleCardSelection(card.issuer);
+                                                        }}
                                                         className="w-full p-3 text-left hover:bg-emerald-50 transition-colors border-b border-emerald-100 last:border-b-0 flex items-center justify-between"
                                                     >
                                                         <div>
@@ -866,7 +869,8 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                                             <button
                                                                 key={idx}
                                                                 type="button"
-                                                                onClick={() => {
+                                                                onMouseDown={(e) => {
+                                                                    e.preventDefault(); // Previne o blur
                                                                     setFormData({...formData, creditCardIssuer: card.issuer});
                                                                     setShowCardSuggestions(false);
                                                                 }}
