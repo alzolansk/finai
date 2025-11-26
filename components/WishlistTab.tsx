@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction, UserSettings, WishlistItem, WishlistItemType, WishlistPriority } from '../types';
-import { Heart, Plus, Trash2, TrendingUp, Calendar, DollarSign, Sparkles, CheckCircle2, XCircle, AlertCircle, Edit2, Save, X, Loader2, HelpCircle, Info, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Heart, Plus, Trash2, TrendingUp, Calendar, DollarSign, Sparkles, CheckCircle2, XCircle, AlertCircle, Edit2, Save, X, Loader2, HelpCircle, Info, ChevronRight, ChevronLeft, Plane, ShoppingBag, MapPin, Briefcase, Star } from 'lucide-react';
 import { researchWishlistItem, analyzeWishlistViability } from '../services/geminiService';
 
 interface WishlistTabProps {
@@ -323,6 +323,33 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
       targetDate,
       updatedAt: Date.now()
     });
+  };
+
+  const getStatusBadge = (item: WishlistItem, progress: number) => {
+    if (item.isViable) return { label: 'Viavel', color: 'bg-emerald-100 text-emerald-700' };
+    if (progress > 50) return { label: 'Em progresso', color: 'bg-amber-100 text-amber-700' };
+    return { label: 'Aguardando renda', color: 'bg-zinc-100 text-zinc-700' };
+  };
+
+  const getTypeIcon = (type?: WishlistItemType) => {
+    switch (type) {
+      case WishlistItemType.TRAVEL:
+        return { icon: <Plane size={16} />, color: 'bg-blue-100 text-blue-600' };
+      case WishlistItemType.EXPERIENCE:
+        return { icon: <Star size={16} />, color: 'bg-amber-100 text-amber-700' };
+      case WishlistItemType.INVESTMENT:
+        return { icon: <Briefcase size={16} />, color: 'bg-emerald-100 text-emerald-700' };
+      case WishlistItemType.PURCHASE:
+        return { icon: <ShoppingBag size={16} />, color: 'bg-purple-100 text-purple-700' };
+      default:
+        return { icon: <MapPin size={16} />, color: 'bg-zinc-100 text-zinc-600' };
+    }
+  };
+
+  const getConfidenceLabel = (confidence?: string) => {
+    if (confidence === 'high') return 'Alta';
+    if (confidence === 'medium') return 'Media';
+    return 'Baixa';
   };
 
   return (
@@ -714,6 +741,9 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
           const remaining = item.targetAmount - item.savedAmount;
           const isAnalysisExpanded = expandedAnalyses[item.id];
           const isControlsExpanded = expandedControls[item.id];
+          const statusBadge = getStatusBadge(item, progress);
+          const typeIcon = getTypeIcon(item.type);
+          const confidenceLabel = `Confianca de preco: ${getConfidenceLabel(item.priceResearchConfidence)}`;
 
           return (
             <div
@@ -727,19 +757,30 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
               <div className="flex justify-between items-start mb-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-xl font-bold text-zinc-800">{item.name}</h3>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      item.priority === WishlistPriority.HIGH ? 'bg-rose-100 text-rose-700' :
-                      item.priority === WishlistPriority.MEDIUM ? 'bg-amber-100 text-amber-700' :
-                      'bg-zinc-100 text-zinc-700'
-                    }`}>
-                      {item.priority}
-                    </span>
-                    {item.paymentOption === 'installments' && item.installmentCount && (
-                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
-                        {item.installmentCount}x de R$ {item.installmentAmount?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                    )}
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${typeIcon.color} font-bold`}>
+                      {typeIcon.icon}
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-xl font-bold text-zinc-800">{item.name}</h3>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${statusBadge.color}`}>
+                          {statusBadge.label}
+                        </span>
+                        <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${
+                          item.priority === WishlistPriority.HIGH ? 'bg-rose-100 text-rose-700' :
+                          item.priority === WishlistPriority.MEDIUM ? 'bg-amber-100 text-amber-700' :
+                          'bg-zinc-100 text-zinc-700'
+                        }`}>
+                          {item.priority}
+                        </span>
+                        {item.paymentOption === 'installments' && item.installmentCount && (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+                            {item.installmentCount}x de R$ {item.installmentAmount?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-zinc-500">{confidenceLabel} • Fonte: IA</p>
+                    </div>
                   </div>
                   {item.description && (
                     <p className="text-sm text-zinc-600 mb-3">{item.description}</p>
@@ -770,11 +811,18 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
                     de R$ {item.targetAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
-                <div className="w-full bg-zinc-100 rounded-full h-3 overflow-hidden">
+                <div className="w-full bg-zinc-100 rounded-full h-3 overflow-hidden relative">
                   <div
                     className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full transition-all duration-500"
                     style={{ width: `${Math.min(100, progress)}%` }}
                   ></div>
+                  {[25, 50, 75].map(mark => (
+                    <div
+                      key={mark}
+                      className="absolute top-0 bottom-0 w-px bg-white/70"
+                      style={{ left: `${mark}%` }}
+                    ></div>
+                  ))}
                 </div>
                 <div className="flex justify-between items-center mt-2">
                   <span className="text-xs text-zinc-500">{progress.toFixed(1)}% alcançado</span>
