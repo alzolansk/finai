@@ -720,12 +720,62 @@ export const chatWithAdvisor = async (
     ? `Fatura em foco: ${invoiceFocus.title} (${invoiceFocus.issuer || 'Cartao'}), venc ${invoiceFocus.dueDate || 'sem data'}, total R$ ${invoiceFocus.amount.toFixed(2)}. Itens:\n${invoiceFocus.items.slice(0, 40).map(item => `${item.paymentDate || item.date || 's/data'}: ${item.description} - R$ ${(item.amount || 0).toFixed(2)} (${item.category || 'Sem categoria'})`).join('\n')}`
     : '';
 
+  // Detect question type for smarter responses
+  const isSimpleDataQuery = (() => {
+    const dataQueryKeywords = [
+      'quanto', 'qual', 'quantas', 'quantos', 'soma', 'total', 'gastei',
+      'recebi', 'saldo', 'quanto foi', 'mostre', 'liste', 'quais foram'
+    ];
+    const adviceKeywords = [
+      'consigo comprar', 'posso comprar', 'devo comprar', 'vale a pena',
+      'recomenda', 'sugere', 'acha', 'opina', 'conselho', 'dica', 'ajuda'
+    ];
+
+    const hasDataKeyword = dataQueryKeywords.some(kw => lastUserMsg.includes(kw));
+    const hasAdviceKeyword = adviceKeywords.some(kw => lastUserMsg.includes(kw));
+
+    // It's a simple query if it has data keywords but NO advice keywords
+    return hasDataKeyword && !hasAdviceKeyword;
+  })();
+
   try {
     const ai = getAI();
-    const chat = ai.chats.create({
-      model: "gemini-2.5-flash",
-      config: {
-        systemInstruction: `Voce e FinAI, assistente financeiro central com visao holistica. Voce enxerga transacoes, lista de desejos inteligentes e agenda de pagamentos.
+
+    // Smart system instruction based on query type
+    const systemInstruction = isSimpleDataQuery
+      ? `Voce e FinAI, assistente financeiro para consultas de dados.
+
+        CONTEXTO FINANCEIRO (ultimos meses): ${snapshotText}
+
+        TRANSAÇÕES RELEVANTES (${relevantTransactions.length} analisadas):
+        ${summary}
+
+        CONTEXTO EXTRA DO APP:
+
+        📋 LISTA DE DESEJOS (${wishlistItems.length} itens):
+        ${wishlistSummary || 'nenhum desejo cadastrado.'}
+
+        📅 AGENDA/PAGAMENTOS proximos (${paymentsContext.length}):
+        ${paymentSummary || 'sem vencimentos relevantes.'}
+
+        💳 FATURAS importadas (${invoiceSummaries.length}):
+        ${invoiceSummaryText || 'nenhuma fatura salva.'}
+        ${invoiceFocusText ? `\n${invoiceFocusText}` : ''}
+
+        REGRAS PARA CONSULTAS DE DADOS:
+        1. Responda APENAS o que foi perguntado
+        2. Seja direto e objetivo (máximo 2-3 frases)
+        3. NÃO dê conselhos ou recomendações não solicitadas
+        4. NÃO mencione "impacto no fluxo de caixa" ou análises financeiras
+        5. Se não encontrar dados específicos, diga claramente e sugira verificar filtros/período
+
+        Formato de resposta:
+        - Resposta direta à pergunta em 1-2 frases
+        - Se aplicável, liste os valores encontrados
+        - Apenas dados, sem análise ou conselhos
+
+        Valores sempre em BRL (R$).`
+      : `Voce e FinAI, assistente financeiro central com visao holistica. Voce enxerga transacoes, lista de desejos inteligentes e agenda de pagamentos.
 
         CONTEXTO FINANCEIRO (ultimos meses): ${snapshotText}
 
@@ -778,7 +828,12 @@ export const chatWithAdvisor = async (
 
         Valores sempre em BRL (R$). Seja direto, honesto e prático.
 
-        CTA opcional (no final): 'CTA: {"type":"wishlist_add","name":"ITEM","rationale":"motivo","suggestedPrice":1234.56}'`
+        CTA opcional (no final): 'CTA: {"type":"wishlist_add","name":"ITEM","rationale":"motivo","suggestedPrice":1234.56}'`;
+
+    const chat = ai.chats.create({
+      model: "gemini-2.5-flash",
+      config: {
+        systemInstruction: systemInstruction
       },
       history: history
     });
