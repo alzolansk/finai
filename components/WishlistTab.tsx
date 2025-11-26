@@ -35,7 +35,6 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
   const [typeFilter, setTypeFilter] = useState<'all' | WishlistItemType>('all');
   const [sortOption, setSortOption] = useState<'priority' | 'eta' | 'impact'>('priority');
   const [showFilters, setShowFilters] = useState(false);
-  const [viabilityHints, setViabilityHints] = useState<Record<string, string>>({});
   const [showArchived, setShowArchived] = useState(false);
 
   // Conversation state
@@ -58,16 +57,20 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
     paymentOption: 'cash'
   });
 
-  // Calculate monthly expenses considering past AND future recurring transactions
-  const { monthlyIncome, monthlyExpenses, monthlySavingsPotential } = useMemo(() => {
+  // Calculate monthly expenses with outlier detection and multiple scenarios
+  const { monthlyIncome, monthlyExpenses, monthlySavingsPotential, expenseBreakdown, scenarios, dataQuality } = useMemo(() => {
     const income = settings?.monthlyIncome || 0;
 
     // Calculate average monthly expenses from recent months
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
 
-    // Get last 3 months of data (PAST)
-    const pastMonths = [0, 1, 2].map(offset => {
+    // Count total transactions for quality assessment
+    const totalTransactions = transactions.length;
+    const expenseTransactions = transactions.filter(t => t.type === 'EXPENSE').length;
+
+    // Get last 6 months of data for better outlier detection
+    const pastMonths = [0, 1, 2, 3, 4, 5].map(offset => {
       const date = new Date(currentYear, currentMonth - offset, 1);
       return {
         year: date.getFullYear(),
@@ -85,49 +88,122 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
         .reduce((sum, t) => sum + t.amount, 0);
     });
 
-    // Get next 3 months of data (FUTURE) - considering scheduled transactions
-    const futureMonths = [1, 2, 3].map(offset => {
-      const date = new Date(currentYear, currentMonth + offset, 1);
-      return {
-        year: date.getFullYear(),
-        month: date.getMonth()
-      };
-    });
+    // Outlier detection using IQR method
+    const detectOutliers = (values: number[]): { cleaned: number[], outliers: number[] } => {
+      if (values.length < 3) return { cleaned: values, outliers: [] };
 
-    const futureMonthlyExpenseTotals = futureMonths.map(({ year, month }) => {
-      return transactions
-        .filter(t => {
-          if (t.type !== 'EXPENSE') return false;
-          const tDate = new Date(t.paymentDate || t.date);
-          return tDate.getFullYear() === year && tDate.getMonth() === month;
-        })
-        .reduce((sum, t) => sum + t.amount, 0);
-    });
+      const sorted = [...values].sort((a, b) => a - b);
+      const q1 = sorted[Math.floor(sorted.length * 0.25)];
+      const q3 = sorted[Math.floor(sorted.length * 0.75)];
+      const iqr = q3 - q1;
+      const lowerBound = q1 - 1.5 * iqr;
+      const upperBound = q3 + 1.5 * iqr;
 
-    // Average of last 3 months (past)
-    const avgPastExpense = pastMonthlyExpenseTotals.length > 0
-      ? pastMonthlyExpenseTotals.reduce((a, b) => a + b, 0) / pastMonthlyExpenseTotals.length
-      : 0;
+      const cleaned: number[] = [];
+      const outliers: number[] = [];
 
-    // Average of next 3 months (future scheduled)
-    const avgFutureExpense = futureMonthlyExpenseTotals.length > 0
-      ? futureMonthlyExpenseTotals.reduce((a, b) => a + b, 0) / futureMonthlyExpenseTotals.length
-      : 0;
+      values.forEach(v => {
+        if (v >= lowerBound && v <= upperBound) {
+          cleaned.push(v);
+        } else {
+          outliers.push(v);
+        }
+      });
 
-    // Add recurring expenses that might not be captured
+      return { cleaned, outliers };
+    };
+
+    const { cleaned: cleanedExpenses } = detectOutliers(pastMonthlyExpenseTotals);
+
+    // Use last 3 months average (without outliers) for realistic estimate
+    const recentCleanedExpenses = cleanedExpenses.slice(0, Math.min(3, cleanedExpenses.length));
+    const avgExpense = recentCleanedExpenses.length > 0
+      ? recentCleanedExpenses.reduce((a, b) => a + b, 0) / recentCleanedExpenses.length
+      : pastMonthlyExpenseTotals.slice(0, 3).reduce((a, b) => a + b, 0) / Math.min(3, pastMonthlyExpenseTotals.length);
+
+    // Calculate recurring expenses baseline
     const recurringExpenses = transactions
       .filter(t => t.type === 'EXPENSE' && t.isRecurring)
       .reduce((sum, t) => sum + t.amount, 0);
 
-    // Use the maximum of: past average, future average, or recurring total
-    // This is conservative and accounts for upcoming commitments
-    const expenses = Math.max(avgPastExpense, avgFutureExpense, recurringExpenses);
+    // Use the higher of: average expense or recurring expenses (more realistic)
+    const expenses = Math.max(avgExpense, recurringExpenses);
     const savingsPotential = income - expenses;
+
+    // Calculate different scenarios
+    const scenariosCalc = {
+      conservative: {
+        label: 'Conservador',
+        savingsRate: 0.30,
+        monthlyAmount: savingsPotential * 0.30,
+        description: 'Poupa 30% do disponível (seguro)'
+      },
+      realistic: {
+        label: 'Realista',
+        savingsRate: 0.50,
+        monthlyAmount: savingsPotential * 0.50,
+        description: 'Poupa 50% do disponível (equilibrado)'
+      },
+      optimistic: {
+        label: 'Otimista',
+        savingsRate: 0.90,
+        monthlyAmount: savingsPotential * 0.90,
+        description: 'Poupa 90% do disponível (agressivo)'
+      }
+    };
+
+    // Data quality assessment
+    const qualityScore = (() => {
+      let score = 0;
+      let warnings: string[] = [];
+
+      // Check transaction volume
+      if (totalTransactions < 10) {
+        warnings.push('Adicione mais transações para análises precisas (mínimo recomendado: 30)');
+        score += 20;
+      } else if (totalTransactions < 30) {
+        warnings.push('Adicione mais transações para melhorar precisão das análises');
+        score += 50;
+      } else {
+        score += 100;
+      }
+
+      // Check months of data
+      if (recentCleanedExpenses.length < 2) {
+        warnings.push('Registre despesas por pelo menos 2-3 meses para análises confiáveis');
+        score += 20;
+      } else if (recentCleanedExpenses.length < 3) {
+        warnings.push('Continue registrando transações para melhorar a precisão');
+        score += 60;
+      } else {
+        score += 100;
+      }
+
+      // Check if income is set
+      if (income === 0) {
+        warnings.push('Configure sua renda mensal nas configurações');
+        score += 0;
+      } else {
+        score += 100;
+      }
+
+      const avgScore = score / 3;
+      const level = avgScore >= 80 ? 'good' : avgScore >= 50 ? 'medium' : 'low';
+
+      return { score: avgScore, level, warnings };
+    })();
 
     return {
       monthlyIncome: income,
       monthlyExpenses: expenses,
-      monthlySavingsPotential: savingsPotential
+      monthlySavingsPotential: savingsPotential,
+      expenseBreakdown: {
+        average: avgExpense,
+        recurring: recurringExpenses,
+        monthsAnalyzed: recentCleanedExpenses.length
+      },
+      scenarios: scenariosCalc,
+      dataQuality: qualityScore
     };
   }, [transactions, settings]);
 
@@ -200,6 +276,11 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
         payment,
         installments
       );
+
+      // Add data quality warning to analysis if needed
+      if (dataQuality.level !== 'good') {
+        result.analysis = `⚠️ Análise baseada em dados ${dataQuality.level === 'low' ? 'insuficientes' : 'limitados'}. ${result.analysis}`;
+      }
 
       setViabilityResult(result);
       setConversationStep('confirmation');
@@ -457,34 +538,6 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
     ).length,
   [wishlistItems, searchTerm]);
 
-  // Background viability hints (lightweight usage of analyzeWishlistViability)
-  useEffect(() => {
-    const run = async () => {
-      if (!settings || filteredItems.length === 0) return;
-      const sample = filteredItems.slice(0, 5);
-      for (const item of sample) {
-        if (viabilityHints[item.id]) continue;
-        try {
-          const remaining = Math.max(0, item.targetAmount - item.savedAmount);
-          const result = await analyzeWishlistViability(
-            item.name,
-            remaining,
-            monthlyIncome,
-            monthlyExpenses,
-            item.paymentOption === 'installments' ? 'installments' : 'cash',
-            item.installmentCount
-          );
-          if (result?.recommendation) {
-            setViabilityHints(prev => ({ ...prev, [item.id]: result.recommendation }));
-          }
-        } catch (err) {
-          console.error('Viability background hint error', err);
-        }
-      }
-    };
-    run();
-  }, [filteredItems, settings, monthlyIncome, monthlyExpenses, viabilityHints]);
-
   return (
     <div className="space-y-8 pb-20 animate-fadeIn">
       <style>{motionStyles}</style>
@@ -612,6 +665,27 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
         </div>
       )}
 
+      {/* Data Quality Warning */}
+      {dataQuality.level !== 'good' && dataQuality.warnings.length > 0 && (
+        <div className={`flex items-start gap-3 rounded-2xl px-4 py-3 shadow-sm text-sm ${
+          dataQuality.level === 'low'
+            ? 'bg-rose-50 border border-rose-100'
+            : 'bg-amber-50 border border-amber-100'
+        }`}>
+          <AlertCircle size={20} className={`mt-0.5 ${dataQuality.level === 'low' ? 'text-rose-600' : 'text-amber-600'}`} />
+          <div className="flex-1">
+            <p className={`font-bold mb-1 ${dataQuality.level === 'low' ? 'text-rose-800' : 'text-amber-800'}`}>
+              {dataQuality.level === 'low' ? '⚠️ Dados insuficientes' : '📊 Melhore a precisão das análises'}
+            </p>
+            <ul className={`space-y-1 text-xs ${dataQuality.level === 'low' ? 'text-rose-700' : 'text-amber-700'}`}>
+              {dataQuality.warnings.map((warning, idx) => (
+                <li key={idx}>• {warning}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* Archived hint */}
       {(archivedMatches > 0 || statusFilter === 'archived') && (
         <div className="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 shadow-sm text-sm">
@@ -650,15 +724,16 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
           <div className="absolute left-0 top-full mt-2 w-80 p-3 bg-zinc-900 text-white rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 text-xs">
             <p className="mb-2"><strong>Como calculamos:</strong></p>
             <p className="mb-1">📊 Renda mensal: R$ {monthlyIncome.toLocaleString('pt-BR')}</p>
-            <p className="mb-1">📉 Despesas (consideradas): R$ {monthlyExpenses.toLocaleString('pt-BR')}</p>
+            <p className="mb-1">📉 Despesas médias: R$ {expenseBreakdown.average.toLocaleString('pt-BR')}</p>
+            <p className="mb-1">🔄 Despesas recorrentes: R$ {expenseBreakdown.recurring.toLocaleString('pt-BR')}</p>
+            <p className="mb-1 text-zinc-400 text-[10px]">Análise: últimos {expenseBreakdown.monthsAnalyzed} meses (outliers removidos)</p>
             <div className="my-2 h-px bg-zinc-700"></div>
-            <p className="text-emerald-400 font-bold text-sm">💰 Sobra: R$ {monthlySavingsPotential.toLocaleString('pt-BR')}</p>
-            <div className="mt-3 p-2 bg-zinc-800 rounded-lg">
-              <p className="text-zinc-400 text-[10px] leading-relaxed">
-                <strong>Análise completa:</strong> Consideramos a média dos últimos 3 meses,
-                os próximos 3 meses de despesas já programadas, e todas as despesas recorrentes.
-                Usamos o valor mais alto para ser conservador.
-              </p>
+            <p className="text-emerald-400 font-bold text-sm">💰 Disponível: R$ {monthlySavingsPotential.toLocaleString('pt-BR')}</p>
+            <div className="mt-3 p-2 bg-zinc-800 rounded-lg space-y-1">
+              <p className="text-zinc-300 text-[10px] font-bold">Cenários de economia:</p>
+              <p className="text-[10px]">🟢 {scenarios.conservative.label}: R$ {scenarios.conservative.monthlyAmount.toLocaleString('pt-BR', {minimumFractionDigits: 0})} ({scenarios.conservative.description})</p>
+              <p className="text-[10px]">🟡 {scenarios.realistic.label}: R$ {scenarios.realistic.monthlyAmount.toLocaleString('pt-BR', {minimumFractionDigits: 0})} ({scenarios.realistic.description})</p>
+              <p className="text-[10px]">🔴 {scenarios.optimistic.label}: R$ {scenarios.optimistic.monthlyAmount.toLocaleString('pt-BR', {minimumFractionDigits: 0})} ({scenarios.optimistic.description})</p>
             </div>
           </div>
         </div>
@@ -1052,17 +1127,6 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
                   </div>
                   {item.description && (
                     <p className="text-sm text-zinc-600 mb-3">{item.description}</p>
-                  )}
-                  {viabilityHints[item.id] && (
-                    <div className="mb-3 flex items-start gap-2 p-3 rounded-2xl bg-emerald-50 border border-emerald-100 text-sm text-emerald-700">
-                      <Sparkles size={16} className="mt-0.5 text-emerald-500" />
-                      <div>
-                        <p className="font-semibold">Dica de economia</p>
-                        <p>
-                          Voce pode poupar R$ {Math.min(remaining, Math.max(0, monthlySavingsPotential)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} este mes. {viabilityHints[item.id]}
-                        </p>
-                      </div>
-                    </div>
                   )}
                 </div>
 

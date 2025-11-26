@@ -676,19 +676,35 @@ export const chatWithAdvisor = async (
     .map(t => `${t.date}: ${t.description} - R$ ${t.amount} (${t.category})`)
     .join('\n');
 
-  // Enrich context with wishlist, agenda and invoices
+  // Enrich context with wishlist, agenda and invoices - HOLISTIC ANALYSIS
   const wishlistMatches = wishlistItems.filter(item => lastUserMsg.includes(item.name.toLowerCase()));
   const wishlistForPrompt = (wishlistMatches.length ? wishlistMatches : wishlistItems).slice(0, 10);
+
+  // Calculate total commitment from wishlist
+  const totalWishlistCommitment = wishlistItems.reduce((sum, item) => {
+    if (item.paymentOption === 'installments' && item.installmentAmount) {
+      return sum + item.installmentAmount;
+    }
+    return sum;
+  }, 0);
+
   const wishlistSummary = wishlistForPrompt
     .map(item => {
       const progress = item.targetAmount > 0 ? Math.round((item.savedAmount / item.targetAmount) * 100) : 0;
+      const remaining = item.targetAmount - item.savedAmount;
       const viability = item.isViable ? 'viavel' : item.viabilityDate ? `planejando (viavel em ${item.viabilityDate})` : 'planejando';
       const installments = item.paymentOption === 'installments' && item.installmentCount && item.installmentAmount
         ? ` | ${item.installmentCount}x de R$ ${item.installmentAmount.toFixed(2)}`
         : '';
-      return `${item.name} -> alvo R$ ${item.targetAmount.toFixed(2)}, guardado R$ ${item.savedAmount.toFixed(2)} (${progress}%), status ${viability}${installments}`;
+      const priority = item.priority ? ` | prioridade ${item.priority}` : '';
+      return `${item.name} -> alvo R$ ${item.targetAmount.toFixed(2)}, guardado R$ ${item.savedAmount.toFixed(2)} (${progress}%), falta R$ ${remaining.toFixed(2)}, status ${viability}${installments}${priority}`;
     })
     .join('\n');
+
+  // Wishlist conflict analysis
+  const wishlistConflicts = totalWishlistCommitment > avgIncome * 0.3
+    ? `⚠️ ALERTA: Compromisso total com parcelas da wishlist (R$ ${totalWishlistCommitment.toFixed(2)}) excede 30% da renda média!`
+    : '';
 
   const paymentSummary = paymentsContext
     .slice(0, 15)
@@ -709,29 +725,60 @@ export const chatWithAdvisor = async (
     const chat = ai.chats.create({
       model: "gemini-2.5-flash",
       config: {
-        systemInstruction: `Voce e FinAI, assistente financeiro central. Voce enxerga transacoes, lista de desejos inteligentes e agenda de pagamentos do app.
-        Contexto financeiro (ultimos meses): ${snapshotText}
-        Transacoes relevantes (${relevantTransactions.length} analisadas):
+        systemInstruction: `Voce e FinAI, assistente financeiro central com visao holistica. Voce enxerga transacoes, lista de desejos inteligentes e agenda de pagamentos.
+
+        CONTEXTO FINANCEIRO (ultimos meses): ${snapshotText}
+
+        TRANSAÇÕES RELEVANTES (${relevantTransactions.length} analisadas):
         ${summary}
 
-        Contexto extra do app:
-        - Desejos (${wishlistItems.length}): ${wishlistSummary || 'nenhum desejo cadastrado.'}
-        - Agenda/Pagamentos proximos (${paymentsContext.length}): ${paymentSummary || 'sem vencimentos relevantes.'}
-        - Faturas importadas (${invoiceSummaries.length}): ${invoiceSummaryText || 'nenhuma fatura salva.'}
-        ${invoiceFocusText ? `- ${invoiceFocusText}` : ''}
+        CONTEXTO EXTRA DO APP:
 
-        Regras:
-        - Antes de dizer que algo nao existe, cheque desejos e faturas listadas acima.
-        - Se a pergunta for sobre metas/desejos, responda com valor alvo, quanto ja foi guardado, parcela/forma de pagamento e viabilidade.
-        - Se for sobre faturas/pagamentos, priorize a fatura em foco quando houver e detalhe valores e vencimento.
-        - Se o usuario perguntar sobre comprar/adicionar algum item, SEMPRE inclua o CTA de adicionar a lista de desejos.
-        - Responda em Portugues, curto (ate ~120 palavras).
-        Formato fixo:
-        1) Julgamento direto em 1 frase (ex: "Veredito: risco moderado" ou "Veredito: viavel").
-        2) 2-3 bullets rapidos sobre impacto no fluxo de caixa e % da renda media.
-        3) 2 bullets de recomendacoes praticas (limite saudavel da parcela / adiar / negociar / alternativa mais barata).
-        Sem paragrafos longos; frases curtas; valores sempre em BRL (R$) usando dados reais quando possivel.
-        Opcionalmente, se fizer sentido sugerir adicionar algo na lista de desejos, acrescente NO FINAL uma linha 'CTA: {"type":"wishlist_add","name":"NOME_DO_ITEM","rationale":"por que adicionar","suggestedPrice":1234.56}'.`
+        📋 LISTA DE DESEJOS (${wishlistItems.length} itens):
+        ${wishlistSummary || 'nenhum desejo cadastrado.'}
+        ${wishlistConflicts}
+
+        Compromisso mensal total com parcelas: R$ ${totalWishlistCommitment.toFixed(2)} (${((totalWishlistCommitment / avgIncome) * 100).toFixed(1)}% da renda média)
+
+        📅 AGENDA/PAGAMENTOS proximos (${paymentsContext.length}):
+        ${paymentSummary || 'sem vencimentos relevantes.'}
+
+        💳 FATURAS importadas (${invoiceSummaries.length}):
+        ${invoiceSummaryText || 'nenhuma fatura salva.'}
+        ${invoiceFocusText ? `\n${invoiceFocusText}` : ''}
+
+        REGRAS DE ANÁLISE HOLÍSTICA:
+
+        1. WISHLIST - Análise integrada:
+           - Verifique se múltiplos itens competem pelos mesmos recursos
+           - Alerte se compromisso total com parcelas > 30% da renda
+           - Sugira priorização baseada em urgência e viabilidade
+           - Identifique conflitos (ex: 3 itens parcelados ao mesmo tempo)
+
+        2. PERGUNTAS sobre metas/desejos:
+           - Informe valor alvo, quanto já foi guardado, forma de pagamento
+           - Se houver múltiplos itens, compare e priorize
+           - Calcule impacto combinado no orçamento
+
+        3. PERGUNTAS sobre faturas/pagamentos:
+           - Priorize fatura em foco quando houver
+           - Detalhe valores e vencimentos
+           - Correlacione com wishlist se relevante
+
+        4. RECOMENDAÇÕES de compra:
+           - SEMPRE inclua CTA para adicionar à wishlist
+           - Avalie impacto considerando compromissos existentes
+           - Seja honesto sobre priorização vs. outros itens
+
+        5. FORMATO DE RESPOSTA (max 120 palavras):
+           a) Veredito direto em 1 frase
+           b) 2-3 bullets sobre impacto no fluxo de caixa e % da renda
+           c) 2 bullets de recomendações práticas
+           d) Se aplicável, análise de conflitos com outros objetivos
+
+        Valores sempre em BRL (R$). Seja direto, honesto e prático.
+
+        CTA opcional (no final): 'CTA: {"type":"wishlist_add","name":"ITEM","rationale":"motivo","suggestedPrice":1234.56}'`
       },
       history: history
     });
@@ -826,18 +873,33 @@ export const researchWishlistItem = async (itemName: string): Promise<{
 
       Sua tarefa:
       1. Identifique o que é este item (produto, viagem, experiência, serviço, etc.)
-      2. Pesquise e estime o preço médio atual no Brasil em Reais (R$)
-      3. Forneça uma faixa de preço (mínimo e máximo)
+      2. Pesquise e estime o preço médio atual no Brasil em Reais (R$) baseado em dados de mercado de ${new Date().getFullYear()}
+      3. Forneça uma faixa de preço (mínimo e máximo) realista
       4. Dê uma breve descrição do item
-      5. Forneça 2-3 sugestões práticas para o usuário (ex: "Considere comprar em promoções", "Pesquise em sites de comparação")
-      6. Indique o nível de confiança da estimativa: 'high' (produto comum com preço bem definido), 'medium' (preço variável), 'low' (item muito genérico ou sem informações claras)
+      5. Forneça 2-3 sugestões práticas e específicas para o usuário
+      6. Indique o nível de confiança da estimativa:
+         - 'high': produto comum com preço bem definido e fontes confiáveis
+         - 'medium': preço variável mas estimável com boa margem
+         - 'low': item muito genérico, sem informações claras ou desatualizado
+
+      IMPORTANTE - Contexto temporal e sazonal:
+      - Data atual: ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+      - Mês atual: ${new Date().toLocaleDateString('pt-BR', { month: 'long' })}
+      - Considere APENAS dados de ${new Date().getFullYear()} e ${new Date().getFullYear() - 1}
+      - Identifique se há promoções sazonais próximas (Black Friday em novembro, Natal em dezembro, etc.)
+      - Para viagens: considere alta/baixa temporada
 
       Casos especiais:
-      - Se for VIAGEM: calcule o custo total estimado incluindo passagens, hospedagem (3-5 dias), alimentação e passeios
-      - Se for EXPERIÊNCIA: estime o custo total da experiência
-      - Se for produto GENÉRICO (ex: "celular"): use o preço médio de modelos populares
+      - VIAGEM: calcule custo total incluindo passagens (ida/volta), hospedagem (3-5 dias médio), alimentação (~R$ 80-150/dia), passeios (2-3 principais)
+      - EXPERIÊNCIA: estime custo total da experiência completa (ingresso + extras)
+      - Produto GENÉRICO (ex: "celular"): use preço médio de modelos populares atuais
+      - Produto ESPECÍFICO: seja preciso no modelo e ano
 
-      Data atual: ${new Date().toLocaleDateString('pt-BR')}
+      Diretrizes de qualidade:
+      - Se não tiver certeza do preço, seja honesto e marque confidence='low'
+      - Prefira subestimar a superestimar (melhor surpreender positivamente)
+      - Mencione se o preço pode variar muito por região/época
+      - Se aplicável, sugira alternativas mais baratas
 
       Retorne JSON com as informações.`,
       config: {
@@ -910,32 +972,50 @@ export const analyzeWishlistViability = async (
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: `Analise a viabilidade deste objetivo financeiro:
+      contents: `Analise a viabilidade deste objetivo financeiro com critérios realistas:
 
+      CONTEXTO FINANCEIRO:
       Item: ${itemName}
       Valor Total: R$ ${targetAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
       Renda Mensal: R$ ${monthlyIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-      Despesas Mensais: R$ ${monthlyExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-      Economia Mensal Disponível: R$ ${monthlySavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+      Despesas Mensais (média): R$ ${monthlyExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+      Disponível Mensal: R$ ${monthlySavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
 
-      Forma de Pagamento: ${paymentOption === 'cash' ? 'À Vista' : `Parcelado em ${installmentCount}x`}
-      ${paymentOption === 'installments' ? `Valor da Parcela: R$ ${installmentAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}
+      Forma de Pagamento: ${paymentOption === 'cash' ? 'À Vista (economizar até ter o valor total)' : `Parcelado em ${installmentCount}x parcelas`}
+      ${paymentOption === 'installments' ? `Valor da Parcela: R$ ${installmentAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${((installmentAmount / monthlySavings) * 100).toFixed(1)}% do disponível mensal)` : ''}
 
-      Data Atual: ${new Date().toISOString()}
+      Data Atual: ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
 
-      Tarefas:
-      1. Determine se é viável no momento (considere que é viável se o impacto for <= 30% da renda líquida)
-      2. Se NÃO for viável agora, calcule em quantos meses será viável
-      3. Calcule a data estimada de viabilidade (formato ISO)
-      4. Forneça uma análise clara e objetiva (máx 2 frases)
-      5. Dê uma recomendação prática
-      6. ${paymentOption === 'installments' ? 'Analise o impacto da parcela no orçamento mensal (percentual da renda líquida)' : ''}
+      DIRETRIZES DE ANÁLISE:
 
-      Critérios de viabilidade:
-      - À Vista: usuário tem economia suficiente OU pode economizar em até 3 meses
-      - Parcelado: parcela representa no máximo 30% da renda líquida disponível
+      1. VIABILIDADE (seja REALISTA, não otimista demais):
+         - À Vista: considere que a pessoa consegue poupar REALISTICAMENTE 50% do disponível mensal (não 100%)
+         - Parcelado: parcela NÃO deve exceder 25% do disponível mensal (deixar margem de segurança)
+         - Se comprometer >25% do disponível = NÃO viável agora
 
-      Retorne JSON com análise detalhada.`,
+      2. CÁLCULO DE TEMPO:
+         - Use CENÁRIO REALISTA: pessoa poupa 50% do disponível
+         - Arredonde para cima (seja conservador)
+         - Considere buffer de segurança
+
+      3. ANÁLISE (2-3 frases):
+         - Seja direto e honesto
+         - Mencione o percentual de impacto no orçamento
+         - Indique se há risco de comprometer finanças
+
+      4. RECOMENDAÇÃO PRÁTICA:
+         - Se viável: dicas para acelerar (economias extras)
+         - Se não viável: alternativas concretas (aumentar renda, reduzir meta, parcelar em mais vezes)
+         - Mencione possibilidade de negociar desconto à vista
+
+      5. ${paymentOption === 'installments' ? 'ANÁLISE DE PARCELAS: Calcule percentual do disponível mensal, compare com a regra dos 25%, alerte se comprometer muito o orçamento' : ''}
+
+      CRITÉRIOS CONSERVADORES:
+      - Viável = impacto <= 25% do disponível mensal
+      - Planejável = impacto 26-40% (requer cuidado)
+      - Arriscado = impacto > 40% (não recomendado)
+
+      Retorne JSON com análise detalhada e honesta.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
