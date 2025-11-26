@@ -512,18 +512,40 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                     </div>
                 </div>
 
-                {/* STEP 4: DATA */}
-                <div>
-                    <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-2">
-                        {formData.type === TransactionType.INCOME ? 'Quando recebeu?' : 'Quando foi?'}
-                    </label>
-                    <input
-                        type="date"
-                        required
-                        value={formData.date}
-                        onChange={(e) => setFormData({...formData, date: e.target.value})}
-                        className="w-full p-4 bg-zinc-50 border-none rounded-2xl focus:ring-2 focus:ring-zinc-200 outline-none transition-all text-zinc-700 font-medium"
-                    />
+                {/* STEP 4: DATAS */}
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-2">
+                            {formData.type === TransactionType.INCOME ? 'Quando recebeu?' : 'Quando foi?'}
+                        </label>
+                        <input
+                            type="date"
+                            required
+                            value={formData.date}
+                            onChange={(e) => {
+                                const newDate = e.target.value;
+                                setFormData({
+                                    ...formData,
+                                    date: newDate,
+                                    // Se não for compra a crédito, atualizar paymentDate junto
+                                    paymentDate: !formData.isCreditPurchase ? newDate : formData.paymentDate
+                                });
+                            }}
+                            className="w-full p-4 bg-zinc-50 border-none rounded-2xl focus:ring-2 focus:ring-zinc-200 outline-none transition-all text-zinc-700 font-medium"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-2">
+                            {formData.type === TransactionType.INCOME ? 'Vencimento' : 'Data de Vencimento'}
+                        </label>
+                        <input
+                            type="date"
+                            required
+                            value={formData.paymentDate}
+                            onChange={(e) => setFormData({...formData, paymentDate: e.target.value})}
+                            className="w-full p-4 bg-zinc-50 border-none rounded-2xl focus:ring-2 focus:ring-zinc-200 outline-none transition-all text-zinc-700 font-medium"
+                        />
+                    </div>
                 </div>
 
                 {/* STEP 5: FORMA DE PAGAMENTO (só para despesas) */}
@@ -536,11 +558,11 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        setFormData({
-                                            ...formData,
+                                        setFormData(prev => ({
+                                            ...prev,
                                             isCreditPurchase: false,
-                                            paymentDate: formData.date
-                                        });
+                                            paymentDate: prev.date
+                                        }));
                                         setDetectedInstallments(1);
                                     }}
                                     className={`w-full p-4 rounded-2xl transition-all border-2 ${
