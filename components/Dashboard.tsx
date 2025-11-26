@@ -173,10 +173,10 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-7 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
 
         {/* Left Column - Main Stats & Goals */}
-        <div className="lg:col-span-4 flex flex-col gap-6">
+        <div className="lg:col-span-3 flex flex-col gap-6">
             
             {/* Top Cards Grid - Height h-56 (approx 14rem/224px) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -310,7 +310,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         {/* Right Column - History & Forecast */}
-        <div className="lg:col-span-3 flex flex-col gap-6">
+        <div className="lg:col-span-1 flex flex-col gap-6">
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-zinc-100 flex flex-col hover:shadow-lg transition-all hover:border-zinc-200 lg:h-[568px] h-auto">
             <h3 className="text-xl font-bold text-zinc-800 mb-6 flex items-center gap-2 shrink-0">
                 <ArrowDownRight className="text-zinc-400" size={20} />
