@@ -317,14 +317,27 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
         const pDate = new Date(t.paymentDate || t.date);
         const isThisMonth = pDate.getMonth() === currentMonth && pDate.getFullYear() === currentYear;
         const isCoveredByInvoice = hasInvoiceForIssuer(t);
-        
+
         if (isThisMonth && !t.isRecurring && !isCoveredByInvoice) {
              const manualCheck = isMarkedPaid(t.id, pDate);
              const isFuture = pDate > new Date();
-             
-             // If it's in transactions, it's technically "recorded/paid" unless it's a future scheduled payment
-             const status = manualCheck ? 'paid' : (isFuture ? 'pending' : 'paid');
-             
+             const today = new Date();
+             today.setHours(0, 0, 0, 0);
+             pDate.setHours(0, 0, 0, 0);
+
+             // For INCOME: if paymentDate is in the future, show as pending
+             // For EXPENSE: expenses already recorded are considered paid unless future
+             let status: 'pending' | 'paid' | 'overdue';
+             if (manualCheck) {
+                 status = 'paid';
+             } else if (t.type === TransactionType.INCOME) {
+                 // Income is pending until paymentDate arrives
+                 status = pDate > today ? 'pending' : (pDate < today ? 'overdue' : 'paid');
+             } else {
+                 // Expenses: if in transactions and not future, consider paid
+                 status = isFuture ? 'pending' : 'paid';
+             }
+
              items.push({
                 id: t.id,
                 title: t.description,
@@ -332,7 +345,7 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
                 dueDate: (t.paymentDate || t.date).split('T')[0],
                 type: t.type,
                 category: t.category,
-                status: status as 'pending' | 'paid' | 'overdue',
+                status,
                 paidAt: status === 'paid' ? (t.paymentDate || t.date) : undefined,
                 isInvoice: false,
                 originalTransaction: t

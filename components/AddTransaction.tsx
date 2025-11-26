@@ -50,11 +50,15 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
     try {
       const result = await parseTransactionFromText(inputText);
       if (result) {
+        const parsedDate = result.date ? new Date(result.date).toISOString().split('T')[0] : formData.date;
+        const parsedPaymentDate = result.paymentDate
+          ? new Date(result.paymentDate).toISOString().split('T')[0]
+          : parsedDate;
+
         setFormData({
           ...result,
-          date: result.date ? new Date(result.date).toISOString().split('T')[0] : formData.date,
-          // If AI detected a payment date, use it, else default to date or today
-          paymentDate: result.paymentDate ? new Date(result.paymentDate).toISOString().split('T')[0] : (result.date || formData.date),
+          date: parsedDate,
+          paymentDate: parsedPaymentDate,
           isCreditPurchase: false
         });
         setDetectedInstallments(result.installments || 1);
