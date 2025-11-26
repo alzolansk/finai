@@ -142,6 +142,8 @@ export interface WishlistItem {
   createdAt: number;
   updatedAt?: number;
   createdViaChat?: boolean; // Flag to indicate item was added by the chat assistant
+  isArchived?: boolean; // Lifecycle control: paused/archived
+  archivedAt?: number;
 }
 
 // Advanced Filter Types

@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { Transaction, UserSettings, WishlistItem, WishlistItemType, WishlistPriority } from '../types';
-import { Heart, Plus, Trash2, TrendingUp, Calendar, DollarSign, Sparkles, CheckCircle2, XCircle, AlertCircle, Edit2, Save, X, Loader2, HelpCircle, Info, ChevronRight, ChevronLeft, Plane, ShoppingBag, MapPin, Briefcase, Star } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Transaction, UserSettings, WishlistItem, WishlistItemType, WishlistPriority, TransactionType, Category } from '../types';
+import { Heart, Plus, Trash2, TrendingUp, Calendar, DollarSign, Sparkles, CheckCircle2, XCircle, AlertCircle, Edit2, Save, X, Loader2, HelpCircle, Info, ChevronRight, ChevronLeft, Plane, ShoppingBag, MapPin, Briefcase, Star, Filter as FilterIcon } from 'lucide-react';
 import { researchWishlistItem, analyzeWishlistViability } from '../services/geminiService';
+import { saveTransaction } from '../services/storageService';
 
 interface WishlistTabProps {
   transactions: Transaction[];
@@ -28,6 +29,14 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [expandedAnalyses, setExpandedAnalyses] = useState<Record<string, boolean>>({});
   const [expandedControls, setExpandedControls] = useState<Record<string, boolean>>({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState<'all' | WishlistPriority.HIGH | WishlistPriority.MEDIUM | WishlistPriority.LOW>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'viable' | 'progress' | 'pending' | 'archived'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | WishlistItemType>('all');
+  const [sortOption, setSortOption] = useState<'priority' | 'eta' | 'impact'>('priority');
+  const [showFilters, setShowFilters] = useState(false);
+  const [viabilityHints, setViabilityHints] = useState<Record<string, string>>({});
+  const [showArchived, setShowArchived] = useState(false);
 
   // Conversation state
   const [itemName, setItemName] = useState('');
@@ -267,11 +276,6 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
     }
   };
 
-  const sortedItems = [...wishlistItems].sort((a, b) => {
-    const priorityOrder = { [WishlistPriority.HIGH]: 3, [WishlistPriority.MEDIUM]: 2, [WishlistPriority.LOW]: 1 };
-    return priorityOrder[b.priority] - priorityOrder[a.priority];
-  });
-
   const motionStyles = `
     @keyframes wishlist-fade-slide {
       from { opacity: 0; transform: translateY(8px); }
@@ -325,6 +329,38 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
     });
   };
 
+  const toggleArchive = (item: WishlistItem) => {
+    onUpdateItem({
+      ...item,
+      isArchived: !item.isArchived,
+      archivedAt: !item.isArchived ? Date.now() : undefined,
+      updatedAt: Date.now()
+    });
+  };
+
+  const convertToTransaction = (item: WishlistItem) => {
+    const tx: Transaction = {
+      id: crypto.randomUUID(),
+      description: `Wishlist: ${item.name}`,
+      amount: item.targetAmount,
+      date: new Date().toISOString(),
+      paymentDate: new Date().toISOString(),
+      category: item.type === WishlistItemType.INVESTMENT ? Category.SAVINGS :
+                item.type === WishlistItemType.EXPERIENCE ? Category.ENTERTAINMENT :
+                item.type === WishlistItemType.PURCHASE ? Category.SHOPPING :
+                Category.OTHER,
+      type: TransactionType.EXPENSE,
+      isAiGenerated: true
+    };
+    saveTransaction(tx);
+    onUpdateItem({
+      ...item,
+      isArchived: true,
+      archivedAt: Date.now(),
+      updatedAt: Date.now()
+    });
+  };
+
   const getStatusBadge = (item: WishlistItem, progress: number) => {
     if (item.isViable) return { label: 'Viavel', color: 'bg-emerald-100 text-emerald-700' };
     if (progress > 50) return { label: 'Em progresso', color: 'bg-amber-100 text-amber-700' };
@@ -334,7 +370,7 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
   const getTypeIcon = (type?: WishlistItemType) => {
     switch (type) {
       case WishlistItemType.TRAVEL:
-        return { icon: <Plane size={16} />, color: 'bg-blue-100 text-blue-600' };
+        return { icon: <Plane size={18} />, color: 'bg-blue-100 text-blue-600' };
       case WishlistItemType.EXPERIENCE:
         return { icon: <Star size={16} />, color: 'bg-amber-100 text-amber-700' };
       case WishlistItemType.INVESTMENT:
@@ -351,6 +387,103 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
     if (confidence === 'medium') return 'Media';
     return 'Baixa';
   };
+
+  const getEtaMonths = (item: WishlistItem) => {
+    const remaining = item.targetAmount - item.savedAmount;
+    if (remaining <= 0 || monthlySavingsPotential <= 0) return null;
+    return Math.ceil(remaining / monthlySavingsPotential);
+  };
+
+  const getMonthlyImpact = (item: WishlistItem) => {
+    if (item.paymentOption === 'installments' && item.installmentAmount) {
+      return item.installmentAmount;
+    }
+    const remaining = item.targetAmount - item.savedAmount;
+    return monthlySavingsPotential > 0 ? Math.min(remaining, monthlySavingsPotential) : remaining;
+  };
+
+  const filteredItems = useMemo(() => {
+    const priorityOrder = { [WishlistPriority.HIGH]: 3, [WishlistPriority.MEDIUM]: 2, [WishlistPriority.LOW]: 1 };
+    const filtered = wishlistItems.filter(item => {
+      const isArchived = !!item.isArchived;
+      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesPriority = priorityFilter === 'all' || item.priority === priorityFilter;
+      const matchesType = typeFilter === 'all' || item.type === typeFilter;
+      const progress = (item.savedAmount / item.targetAmount) * 100;
+      const matchesStatus =
+        statusFilter === 'all'
+          ? !isArchived
+          : statusFilter === 'archived'
+            ? isArchived
+            : statusFilter === 'viable'
+              ? (!isArchived && item.isViable)
+              : statusFilter === 'progress'
+                ? (!isArchived && !item.isViable && progress > 0)
+                : (!isArchived && !item.isViable && progress === 0);
+      return matchesSearch && matchesPriority && matchesType && matchesStatus;
+    });
+
+    return filtered.sort((a, b) => {
+      if (sortOption === 'eta') {
+        const etaA = getEtaMonths(a) ?? Number.POSITIVE_INFINITY;
+        const etaB = getEtaMonths(b) ?? Number.POSITIVE_INFINITY;
+        return etaA - etaB;
+      }
+      if (sortOption === 'impact') {
+        const impactA = getMonthlyImpact(a);
+        const impactB = getMonthlyImpact(b);
+        return impactB - impactA;
+      }
+      // default priority
+      return (priorityOrder[b.priority] - priorityOrder[a.priority]) || (b.createdAt || 0) - (a.createdAt || 0);
+    });
+  }, [wishlistItems, searchTerm, priorityFilter, typeFilter, statusFilter, sortOption, monthlySavingsPotential]);
+
+  const filteredTotals = useMemo(() => {
+    const total = filteredItems.reduce((sum, item) => sum + item.targetAmount, 0);
+    const viable = filteredItems.filter(i => i.isViable).length;
+    return {
+      count: filteredItems.length,
+      viable,
+      totalAmount: total
+    };
+  }, [filteredItems]);
+
+  const archivedItems = useMemo(() => wishlistItems.filter(i => i.isArchived), [wishlistItems]);
+  const archivedMatches = useMemo(() =>
+    wishlistItems.filter(i =>
+      i.isArchived &&
+      (searchTerm.trim() ? i.name.toLowerCase().includes(searchTerm.toLowerCase()) : true)
+    ).length,
+  [wishlistItems, searchTerm]);
+
+  // Background viability hints (lightweight usage of analyzeWishlistViability)
+  useEffect(() => {
+    const run = async () => {
+      if (!settings || filteredItems.length === 0) return;
+      const sample = filteredItems.slice(0, 5);
+      for (const item of sample) {
+        if (viabilityHints[item.id]) continue;
+        try {
+          const remaining = Math.max(0, item.targetAmount - item.savedAmount);
+          const result = await analyzeWishlistViability(
+            item.name,
+            remaining,
+            monthlyIncome,
+            monthlyExpenses,
+            item.paymentOption === 'installments' ? 'installments' : 'cash',
+            item.installmentCount
+          );
+          if (result?.recommendation) {
+            setViabilityHints(prev => ({ ...prev, [item.id]: result.recommendation }));
+          }
+        } catch (err) {
+          console.error('Viability background hint error', err);
+        }
+      }
+    };
+    run();
+  }, [filteredItems, settings, monthlyIncome, monthlyExpenses, viabilityHints]);
 
   return (
     <div className="space-y-8 pb-20 animate-fadeIn">
@@ -373,18 +506,128 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
           </h2>
           <p className="text-zinc-500 text-sm mt-1">Planeje seus objetivos e veja quando são viáveis com IA</p>
         </div>
-        <button
-          onClick={isAddingNew ? handleCancel : startConversation}
-          className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold transition-all ${
-            isAddingNew
-              ? 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-              : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20'
-          }`}
-        >
-          {isAddingNew ? <X size={20} /> : <Plus size={20} />}
-          {isAddingNew ? 'Cancelar' : 'Novo Desejo'}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowFilters(prev => !prev)}
+            className="p-3 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:border-emerald-200 hover:text-emerald-700 transition-all flex items-center gap-2"
+            title="Filtrar e ordenar"
+          >
+            <FilterIcon size={18} />
+            <span className="text-sm font-semibold hidden sm:inline">Filtros</span>
+          </button>
+          <button
+            onClick={isAddingNew ? handleCancel : startConversation}
+            className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold transition-all ${
+              isAddingNew
+                ? 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20'
+            }`}
+          >
+            {isAddingNew ? <X size={20} /> : <Plus size={20} />}
+            {isAddingNew ? 'Cancelar' : 'Novo Desejo'}
+          </button>
+        </div>
       </div>
+
+      {/* Filters & Search (collapsible) */}
+      {showFilters && (
+        <div className="bg-white border border-zinc-100 rounded-3xl p-4 shadow-sm flex flex-col md:flex-row gap-4 items-center md:items-end animate-fadeIn">
+          <div className="flex-1 w-full">
+            <label className="text-xs font-bold text-zinc-500 mb-1 block">Buscar por nome</label>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Ex.: viagem, notebook, curso..."
+              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
+            />
+            {archivedMatches > 0 && statusFilter !== 'archived' && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
+                Arquivados: {archivedMatches} encontrados
+                <button
+                  onClick={() => setStatusFilter('archived')}
+                  className="text-emerald-700 font-semibold hover:text-emerald-800"
+                  type="button"
+                >
+                  Ver arquivados
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full md:w-auto">
+            <div>
+              <label className="text-xs font-bold text-zinc-500 mb-1 block">Prioridade</label>
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value as any)}
+                className="w-full px-3 py-2 rounded-xl border border-zinc-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              >
+                <option value="all">Todas</option>
+                <option value={WishlistPriority.HIGH}>Alta</option>
+                <option value={WishlistPriority.MEDIUM}>Media</option>
+                <option value={WishlistPriority.LOW}>Baixa</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-zinc-500 mb-1 block">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className="w-full px-3 py-2 rounded-xl border border-zinc-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              >
+                <option value="all">Todas</option>
+                <option value="viable">Viavel</option>
+                <option value="progress">Em progresso</option>
+                <option value="pending">Aguardando renda</option>
+                <option value="archived">Arquivadas</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-zinc-500 mb-1 block">Tipo</label>
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value as any)}
+                className="w-full px-3 py-2 rounded-xl border border-zinc-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              >
+                <option value="all">Todos</option>
+                <option value={WishlistItemType.TRAVEL}>Viagem</option>
+                <option value={WishlistItemType.EXPERIENCE}>Experiencia</option>
+                <option value={WishlistItemType.INVESTMENT}>Investimento</option>
+                <option value={WishlistItemType.PURCHASE}>Compra</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-zinc-500 mb-1 block">Ordenar por</label>
+              <select
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value as any)}
+                className="w-full px-3 py-2 rounded-xl border border-zinc-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              >
+                <option value="priority">Prioridade</option>
+                <option value="eta">Mais proximo (ETA)</option>
+                <option value="impact">Impacto mensal</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Archived hint */}
+      {(archivedMatches > 0 || statusFilter === 'archived') && (
+        <div className="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 shadow-sm text-sm">
+          <div className="text-amber-800">
+            {statusFilter === 'archived'
+              ? `Listando arquivados (${archivedItems.length})`
+              : `Arquivados: ${archivedMatches} encontrados`}
+          </div>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'archived' ? 'all' : 'archived')}
+            className="text-sm font-bold text-amber-700 hover:text-amber-800"
+          >
+            {statusFilter === 'archived' ? 'Voltar' : 'Ver arquivados'}
+          </button>
+        </div>
+      )}
 
       {/* Financial Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -427,9 +670,9 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
             </div>
             <h3 className="font-bold text-zinc-700 text-sm">Total de Desejos</h3>
           </div>
-          <p className="text-2xl font-bold text-zinc-900">{wishlistItems.length}</p>
+          <p className="text-2xl font-bold text-zinc-900">{filteredTotals.count}</p>
           <p className="text-xs text-zinc-500 mt-1">
-            {wishlistItems.filter(i => i.isViable).length} viáveis agora
+            {filteredTotals.viable} viaveis agora {filteredTotals.count !== wishlistItems.length && `(de ${wishlistItems.length})`}
           </p>
         </div>
 
@@ -441,9 +684,11 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
             <h3 className="font-bold text-zinc-700 text-sm">Valor Total</h3>
           </div>
           <p className="text-2xl font-bold text-zinc-900">
-            R$ {wishlistItems.reduce((sum, item) => sum + item.targetAmount, 0).toLocaleString('pt-BR')}
+            R$ {filteredTotals.totalAmount.toLocaleString('pt-BR')}
           </p>
-          <p className="text-xs text-zinc-500 mt-1">Soma de todos os objetivos</p>
+          <p className="text-xs text-zinc-500 mt-1">
+            Soma {filteredTotals.count !== wishlistItems.length && `(total geral: R$ ${wishlistItems.reduce((sum, item) => sum + item.targetAmount, 0).toLocaleString('pt-BR')})`}
+          </p>
         </div>
       </div>
 
@@ -719,7 +964,7 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
 
       {/* Wishlist Items */}
       <div className="space-y-4">
-        {sortedItems.length === 0 && !isAddingNew && (
+        {filteredItems.length === 0 && !isAddingNew && (
           <div className="bg-white rounded-3xl p-12 text-center border border-zinc-100">
             <div className="w-20 h-20 bg-zinc-100 rounded-full mx-auto mb-4 flex items-center justify-center">
               <Heart className="text-zinc-400" size={32} />
@@ -736,14 +981,27 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
           </div>
         )}
 
-        {sortedItems.map(item => {
+        {filteredItems.map(item => {
           const progress = (item.savedAmount / item.targetAmount) * 100;
           const remaining = item.targetAmount - item.savedAmount;
+          const isCompleted = remaining <= 0;
           const isAnalysisExpanded = expandedAnalyses[item.id];
           const isControlsExpanded = expandedControls[item.id];
           const statusBadge = getStatusBadge(item, progress);
           const typeIcon = getTypeIcon(item.type);
           const confidenceLabel = `Confianca de preco: ${getConfidenceLabel(item.priceResearchConfidence)}`;
+          const suggestedMonthly = monthlySavingsPotential > 0 ? Math.min(remaining, monthlySavingsPotential) : 0;
+          const etaMonths = monthlySavingsPotential > 0 ? Math.ceil(remaining / monthlySavingsPotential) : null;
+          const payoffDate = item.installmentCount
+            ? (() => {
+                const d = new Date();
+                d.setMonth(d.getMonth() + item.installmentCount - 1);
+                return d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+              })()
+            : null;
+          const installmentImpact = item.installmentAmount && settings?.monthlyIncome
+            ? (item.installmentAmount / settings.monthlyIncome) * 100
+            : null;
 
           return (
             <div
@@ -757,7 +1015,7 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
               <div className="flex justify-between items-start mb-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${typeIcon.color} font-bold`}>
+                    <div className={`w-11 h-11 aspect-square rounded-full flex items-center justify-center ${typeIcon.color} font-bold shadow-sm`}>
                       {typeIcon.icon}
                     </div>
                     <div className="flex flex-col gap-1">
@@ -776,6 +1034,16 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
                         {item.paymentOption === 'installments' && item.installmentCount && (
                           <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
                             {item.installmentCount}x de R$ {item.installmentAmount?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            {installmentImpact !== null && (
+                              <span className="ml-2 text-[11px] text-blue-800/80 font-semibold">
+                                ({installmentImpact.toFixed(1)}% da renda)
+                              </span>
+                            )}
+                            {payoffDate && (
+                              <span className="ml-2 text-[11px] text-blue-800/80 font-semibold">
+                                quita em {payoffDate}
+                              </span>
+                            )}
                           </span>
                         )}
                       </div>
@@ -785,9 +1053,46 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
                   {item.description && (
                     <p className="text-sm text-zinc-600 mb-3">{item.description}</p>
                   )}
+                  {viabilityHints[item.id] && (
+                    <div className="mb-3 flex items-start gap-2 p-3 rounded-2xl bg-emerald-50 border border-emerald-100 text-sm text-emerald-700">
+                      <Sparkles size={16} className="mt-0.5 text-emerald-500" />
+                      <div>
+                        <p className="font-semibold">Dica de economia</p>
+                        <p>
+                          Voce pode poupar R$ {Math.min(remaining, Math.max(0, monthlySavingsPotential)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} este mes. {viabilityHints[item.id]}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-2">
+                  {isCompleted && !item.isArchived && (
+                    <button
+                      onClick={() => convertToTransaction(item)}
+                      className="px-3 py-2 text-xs font-bold rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                      title="Converter em compra"
+                    >
+                      Converter em compra
+                    </button>
+                  )}
+                  {!item.isArchived ? (
+                    <button
+                      onClick={() => toggleArchive(item)}
+                      className="px-3 py-2 text-xs font-bold rounded-lg bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors"
+                      title="Arquivar/Pausar"
+                    >
+                      Arquivar
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => toggleArchive(item)}
+                      className="px-3 py-2 text-xs font-bold rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                      title="Desarquivar"
+                    >
+                      Desarquivar
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       if (confirm('Tem certeza que deseja excluir este desejo?')) {
@@ -843,7 +1148,7 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
                     <Edit2 size={16} />
                     {isControlsExpanded ? 'Fechar ajustes' : 'Editar/ajustar objetivo'}
                   </button>
-                  <span className="text-xs text-zinc-500">Ajustes rapidos sem poluir a tela</span>
+                  <span className="text-xs text-zinc-500">Ajustes rapidos</span>
                 </div>
 
                 <div
