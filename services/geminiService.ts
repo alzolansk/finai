@@ -6,6 +6,8 @@ import { parseLocalDate } from '../utils/dateUtils';
 
 // Get API Key from localStorage
 const getApiKey = (): string | null => {
+  const envKey = import.meta.env?.VITE_GEMINI_API_KEY || import.meta.env?.GEMINI_API_KEY;
+  if (envKey) return envKey;
   return localStorage.getItem('finai_gemini_api_key');
 };
 
@@ -35,6 +37,7 @@ export const resetAIInstance = () => {
 export const parseTransactionFromText = async (text: string): Promise<Partial<Transaction> & { installments?: number }> => {
   const startTime = Date.now();
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `Analyze this text: "${text}". 
@@ -94,6 +97,7 @@ export const parseImportFile = async (
 ): Promise<{ normalized: TransacaoNormalizada[]; dueDate?: string; issuer?: string; tipoImportacao: TipoImportacao; documentType?: 'invoice' | 'bank_statement' }> => {
   const startTime = Date.now();
   try {
+    const ai = getAI();
     const tipoImportacao = detectarTipoImportacao({ name: fileName, type: mimeType });
 
     // Planilhas tratadas localmente
@@ -452,6 +456,7 @@ export const generateInsights = async (transactions: Transaction[]): Promise<Ins
   const jsonHistory = JSON.stringify(recentTransactions);
 
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `Analyze these financial transactions: ${jsonHistory}.
@@ -700,6 +705,7 @@ export const chatWithAdvisor = async (
     : '';
 
   try {
+    const ai = getAI();
     const chat = ai.chats.create({
       model: "gemini-2.5-flash",
       config: {
@@ -773,6 +779,7 @@ export const calculateBudgetGoal = async (income: number, fixedExpenses: {descri
   const startTime = Date.now();
   try {
     const fixedTotal = fixedExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `User Income: ${income}. Fixed Expenses: ${JSON.stringify(fixedExpenses)} (Total: ${fixedTotal}).
@@ -812,6 +819,7 @@ export const researchWishlistItem = async (itemName: string): Promise<{
 }> => {
   const startTime = Date.now();
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `O usuário deseja adicionar "${itemName}" à lista de desejos.
@@ -898,6 +906,7 @@ export const analyzeWishlistViability = async (
   try {
     const monthlySavings = monthlyIncome - monthlyExpenses;
     const installmentAmount = installmentCount ? targetAmount / installmentCount : 0;
+    const ai = getAI();
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
