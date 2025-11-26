@@ -227,11 +227,11 @@ const Layout: React.FC<LayoutProps> = ({
               </button>
 
               <button
-                onClick={() => onTabChange('explore')}
-                className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'explore' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
-                title="Explorar"
+                onClick={() => onTabChange('reports')}
+                className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'reports' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+                title="Relatórios"
               >
-                <Search size={20} strokeWidth={activeTab === 'explore' ? 2.5 : 2} />
+                <BarChart3 size={20} strokeWidth={activeTab === 'reports' ? 2.5 : 2} />
               </button>
             </div>
 
@@ -440,6 +440,16 @@ const Layout: React.FC<LayoutProps> = ({
                 <div>
                     <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Dados</h4>
                     <div className="space-y-2">
+                        <button
+                            onClick={() => {
+                                setIsSettingsOpen(false);
+                                onTabChange('explore');
+                            }}
+                            className="w-full py-3 bg-white border border-zinc-200 text-zinc-700 font-medium rounded-xl hover:bg-zinc-50 hover:border-zinc-300 transition-all flex items-center justify-center gap-2 text-sm"
+                        >
+                            <Search size={16} />
+                            Explorar Transações
+                        </button>
                         <button
                             onClick={() => {
                                 setIsSettingsOpen(false);
