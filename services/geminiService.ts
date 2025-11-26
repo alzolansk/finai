@@ -673,7 +673,7 @@ export const chatWithAdvisor = async (
   // Create a detailed summary
   const summary = relevantTransactions
     .slice(0, useFullHistory ? relevantTransactions.length : 200) // Limit to 200 for token efficiency
-    .map(t => `${t.date}: ${t.description} - R$ ${t.amount} (${t.category})`)
+    .map(t => `${t.date}: ${t.description} - R$ ${t.amount} (${t.category}) [${t.type === TransactionType.INCOME ? 'RECEITA' : 'DESPESA'}]`)
     .join('\n');
 
   // Enrich context with wishlist, agenda and invoices - HOLISTIC ANALYSIS
@@ -724,7 +724,8 @@ export const chatWithAdvisor = async (
   const isSimpleDataQuery = (() => {
     const dataQueryKeywords = [
       'quanto', 'qual', 'quantas', 'quantos', 'soma', 'total', 'gastei',
-      'recebi', 'saldo', 'quanto foi', 'mostre', 'liste', 'quais foram'
+      'recebi', 'saldo', 'quanto foi', 'mostre', 'liste', 'quais foram',
+      'receita', 'receitas', 'recebimento', 'recebimentos', 'despesa', 'despesas'
     ];
     const adviceKeywords = [
       'consigo comprar', 'posso comprar', 'devo comprar', 'vale a pena',
@@ -768,10 +769,14 @@ export const chatWithAdvisor = async (
         3. NÃO dê conselhos ou recomendações não solicitadas
         4. NÃO mencione "impacto no fluxo de caixa" ou análises financeiras
         5. Se não encontrar dados específicos, diga claramente e sugira verificar filtros/período
+        6. IMPORTANTE: Cada transação é marcada como [RECEITA] ou [DESPESA]
+           - Para perguntas sobre "receitas", "recebimentos", "recebi": filtre APENAS [RECEITA]
+           - Para perguntas sobre "despesas", "gastos", "gastei": filtre APENAS [DESPESA]
+           - Sempre especifique se são receitas ou despesas na resposta
 
         Formato de resposta:
         - Resposta direta à pergunta em 1-2 frases
-        - Se aplicável, liste os valores encontrados
+        - Se aplicável, liste os valores encontrados com seus tipos (receita/despesa)
         - Apenas dados, sem análise ou conselhos
 
         Valores sempre em BRL (R$).`
