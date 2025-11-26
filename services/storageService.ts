@@ -223,6 +223,10 @@ export const clearAllData = (): void => {
   localStorage.removeItem(API_LOGS_KEY);
   localStorage.removeItem(WISHLIST_KEY);
   localStorage.removeItem(AGENDA_CHECKLIST_KEY);
+  localStorage.removeItem('finai_budget_limits');
+  localStorage.removeItem('finai_savings_goals');
+  localStorage.removeItem('finai_alerts');
+  localStorage.removeItem('finai_alert_config');
 };
 
 // --- API Monitoring ---

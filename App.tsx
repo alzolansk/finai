@@ -10,12 +10,15 @@ import ImportHistoryPage from './components/ImportHistoryPage';
 import ExplorePage from './components/ExplorePage';
 import ReportsPage from './components/ReportsPage';
 import DuplicatesPage from './components/DuplicatesPage';
-import { Transaction, UserSettings, ChatMessage, TransactionType, Category, TimePeriod, WishlistItem, WishlistPriority, WishlistItemType } from './types';
+import BudgetsPage from './components/BudgetsPage';
+import NotificationsPanel from './components/NotificationsPanel';
+import { Transaction, UserSettings, ChatMessage, TransactionType, Category, TimePeriod, WishlistItem, WishlistPriority, WishlistItemType, BudgetAlert } from './types';
 import { generateSmartAlerts } from './services/forecastService';
 import { getTransactions, saveTransaction, getUserSettings, saveUserSettings, deleteTransaction, updateTransaction, getSavingsReviews, saveSavingsReview, SavingsReview, getAgendaChecklist, toggleAgendaChecklist, AgendaChecklistEntry, getWishlistItems, saveWishlistItem, deleteWishlistItem, getImportedInvoices } from './services/storageService';
 import { chatWithAdvisor, researchWishlistItem, analyzeWishlistViability } from './services/geminiService';
 import { SavingsPlanAction } from './services/savingsService';
 import { generateReimbursementIncomes, cleanupOrphanedReimbursements } from './services/reimbursementService';
+import { processAndSaveAlerts, getUnreadAlerts } from './services/alertService';
 import ReviewRecommendationPanel from './components/ReviewRecommendationPanel';
 import Agenda, { AgendaItem } from './components/Agenda';
 
@@ -44,6 +47,10 @@ const App: React.FC = () => {
   const [isReviewPanelOpen, setIsReviewPanelOpen] = useState(false);
   const [selectedReviewAction, setSelectedReviewAction] = useState<SavingsPlanAction | null>(null);
 
+  // Notifications Panel State
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [budgetAlerts, setBudgetAlerts] = useState<BudgetAlert[]>([]);
+
   // Derived State
   const alerts = React.useMemo(() => generateSmartAlerts(transactions, settings, isTurboMode), [transactions, settings, isTurboMode]);
 
@@ -55,6 +62,14 @@ const App: React.FC = () => {
     setAgendaChecklist(getAgendaChecklist());
     setWishlistItems(getWishlistItems());
   }, []);
+
+  // Budget Alerts Processing
+  useEffect(() => {
+    if (settings && transactions.length > 0) {
+      const updatedAlerts = processAndSaveAlerts(transactions, settings.monthlyIncome);
+      setBudgetAlerts(updatedAlerts);
+    }
+  }, [transactions, settings]);
 
   // Background Service: Auto-generate reimbursement incomes
   useEffect(() => {
@@ -457,13 +472,18 @@ const App: React.FC = () => {
   }
 
   return (
-    <Layout 
-      activeTab={activeTab === 'history' ? 'dashboard' : activeTab} 
+    <Layout
+      activeTab={activeTab === 'history' ? 'dashboard' : activeTab}
       onTabChange={setActiveTab}
       isChatOpen={isChatOpen}
       onToggleChat={() => {
         setIsChatOpen(!isChatOpen);
-        if (!isChatOpen) setIsReviewPanelOpen(false);
+        if (!isChatOpen) {
+          setIsReviewPanelOpen(false);
+        }
+        if (isChatOpen && isNotificationsOpen) {
+          setIsNotificationsOpen(false);
+        }
       }}
       chatMessages={chatMessages}
       onSendMessage={handleSendMessage}
@@ -473,13 +493,28 @@ const App: React.FC = () => {
       alerts={alerts}
       isTurboMode={isTurboMode}
       onToggleTurboMode={() => setIsTurboMode(!isTurboMode)}
+      isNotificationsOpen={isNotificationsOpen}
+      onToggleNotifications={() => {
+        setIsNotificationsOpen(!isNotificationsOpen);
+        if (!isNotificationsOpen) {
+          setIsChatOpen(false);
+          setIsReviewPanelOpen(false);
+        }
+      }}
+      unreadAlertsCount={getUnreadAlerts().length}
       extraPanel={
-        <ReviewRecommendationPanel 
-          isOpen={isReviewPanelOpen}
-          onClose={handleCloseReview}
-          recommendation={selectedReviewAction}
-          onSave={handleSaveReview}
-        />
+        <>
+          <ReviewRecommendationPanel
+            isOpen={isReviewPanelOpen}
+            onClose={handleCloseReview}
+            recommendation={selectedReviewAction}
+            onSave={handleSaveReview}
+          />
+          <NotificationsPanel
+            isOpen={isNotificationsOpen}
+            onClose={() => setIsNotificationsOpen(false)}
+          />
+        </>
       }
     >
       {activeTab === 'dashboard' && (
@@ -575,6 +610,13 @@ const App: React.FC = () => {
           transactions={transactions}
           onMarkAsDuplicate={handleMarkAsDuplicate}
           onIgnoreDuplicate={handleIgnoreDuplicate}
+        />
+      )}
+
+      {activeTab === 'budgets' && settings && (
+        <BudgetsPage
+          transactions={transactions}
+          settings={settings}
         />
       )}
     </Layout>

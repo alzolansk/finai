@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { Home, Plus, PieChart, MessageSquareText, X, Sparkles, Zap, AlertTriangle, Settings, Trash2, Activity, ChevronDown, ChevronUp, Calendar, Repeat, TrendingUp, FileText, Heart, Search, BarChart3 } from 'lucide-react';
+import { Home, Plus, PieChart, MessageSquareText, X, Sparkles, Zap, AlertTriangle, Settings, Trash2, Activity, ChevronDown, ChevronUp, Calendar, Repeat, TrendingUp, FileText, Heart, Search, BarChart3, DollarSign, Bell } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { SmartAlert } from '../services/forecastService';
 import { clearAllData, getApiLogs, ApiLog } from '../services/storageService';
@@ -19,6 +19,9 @@ interface LayoutProps {
   alerts?: SmartAlert[];
   isTurboMode?: boolean;
   onToggleTurboMode?: () => void;
+  isNotificationsOpen?: boolean;
+  onToggleNotifications?: () => void;
+  unreadAlertsCount?: number;
 }
 
 // Helper to parse simple markdown bold syntax (**text**)
@@ -33,11 +36,11 @@ const formatMessageText = (text: string) => {
   });
 };
 
-const Layout: React.FC<LayoutProps> = ({ 
-  children, 
-  activeTab, 
-  onTabChange, 
-  isChatOpen, 
+const Layout: React.FC<LayoutProps> = ({
+  children,
+  activeTab,
+  onTabChange,
+  isChatOpen,
   onToggleChat,
   chatMessages,
   onSendMessage,
@@ -47,7 +50,10 @@ const Layout: React.FC<LayoutProps> = ({
   extraPanel,
   alerts = [],
   isTurboMode = false,
-  onToggleTurboMode
+  onToggleTurboMode,
+  isNotificationsOpen = false,
+  onToggleNotifications,
+  unreadAlertsCount = 0
 }) => {
   const [inputText, setInputText] = React.useState('');
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
@@ -108,7 +114,23 @@ const Layout: React.FC<LayoutProps> = ({
                </div>
 
                <div className="flex items-center gap-3">
-                 <button 
+                 {/* Notifications Button */}
+                 {onToggleNotifications && (
+                   <button
+                     onClick={onToggleNotifications}
+                     className="p-2 rounded-full hover:bg-zinc-100 text-zinc-400 hover:text-zinc-900 transition-colors relative"
+                     title="Notificações"
+                   >
+                     <Bell size={20} />
+                     {unreadAlertsCount > 0 && (
+                       <div className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">
+                         {unreadAlertsCount > 9 ? '9+' : unreadAlertsCount}
+                       </div>
+                     )}
+                   </button>
+                 )}
+
+                 <button
                     onClick={() => setIsSettingsOpen(true)}
                     className="p-2 rounded-full hover:bg-zinc-100 text-zinc-400 hover:text-zinc-900 transition-colors"
                     title="Configurações"
@@ -224,11 +246,11 @@ const Layout: React.FC<LayoutProps> = ({
 
             <div className="flex items-center gap-1 flex-1 justify-start">
               <button
-                onClick={() => onTabChange('reports')}
-                className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'reports' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
-                title="Relatórios"
+                onClick={() => onTabChange('budgets')}
+                className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'budgets' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+                title="Orçamentos"
               >
-                <BarChart3 size={20} strokeWidth={activeTab === 'reports' ? 2.5 : 2} />
+                <DollarSign size={20} strokeWidth={activeTab === 'budgets' ? 2.5 : 2} />
               </button>
 
               <button

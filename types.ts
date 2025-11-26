@@ -41,6 +41,7 @@ export interface Transaction {
   duplicateOf?: string; // Reference to original transaction ID
   isReimbursable?: boolean; // Flag for expenses paid by others (friends using your card)
   reimbursedBy?: string; // Name of person who will reimburse
+  incomeClassification?: IncomeClassification; // For income transactions: fixed vs variable
 }
 
 export interface Insight {
@@ -165,4 +166,68 @@ export interface CategoryBudget {
   limit: number;
   spent: number;
   month: string; // YYYY-MM format
+}
+
+// Advanced Budget Management Types
+export interface BudgetLimit {
+  id: string;
+  category?: Category; // Optional - if undefined, it's a global limit
+  cardIssuer?: string; // Optional - budget by card
+  type: 'category' | 'global' | 'card';
+  monthlyLimit: number;
+  createdAt: number;
+  updatedAt?: number;
+  isActive: boolean;
+}
+
+export interface BudgetAlert {
+  id: string;
+  type: 'limit_80' | 'limit_100' | 'unusual_spending' | 'new_subscription' | 'high_invoice' | 'overspend_projection' | 'category_overspend';
+  title: string;
+  message: string;
+  severity: 'info' | 'warning' | 'danger';
+  relatedBudgetId?: string;
+  relatedCategory?: Category;
+  relatedCardIssuer?: string;
+  amount?: number;
+  threshold?: number;
+  createdAt: number;
+  isRead: boolean;
+  isDismissed: boolean;
+  actionUrl?: string;
+}
+
+export interface AlertConfiguration {
+  id: string;
+  alertType: 'limit_80' | 'limit_100' | 'unusual_spending' | 'new_subscription' | 'high_invoice' | 'overspend_projection' | 'category_overspend';
+  isEnabled: boolean;
+  customThreshold?: number; // For customizable alerts (e.g., trigger at 85% instead of 80%)
+  notificationMethod: 'in_app' | 'push' | 'both';
+  updatedAt?: number;
+}
+
+export interface OverspendProjection {
+  willOverspend: boolean;
+  projectedOverspendDate?: string; // ISO date when overspend is expected
+  projectedOverspendAmount?: number;
+  categoryAtRisk?: Category;
+  daysUntilOverspend?: number;
+  recommendedDailyLimit?: number;
+}
+
+export interface SavingsGoal {
+  id: string;
+  monthlyTarget: number; // Fixed amount
+  percentageOfIncome?: number; // Alternative: percentage of income
+  currentSaved: number;
+  isActive: boolean;
+  createdAt: number;
+  updatedAt?: number;
+}
+
+export interface IncomeClassification {
+  type: 'fixed' | 'variable';
+  description: string;
+  expectedAmount?: number; // For fixed income
+  frequency?: 'monthly' | 'biweekly' | 'weekly'; // For fixed income
 }

@@ -6,8 +6,9 @@ import { ArrowUpRight, ArrowDownRight, Target, Wallet, TrendingDown, ChevronLeft
 import { getMonthName, filterTransactionsByPeriod, projectRecurringTransactions } from '../utils/dateUtils';
 import { calculatePotentialSavings } from '../services/savingsService';
 import { calculateMonthlyForecast, generateSmartAlerts, SmartAlert } from '../services/forecastService';
+import { calculateOverspendProjection } from '../services/budgetService';
 import PotentialSavingsCard from './PotentialSavingsCard';
-import ForecastCard from './ForecastCard';
+import OverspendProjectionCard from './OverspendProjectionCard';
 import { getIconForTransaction } from '../utils/iconMapper';
 
 interface DashboardProps {
@@ -59,6 +60,12 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   // Calculate Forecast
   const forecast = useMemo(() => calculateMonthlyForecast(transactions, currentDate, settings, isTurboMode), [transactions, currentDate, settings, isTurboMode]);
+
+  // Calculate Overspend Projection
+  const overspendProjection = useMemo(() => {
+    if (!settings) return { willOverspend: false };
+    return calculateOverspendProjection(transactions, settings.monthlyIncome, currentDate);
+  }, [transactions, settings, currentDate]);
   
   // Filter alerts to exclude those shown in header (overspend, frequent habits, large expenses and turbo)
   const bodyAlerts = alerts.filter(a => 
@@ -356,7 +363,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     })}
             </div>
             
-            <button 
+            <button
                 onClick={onViewAllHistory}
                 className="w-full mt-6 py-3 text-sm font-bold text-zinc-500 hover:bg-zinc-50 rounded-xl transition-colors hover:text-zinc-900 border border-transparent hover:border-zinc-200 shrink-0"
             >
@@ -364,7 +371,12 @@ const Dashboard: React.FC<DashboardProps> = ({
             </button>
             </div>
 
-            {period === 'month' && <ForecastCard forecast={forecast} />}
+            {period === 'month' && settings && (
+              <OverspendProjectionCard
+                projection={overspendProjection}
+                monthlyIncome={settings.monthlyIncome}
+              />
+            )}
         </div>
 
       </div>
