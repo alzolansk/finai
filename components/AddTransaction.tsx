@@ -30,6 +30,9 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
   const [showCardSuggestions, setShowCardSuggestions] = useState(false);
   const [availableCards, setAvailableCards] = useState(getCreditCardHistory());
 
+  // AI date change animation
+  const [dateChangedByAI, setDateChangedByAI] = useState(false);
+
   const [formData, setFormData] = useState<Partial<Transaction>>({
     description: '',
     amount: 0,
@@ -186,6 +189,10 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
         paymentDate: suggestedDate,
         creditCardIssuer: issuer
       }));
+
+      // Trigger AI sparkle animation
+      setDateChangedByAI(true);
+      setTimeout(() => setDateChangedByAI(false), 2000);
     } else {
       setFormData(prev => ({ ...prev, creditCardIssuer: issuer }));
     }
@@ -538,16 +545,24 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                             className="w-full p-4 bg-zinc-50 border-none rounded-2xl focus:ring-2 focus:ring-zinc-200 outline-none transition-all text-zinc-700 font-medium"
                         />
                     </div>
-                    <div>
-                        <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-2">
+                    <div className="relative">
+                        <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-2 flex items-center gap-2">
                             {formData.type === TransactionType.INCOME ? 'Vencimento' : 'Data de Vencimento'}
+                            {dateChangedByAI && (
+                                <span className="text-emerald-600 flex items-center gap-1 animate-pulse">
+                                    <Sparkles size={12} />
+                                    <span className="text-[10px]">IA ajustou</span>
+                                </span>
+                            )}
                         </label>
                         <input
                             type="date"
                             required
                             value={formData.paymentDate}
                             onChange={(e) => setFormData({...formData, paymentDate: e.target.value})}
-                            className="w-full p-4 bg-zinc-50 border-none rounded-2xl focus:ring-2 focus:ring-zinc-200 outline-none transition-all text-zinc-700 font-medium"
+                            className={`w-full p-4 bg-zinc-50 border-none rounded-2xl focus:ring-2 focus:ring-zinc-200 outline-none transition-all text-zinc-700 font-medium ${
+                                dateChangedByAI ? 'ring-2 ring-emerald-400 bg-emerald-50 animate-pulse' : ''
+                            }`}
                         />
                     </div>
                 </div>
@@ -720,26 +735,6 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                                 </div>
                                             )}
                                         </div>
-                                    )}
-                                </div>
-
-                                {/* Data de Vencimento da Fatura */}
-                                <div>
-                                    <label className="text-xs font-bold text-emerald-800 block mb-2">
-                                        Vencimento da Fatura {detectedInstallments > 1 ? '(primeira)' : ''}
-                                    </label>
-                                    <input
-                                        type="date"
-                                        required
-                                        value={formData.paymentDate}
-                                        onChange={(e) => setFormData({...formData, paymentDate: e.target.value})}
-                                        className="w-full p-3 bg-white border border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-400 outline-none transition-all text-emerald-900 font-medium"
-                                    />
-                                    {creditCardInput && suggestCreditCardDueDate(creditCardInput) && (
-                                        <p className="text-xs text-emerald-600 mt-2 flex items-center gap-1">
-                                            <Sparkles size={12} />
-                                            Data sugerida baseada em histórico
-                                        </p>
                                     )}
                                 </div>
                             </div>
