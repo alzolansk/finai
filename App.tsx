@@ -15,6 +15,7 @@ import { generateSmartAlerts } from './services/forecastService';
 import { getTransactions, saveTransaction, getUserSettings, saveUserSettings, deleteTransaction, updateTransaction, getSavingsReviews, saveSavingsReview, SavingsReview, getAgendaChecklist, toggleAgendaChecklist, AgendaChecklistEntry, getWishlistItems, saveWishlistItem, deleteWishlistItem, getImportedInvoices } from './services/storageService';
 import { chatWithAdvisor, researchWishlistItem, analyzeWishlistViability } from './services/geminiService';
 import { SavingsPlanAction } from './services/savingsService';
+import { generateReimbursementIncomes, cleanupOrphanedReimbursements } from './services/reimbursementService';
 import ReviewRecommendationPanel from './components/ReviewRecommendationPanel';
 import Agenda, { AgendaItem } from './components/Agenda';
 
@@ -54,6 +55,44 @@ const App: React.FC = () => {
     setAgendaChecklist(getAgendaChecklist());
     setWishlistItems(getWishlistItems());
   }, []);
+
+  // Background Service: Auto-generate reimbursement incomes
+  useEffect(() => {
+    if (transactions.length === 0) return;
+
+    // Generate reimbursement incomes for reimbursable transactions
+    const reimbursementIncomes = generateReimbursementIncomes(transactions, transactions);
+
+    if (reimbursementIncomes.length > 0) {
+      let updated = [...transactions];
+      reimbursementIncomes.forEach(income => {
+        // Convert ReimbursementIncome to Transaction
+        const incomeTransaction: Transaction = {
+          id: income.id,
+          description: income.description,
+          amount: income.amount,
+          date: income.date,
+          category: income.category,
+          type: income.type,
+          isAiGenerated: income.isAiGenerated,
+          createdAt: Date.now()
+        };
+        updated = [incomeTransaction, ...updated];
+      });
+
+      // Save to localStorage
+      localStorage.setItem('finai_transactions', JSON.stringify(updated));
+      setTransactions(updated);
+    }
+
+    // Cleanup orphaned reimbursements (when original transaction is deleted)
+    const orphanedIds = cleanupOrphanedReimbursements(transactions);
+    if (orphanedIds.length > 0) {
+      let updated = transactions.filter(t => !orphanedIds.includes(t.id));
+      localStorage.setItem('finai_transactions', JSON.stringify(updated));
+      setTransactions(updated);
+    }
+  }, [transactions.length, transactions.filter(t => t.isReimbursable).length]);
 
   const handleAddTransactions = (newTransactions: Transaction[]) => {
     let updated = transactions;
@@ -527,6 +566,7 @@ const App: React.FC = () => {
         <ReportsPage
           transactions={transactions}
           settings={settings}
+          onUpdateTransaction={handleUpdateTransaction}
         />
       )}
 

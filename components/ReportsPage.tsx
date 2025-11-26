@@ -1,17 +1,35 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction, TransactionType, Category, UserSettings } from '../types';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, TrendingDown, Calendar, DollarSign, CreditCard, Repeat, Package, AlertTriangle, Download, ChevronRight, Target } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, DollarSign, CreditCard, Repeat, Package, AlertTriangle, Download, ChevronRight, Target, EyeOff, Eye } from 'lucide-react';
 import { getMonthName } from '../utils/dateUtils';
 
 interface ReportsPageProps {
   transactions: Transaction[];
   settings: UserSettings | null;
+  onUpdateTransaction?: (transaction: Transaction) => void;
 }
 
-const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings }) => {
+const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings, onUpdateTransaction }) => {
   const [selectedSection, setSelectedSection] = useState<'overview' | 'subscriptions' | 'installments' | 'budgets'>('overview');
   const [timeHorizon, setTimeHorizon] = useState<3 | 6 | 12>(6);
+
+  // Toggle subscription visibility in analysis
+  const toggleSubscriptionVisibility = (transaction: Transaction) => {
+    if (!onUpdateTransaction) return;
+
+    const currentTags = transaction.tags || [];
+    const hasExcludeTag = currentTags.includes('excluir-assinatura');
+
+    const updatedTransaction = {
+      ...transaction,
+      tags: hasExcludeTag
+        ? currentTags.filter(tag => tag !== 'excluir-assinatura')
+        : [...currentTags, 'excluir-assinatura']
+    };
+
+    onUpdateTransaction(updatedTransaction);
+  };
 
   // Calculate monthly data for trends
   const monthlyData = useMemo(() => {
@@ -163,6 +181,30 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings }) => 
     percentageOfIncome: settings?.monthlyIncome ? (subscriptionsData.reduce((sum, s) => sum + s.amount, 0) / settings.monthlyIncome) * 100 : 0
   };
 
+  // Excluded subscriptions (ignored from analysis)
+  const excludedSubscriptions = useMemo(() => {
+    const recurring = transactions.filter(t =>
+      t.isRecurring &&
+      t.type === TransactionType.EXPENSE &&
+      !t.isProjected &&
+      !ESSENTIAL_CATEGORIES.includes(t.category) &&
+      t.tags?.includes('excluir-assinatura') // Only excluded ones
+    );
+
+    // Group by description and get latest
+    const grouped: Record<string, Transaction> = {};
+    recurring.forEach(t => {
+      if (!grouped[t.description] || new Date(t.date) > new Date(grouped[t.description].date)) {
+        grouped[t.description] = t;
+      }
+    });
+
+    return Object.values(grouped).map(t => ({
+      ...t,
+      annualCost: t.amount * 12
+    })).sort((a, b) => b.amount - a.amount);
+  }, [transactions]);
+
   // Installments analysis
   const installmentsData = useMemo(() => {
     const installments = transactions.filter(t =>
@@ -195,6 +237,9 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings }) => 
         .filter(i => new Date(i.paymentDate || i.date) > new Date())
         .sort((a, b) => new Date(a.paymentDate || a.date).getTime() - new Date(b.paymentDate || b.date).getTime());
 
+      // Check if any installment is reimbursable (third-party purchase)
+      const reimbursedBy = items[0].reimbursedBy;
+
       return {
         description: baseDesc,
         amount: items[0].amount,
@@ -205,7 +250,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings }) => 
         paidAmount,
         progress,
         issuer: items[0].issuer || items[0].creditCardIssuer,
-        futureInstallments
+        futureInstallments,
+        reimbursedBy
       };
     }).sort((a, b) => b.totalAmount - a.totalAmount);
   }, [transactions]);
@@ -597,17 +643,28 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings }) => 
             </div>
             <div className="divide-y divide-zinc-100">
               {subscriptionsData.map(sub => (
-                <div key={sub.id} className="p-6 hover:bg-zinc-50 transition-colors">
+                <div key={sub.id} className="p-6 hover:bg-zinc-50 transition-colors group">
                   <div className="flex items-start justify-between mb-3">
-                    <div>
+                    <div className="flex-1">
                       <p className="font-bold text-zinc-800">{sub.description}</p>
                       <p className="text-xs text-zinc-500 mt-1">
                         Próxima cobrança: {new Date(sub.nextCharge).toLocaleDateString('pt-BR')}
                       </p>
                     </div>
-                    <p className="font-bold text-lg text-zinc-900">
-                      R$ {sub.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <p className="font-bold text-lg text-zinc-900">
+                        R$ {sub.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês
+                      </p>
+                      {onUpdateTransaction && (
+                        <button
+                          onClick={() => toggleSubscriptionVisibility(sub)}
+                          className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          title="Remover da análise"
+                        >
+                          <EyeOff size={18} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="grid grid-cols-3 gap-4 text-sm">
                     <div>
@@ -638,6 +695,44 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings }) => 
               ))}
             </div>
           </div>
+
+          {/* Excluded Subscriptions */}
+          {excludedSubscriptions.length > 0 && (
+            <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 overflow-hidden">
+              <div className="p-6 border-b border-zinc-100">
+                <h3 className="text-lg font-bold text-zinc-800 flex items-center gap-2">
+                  <EyeOff size={20} className="text-zinc-400" />
+                  Assinaturas Ignoradas ({excludedSubscriptions.length})
+                </h3>
+                <p className="text-xs text-zinc-500 mt-1">
+                  Estas assinaturas foram excluídas da análise e não afetam os totais acima
+                </p>
+              </div>
+              <div className="divide-y divide-zinc-100">
+                {excludedSubscriptions.map(sub => (
+                  <div key={sub.id} className="p-6 bg-zinc-50/50 hover:bg-zinc-100/50 transition-colors group">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="font-bold text-zinc-600">{sub.description}</p>
+                        <p className="text-xs text-zinc-400 mt-1">
+                          R$ {sub.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês
+                        </p>
+                      </div>
+                      {onUpdateTransaction && (
+                        <button
+                          onClick={() => toggleSubscriptionVisibility(sub)}
+                          className="p-2 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                          title="Restaurar para análise"
+                        >
+                          <Eye size={18} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -679,10 +774,17 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings }) => 
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <p className="font-bold text-zinc-800">{item.description}</p>
-                      <p className="text-xs text-zinc-500 mt-1">
-                        {item.issuer && `${item.issuer} • `}
-                        {item.paid}/{item.totalInstallments} pagas
-                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-xs text-zinc-500">
+                          {item.issuer && `${item.issuer} • `}
+                          {item.paid}/{item.totalInstallments} pagas
+                        </p>
+                        {item.reimbursedBy && (
+                          <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
+                            💰 {item.reimbursedBy}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-lg text-zinc-900">
