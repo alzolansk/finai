@@ -307,6 +307,13 @@ const Dashboard: React.FC<DashboardProps> = ({
                 onViewDetails={onViewSavingsPlan} 
             />
 
+            {period === 'month' && settings && (
+              <OverspendProjectionCard
+                projection={overspendProjection}
+                monthlyIncome={settings.monthlyIncome}
+              />
+            )}
+
         </div>
 
         {/* Right Column - History & Forecast */}
@@ -370,13 +377,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                 Ver Extrato Completo
             </button>
             </div>
-
-            {period === 'month' && settings && (
-              <OverspendProjectionCard
-                projection={overspendProjection}
-                monthlyIncome={settings.monthlyIncome}
-              />
-            )}
         </div>
 
       </div>

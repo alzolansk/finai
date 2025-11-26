@@ -256,6 +256,41 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings, onUpd
     }).sort((a, b) => b.totalAmount - a.totalAmount);
   }, [transactions]);
 
+  const installmentsStats = useMemo(() => {
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const currentYear = now.getFullYear();
+
+    const installmentTransactions = transactions.filter(t =>
+      /\(\d+\/\d+\)/.test(t.description) &&
+      t.type === TransactionType.EXPENSE
+    );
+
+    const monthlyTotal = installmentTransactions.reduce((sum, t) => {
+      const date = new Date(t.paymentDate || t.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      return monthKey === currentMonthKey ? sum + t.amount : sum;
+    }, 0);
+
+    const annualTotal = installmentTransactions.reduce((sum, t) => {
+      const date = new Date(t.paymentDate || t.date);
+      return date.getFullYear() === currentYear ? sum + t.amount : sum;
+    }, 0);
+
+    const activeCount = installmentsData.filter(item => item.remaining > 0).length;
+
+    const percentageOfIncome = settings?.monthlyIncome
+      ? (monthlyTotal / settings.monthlyIncome) * 100
+      : 0;
+
+    return {
+      monthlyTotal,
+      annualTotal,
+      activeCount,
+      percentageOfIncome
+    };
+  }, [transactions, installmentsData, settings]);
+
   // Monthly installment projections
   const monthlyInstallmentProjections = useMemo(() => {
     const projections: Record<string, { month: string; total: number; byCard: Record<string, number> }> = {};
@@ -739,6 +774,32 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings, onUpd
       {/* Installments Section */}
       {selectedSection === 'installments' && (
         <div className="space-y-6">
+          {/* Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 p-6">
+              <p className="text-sm text-zinc-500 mb-2">Total Mensal</p>
+              <p className="text-2xl font-bold text-zinc-800">
+                R$ {installmentsStats.monthlyTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 p-6">
+              <p className="text-sm text-zinc-500 mb-2">Total Anual</p>
+              <p className="text-2xl font-bold text-zinc-800">
+                R$ {installmentsStats.annualTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 p-6">
+              <p className="text-sm text-zinc-500 mb-2">Parcelamentos Ativos</p>
+              <p className="text-2xl font-bold text-zinc-800">{installmentsStats.activeCount}</p>
+            </div>
+            <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 p-6">
+              <p className="text-sm text-zinc-500 mb-2">% da Renda</p>
+              <p className="text-2xl font-bold text-zinc-800">
+                {installmentsStats.percentageOfIncome.toFixed(1)}%
+              </p>
+            </div>
+          </div>
+
           {/* Timeline */}
           <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 p-6">
             <h3 className="text-lg font-bold text-zinc-800 mb-4">Cronograma de Parcelas (12 meses)</h3>

@@ -27,6 +27,7 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
   const [conversationStep, setConversationStep] = useState<ConversationStep>('idle');
   const [isLoading, setIsLoading] = useState(false);
   const [expandedAnalyses, setExpandedAnalyses] = useState<Record<string, boolean>>({});
+  const [expandedControls, setExpandedControls] = useState<Record<string, boolean>>({});
 
   // Conversation state
   const [itemName, setItemName] = useState('');
@@ -271,6 +272,13 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
     return priorityOrder[b.priority] - priorityOrder[a.priority];
   });
 
+  const motionStyles = `
+    @keyframes wishlist-fade-slide {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  `;
+
   const toggleAnalysis = (id: string) => {
     setExpandedAnalyses(prev => ({
       ...prev,
@@ -278,8 +286,48 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
     }));
   };
 
+  const toggleControls = (id: string) => {
+    setExpandedControls(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
+  // Inline updates for wishlist cards
+  const updateSavedAmount = (item: WishlistItem, value: number) => {
+    if (Number.isNaN(value)) return;
+    const clamped = Math.max(0, Math.min(item.targetAmount, value));
+    onUpdateItem({
+      ...item,
+      savedAmount: clamped,
+      updatedAt: Date.now()
+    });
+  };
+
+  const quickIncrement = (item: WishlistItem, delta: number) => {
+    const next = (item.savedAmount || 0) + delta;
+    updateSavedAmount(item, next);
+  };
+
+  const updatePriority = (item: WishlistItem, priority: WishlistPriority) => {
+    onUpdateItem({
+      ...item,
+      priority,
+      updatedAt: Date.now()
+    });
+  };
+
+  const updateTargetDate = (item: WishlistItem, targetDate: string) => {
+    onUpdateItem({
+      ...item,
+      targetDate,
+      updatedAt: Date.now()
+    });
+  };
+
   return (
     <div className="space-y-8 pb-20 animate-fadeIn">
+      <style>{motionStyles}</style>
       {/* Header */}
       <div className="flex justify-between items-end">
         <div>
@@ -665,9 +713,17 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
           const progress = (item.savedAmount / item.targetAmount) * 100;
           const remaining = item.targetAmount - item.savedAmount;
           const isAnalysisExpanded = expandedAnalyses[item.id];
+          const isControlsExpanded = expandedControls[item.id];
 
           return (
-            <div key={item.id} className="bg-white rounded-3xl p-6 border border-zinc-100 shadow-sm hover:shadow-md transition-all">
+            <div
+              key={item.id}
+              className="bg-white rounded-3xl p-6 border border-zinc-100 shadow-sm hover:shadow-md transition-all"
+              style={{
+                animation: 'wishlist-fade-slide 0.25s ease',
+                transition: 'transform 220ms ease, opacity 220ms ease'
+              }}
+            >
               <div className="flex justify-between items-start mb-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
@@ -725,6 +781,86 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
                   <span className="text-xs font-bold text-zinc-700">
                     Faltam R$ {remaining.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
+                </div>
+              </div>
+
+              {/* Quick progress + inline edits (collapsible) */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => toggleControls(item.id)}
+                    className="flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+                  >
+                    <Edit2 size={16} />
+                    {isControlsExpanded ? 'Fechar ajustes' : 'Editar/ajustar objetivo'}
+                  </button>
+                  <span className="text-xs text-zinc-500">Ajustes rapidos sem poluir a tela</span>
+                </div>
+
+                <div
+                  className="mt-3 rounded-2xl border border-zinc-100 bg-zinc-50 space-y-3 overflow-hidden"
+                  style={{
+                    maxHeight: isControlsExpanded ? 520 : 0,
+                    opacity: isControlsExpanded ? 1 : 0,
+                    transform: isControlsExpanded ? 'translateY(0)' : 'translateY(-6px)',
+                    transition: 'all 240ms ease',
+                    padding: isControlsExpanded ? '16px' : '0px 16px'
+                  }}
+                >
+                  {isControlsExpanded && (
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center gap-1">
+                          {[50, 100, 500].map(value => (
+                            <button
+                              key={value}
+                              onClick={() => quickIncrement(item, value)}
+                              className="px-3 py-2 text-sm font-bold bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors"
+                            >
+                              +{value.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-zinc-600">
+                          <span>Valor poupado (R$):</span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={item.targetAmount}
+                            step="50"
+                            value={item.savedAmount}
+                            onChange={(e) => updateSavedAmount(item, parseFloat(e.target.value))}
+                            className="w-28 px-3 py-2 rounded-lg border border-zinc-200 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-zinc-600">
+                          <span>Prioridade:</span>
+                          <select
+                            value={item.priority}
+                            onChange={(e) => updatePriority(item, e.target.value as WishlistPriority)}
+                            className="px-3 py-2 rounded-lg border border-zinc-200 text-zinc-800 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                          >
+                            <option value={WishlistPriority.HIGH}>Alta</option>
+                            <option value={WishlistPriority.MEDIUM}>Media</option>
+                            <option value={WishlistPriority.LOW}>Baixa</option>
+                          </select>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-zinc-600">
+                          <span>Prazo (opcional):</span>
+                          <input
+                            type="date"
+                            value={item.targetDate ? item.targetDate.substring(0, 10) : ''}
+                            onChange={(e) => updateTargetDate(item, e.target.value)}
+                            className="px-3 py-2 rounded-lg border border-zinc-200 text-zinc-800 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-zinc-500">
+                        Dica: use os botoes rapidos para registrar novas economias ou ajuste manualmente o valor poupado.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 

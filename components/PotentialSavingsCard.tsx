@@ -39,7 +39,7 @@ const PotentialSavingsCard: React.FC<PotentialSavingsProps> = ({ data, riskCateg
   const allItems = [...risks, ...data.items];
 
   return (
-    <div className="bg-gradient-to-br from-indigo-900 to-zinc-900 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden mb-8 group">
+    <div className="bg-gradient-to-br from-indigo-900 to-zinc-900 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden group">
       {/* Background Effects */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500 rounded-full blur-3xl opacity-20 -mr-16 -mt-16 pointer-events-none"></div>
       <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500 rounded-full blur-3xl opacity-10 -ml-10 -mb-10 pointer-events-none"></div>
