@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { Category, Transaction, TransactionType } from '../types';
 import { parseTransactionFromText, parseImportFile } from '../services/geminiService';
 import { generateInvoiceFingerprint, isInvoiceAlreadyImported, saveImportedInvoice, getCreditCardHistory, suggestCreditCardDueDate } from '../services/storageService';
@@ -131,12 +132,14 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
 
     setLoading(true);
     try {
-        // First parse WITHOUT user context - just to preview
+        // Parse with user context if provided
         const result = await parseImportFile(
             selectedFile.fileData,
             selectedFile.mimeType,
             selectedFile.fileName,
-            existingTransactions
+            existingTransactions,
+            undefined, // ownerName
+            userContext.trim() || undefined
         );
 
         if (result.normalized.length > 0) {
@@ -189,18 +192,8 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
 
     setLoading(true);
     try {
-        // Re-parse with user context if provided
-        const result = userContext.trim()
-            ? await parseImportFile(
-                pendingImport.fileData,
-                pendingImport.mimeType,
-                pendingImport.fileName,
-                existingTransactions,
-                undefined, // ownerName
-                userContext.trim()
-              )
-            : pendingImport.result;
-
+        // Use the already processed result (context was applied in handleProcessFile)
+        const result = pendingImport.result;
         const isBankStatement = result.documentType === 'bank_statement';
 
         // Generate transaction IDs upfront so we can save them with the invoice
@@ -463,7 +456,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
 
                  {/* File Selected - Ready to Process */}
                  {selectedFile && !loading ? (
-                     <div className="w-full max-w-lg animate-fadeIn">
+                     <div className="w-full max-w-2xl animate-fadeIn">
                          <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-3xl p-8 shadow-lg">
                              <div className="flex items-center gap-4 mb-6">
                                  <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shrink-0 shadow-md">
@@ -473,6 +466,23 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                      <h3 className="font-bold text-blue-900 text-xl mb-1">Arquivo Selecionado</h3>
                                      <p className="text-blue-700 text-sm font-medium break-all">{selectedFile.fileName}</p>
                                  </div>
+                             </div>
+
+                             {/* Context Input - Moved here from second step */}
+                             <div className="mb-6">
+                                 <label className="text-xs font-bold text-blue-800 uppercase tracking-wider block mb-2 text-left">
+                                     Adicionar contexto para a IA (opcional)
+                                 </label>
+                                 <textarea
+                                     value={userContext}
+                                     onChange={(e) => setUserContext(e.target.value)}
+                                     placeholder="Ex: Considere essas movimentações para a fatura de 20/02 do cartão Nubank"
+                                     className="w-full p-4 bg-white border-2 border-blue-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-zinc-800 resize-none"
+                                     rows={3}
+                                 />
+                                 <p className="text-xs text-blue-700 mt-2 text-left">
+                                     💡 Adicione instruções específicas para ajudar a IA a interpretar corretamente o arquivo.
+                                 </p>
                              </div>
 
                              <div className="flex gap-3">
@@ -491,7 +501,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                  </button>
                              </div>
                          </div>
-                         <p className="text-xs text-zinc-500 mt-4">
+                         <p className="text-xs text-zinc-500 mt-4 text-center">
                              A IA irá analisar o documento para identificar transações, datas e categorias automaticamente.
                          </p>
                      </div>
@@ -505,48 +515,44 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                  <div className="flex-1 text-left">
                                      <h3 className="font-bold text-blue-900 text-xl mb-2">Arquivo Processado</h3>
                                      <p className="text-blue-700 text-sm mb-3 font-medium break-all">{pendingImport.fileName}</p>
-
-                                     {/* Info Grid */}
-                                     <div className="grid grid-cols-2 gap-2">
-                                         <div className="bg-white rounded-lg px-3 py-2 border border-blue-100">
-                                             <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider mb-0.5">Transações</p>
-                                             <p className="text-sm font-bold text-blue-900">{pendingImport.result.normalized.length}</p>
-                                         </div>
-
-                                         {pendingImport.result.issuer && (
-                                             <div className="bg-white rounded-lg px-3 py-2 border border-blue-100">
-                                                 <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider mb-0.5">Emissor</p>
-                                                 <p className="text-sm font-bold text-blue-900 truncate">{pendingImport.result.issuer}</p>
-                                             </div>
-                                         )}
-
-                                         {pendingImport.result.dueDate && (
-                                             <div className="bg-white rounded-lg px-3 py-2 border border-blue-100">
-                                                 <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider mb-0.5">Vencimento</p>
-                                                 <p className="text-sm font-bold text-blue-900">
-                                                     {new Date(pendingImport.result.dueDate).toLocaleDateString('pt-BR')}
-                                                 </p>
-                                             </div>
-                                         )}
-
-                                         <div className="bg-white rounded-lg px-3 py-2 border border-blue-100">
-                                             <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider mb-0.5">Tipo</p>
-                                             <p className="text-sm font-bold text-blue-900">
-                                                 {pendingImport.result.documentType === 'bank_statement' ? 'Extrato' : 'Fatura'}
-                                             </p>
-                                         </div>
-                                     </div>
                                  </div>
                              </div>
 
-                             {/* Preview of first 3 transactions */}
-                             <div className="bg-white rounded-2xl border border-blue-100 p-5 mb-4">
-                                 <div className="flex items-center justify-between mb-4">
+                             {/* Info Grid - All in one row */}
+                             <div className="grid grid-cols-4 gap-2 mb-6">
+                                 <div className="bg-white rounded-lg px-3 py-2 border border-blue-100">
+                                     <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider mb-0.5">Transações</p>
+                                     <p className="text-sm font-bold text-blue-900">{pendingImport.result.normalized.length}</p>
+                                 </div>
+
+                                 <div className="bg-white rounded-lg px-3 py-2 border border-blue-100">
+                                     <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider mb-0.5">Emissor</p>
+                                     <p className="text-sm font-bold text-blue-900 truncate">{pendingImport.result.issuer || '-'}</p>
+                                 </div>
+
+                                 <div className="bg-white rounded-lg px-3 py-2 border border-blue-100">
+                                     <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider mb-0.5">Vencimento</p>
+                                     <p className="text-sm font-bold text-blue-900">
+                                         {pendingImport.result.dueDate ? new Date(pendingImport.result.dueDate).toLocaleDateString('pt-BR') : '-'}
+                                     </p>
+                                 </div>
+
+                                 <div className="bg-white rounded-lg px-3 py-2 border border-blue-100">
+                                     <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider mb-0.5">Tipo</p>
+                                     <p className="text-sm font-bold text-blue-900">
+                                         {pendingImport.result.documentType === 'bank_statement' ? 'Extrato' : 'Fatura'}
+                                     </p>
+                                 </div>
+                             </div>
+
+                             {/* Preview of first 3 transactions - No background */}
+                             <div className="mb-4">
+                                 <div className="flex items-center justify-between mb-3">
                                      <p className="text-xs font-bold text-blue-800 uppercase tracking-wider">Preview</p>
                                  </div>
                                  <div className="space-y-2">
                                      {pendingImport.result.normalized.slice(0, 3).map((t: any, idx: number) => (
-                                         <div key={idx} className="flex items-start gap-3 p-3 bg-zinc-50 rounded-xl">
+                                         <div key={idx} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-blue-100">
                                              <div className="flex-1 min-w-0">
                                                  <p className="text-sm font-semibold text-zinc-800 truncate">{t.description}</p>
                                                  <div className="flex items-center gap-2 mt-1">
@@ -574,30 +580,12 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                  {pendingImport.result.normalized.length > 3 && (
                                      <button
                                          onClick={() => setShowAllTransactions(true)}
-                                         className="w-full mt-3 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                                         className="w-full mt-3 py-2.5 bg-white hover:bg-blue-50 text-blue-700 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 border border-blue-200"
                                      >
                                          <Layers size={16} />
                                          Ver todas as {pendingImport.result.normalized.length} transações
                                      </button>
                                  )}
-                             </div>
-
-                             {/* Context Input */}
-                             <div>
-                                 <label className="text-xs font-bold text-blue-800 uppercase tracking-wider block mb-2 text-left">
-                                     Adicionar contexto para a IA (opcional)
-                                 </label>
-                                 <textarea
-                                     value={userContext}
-                                     onChange={(e) => setUserContext(e.target.value)}
-                                     placeholder="Ex: Considere essas movimentações para a fatura de 20/02 do cartão Nubank"
-                                     className="w-full p-4 bg-white border-2 border-blue-200 rounded-xl focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all text-zinc-800 resize-none"
-                                     rows={3}
-                                 />
-                                 <p className="text-xs text-blue-600 mt-2 text-left">
-                                     💡 Use este campo para dar instruções específicas sobre como processar o arquivo.
-                                     A IA ajustará a interpretação baseada no seu contexto.
-                                 </p>
                              </div>
                          </div>
 
@@ -1169,8 +1157,8 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
         )}
       </div>
 
-      {/* Modal - All Transactions */}
-      {showAllTransactions && pendingImport && (
+      {/* Modal - All Transactions - Using Portal to render in body */}
+      {showAllTransactions && pendingImport && ReactDOM.createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn">
           <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl animate-slideUp">
             {/* Modal Header */}
@@ -1241,7 +1229,8 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
