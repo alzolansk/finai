@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction, TransactionType, Category, UserSettings } from '../types';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, TrendingDown, Calendar, DollarSign, CreditCard, Repeat, Package, AlertTriangle, Download, ChevronRight, Target, EyeOff, Eye } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, DollarSign, CreditCard, Repeat, Package, AlertTriangle, Download, ChevronRight, Target, EyeOff, Eye, Activity, Award, Zap } from 'lucide-react';
 import { getMonthName, projectRecurringTransactions } from '../utils/dateUtils';
 
 interface ReportsPageProps {
@@ -89,6 +89,122 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings, onUpd
     // Fallback: just take last N months
     return sortedData.slice(-timeHorizon);
   }, [transactions, timeHorizon]);
+
+  // Financial Health Score (0-100)
+  const financialHealthScore = useMemo(() => {
+    if (monthlyData.length === 0 || !settings?.monthlyIncome) return 0;
+
+    const currentMonth = monthlyData[monthlyData.length - 1];
+    let score = 0;
+
+    // 1. Savings Rate (40 points max)
+    const savingsRate = currentMonth.income > 0 ? (currentMonth.balance / currentMonth.income) * 100 : 0;
+    if (savingsRate >= 30) score += 40;
+    else if (savingsRate >= 20) score += 30;
+    else if (savingsRate >= 10) score += 20;
+    else if (savingsRate >= 0) score += 10;
+
+    // 2. Expense Consistency (30 points max)
+    if (monthlyData.length >= 3) {
+      const expenses = monthlyData.map(m => m.expense);
+      const avgExpense = expenses.reduce((a, b) => a + b, 0) / expenses.length;
+      const variance = expenses.reduce((sum, exp) => sum + Math.pow(exp - avgExpense, 2), 0) / expenses.length;
+      const stdDev = Math.sqrt(variance);
+      const coefficientOfVariation = avgExpense > 0 ? (stdDev / avgExpense) * 100 : 100;
+
+      if (coefficientOfVariation < 10) score += 30;
+      else if (coefficientOfVariation < 20) score += 20;
+      else if (coefficientOfVariation < 30) score += 10;
+    }
+
+    // 3. Income vs Expenses Balance (30 points max)
+    const expenseRatio = currentMonth.income > 0 ? (currentMonth.expense / currentMonth.income) * 100 : 100;
+    if (expenseRatio < 70) score += 30;
+    else if (expenseRatio < 80) score += 20;
+    else if (expenseRatio < 90) score += 10;
+
+    return Math.min(100, Math.round(score));
+  }, [monthlyData, settings]);
+
+  // Heatmap data: expenses by day of week and week of month
+  const heatmapData = useMemo(() => {
+    const heatmap: Record<string, Record<number, number>> = {
+      'Dom': {},
+      'Seg': {},
+      'Ter': {},
+      'Qua': {},
+      'Qui': {},
+      'Sex': {},
+      'Sáb': {}
+    };
+
+    const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+    transactions
+      .filter(t => t.type === TransactionType.EXPENSE && !t.isProjected && !t.isReimbursable)
+      .forEach(t => {
+        const date = new Date(t.paymentDate || t.date);
+        const dayOfWeek = daysOfWeek[date.getDay()];
+        const dayOfMonth = date.getDate();
+
+        // Group by weeks: 1-7, 8-14, 15-21, 22-31
+        const weekNumber = Math.ceil(dayOfMonth / 7);
+
+        if (!heatmap[dayOfWeek][weekNumber]) {
+          heatmap[dayOfWeek][weekNumber] = 0;
+        }
+        heatmap[dayOfWeek][weekNumber] += t.amount;
+      });
+
+    // Convert to array format for rendering
+    const result = [];
+    for (let week = 1; week <= 4; week++) {
+      for (const day of daysOfWeek) {
+        result.push({
+          day,
+          week: `Semana ${week}`,
+          weekNum: week,
+          amount: heatmap[day][week] || 0
+        });
+      }
+    }
+
+    return result;
+  }, [transactions]);
+
+  // Get max value for heatmap color scaling
+  const heatmapMax = useMemo(() => {
+    return Math.max(...heatmapData.map(d => d.amount), 1);
+  }, [heatmapData]);
+
+  // Top 10 largest individual expenses
+  const topExpenses = useMemo(() => {
+    const now = new Date();
+    const cutoffDate = new Date(now.getFullYear(), now.getMonth() - timeHorizon, 1);
+
+    return transactions
+      .filter(t => {
+        if (t.type !== TransactionType.EXPENSE || t.isProjected || t.isReimbursable) return false;
+        const date = new Date(t.paymentDate || t.date);
+        return date >= cutoffDate;
+      })
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 10);
+  }, [transactions, timeHorizon]);
+
+  // Net Worth Evolution (Patrimônio Líquido Acumulado)
+  const netWorthEvolution = useMemo(() => {
+    // Calculate cumulative balance over time
+    let cumulativeBalance = 0;
+
+    return monthlyData.map(month => {
+      cumulativeBalance += month.balance;
+      return {
+        ...month,
+        netWorth: cumulativeBalance
+      };
+    });
+  }, [monthlyData]);
 
   // Calculate percentage changes
   const getCurrentVsPrevious = () => {
@@ -507,7 +623,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings, onUpd
         <div className="space-y-6">
           {/* Time Horizon Selector */}
           <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 p-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-zinc-800">Período de Análise</h3>
               <div className="flex gap-2">
                 {[3, 6, 12].map(months => (
@@ -523,6 +639,75 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings, onUpd
                     {months} meses
                   </button>
                 ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Financial Health Score - Featured */}
+          <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl shadow-xl p-8 text-white">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-2xl font-bold mb-2 flex items-center gap-2">
+                  <Activity size={28} />
+                  Saúde Financeira
+                </h3>
+                <p className="text-emerald-50 text-sm">Baseado em taxa de poupança, consistência e equilíbrio</p>
+              </div>
+              <div className="text-center">
+                <div className="relative inline-block">
+                  <svg className="transform -rotate-90" width="120" height="120">
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="50"
+                      stroke="rgba(255,255,255,0.2)"
+                      strokeWidth="10"
+                      fill="none"
+                    />
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="50"
+                      stroke="white"
+                      strokeWidth="10"
+                      fill="none"
+                      strokeDasharray={`${(financialHealthScore / 100) * 314} 314`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-4xl font-bold">{financialHealthScore}</span>
+                  </div>
+                </div>
+                <p className="text-xs text-emerald-50 mt-2">
+                  {financialHealthScore >= 80 ? 'Excelente' : financialHealthScore >= 60 ? 'Bom' : financialHealthScore >= 40 ? 'Regular' : 'Precisa melhorar'}
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
+                <p className="text-xs text-emerald-50 mb-1">Taxa de Poupança</p>
+                <p className="text-xl font-bold">
+                  {monthlyData.length > 0 && monthlyData[monthlyData.length - 1].income > 0
+                    ? ((monthlyData[monthlyData.length - 1].balance / monthlyData[monthlyData.length - 1].income) * 100).toFixed(1)
+                    : '0.0'}%
+                </p>
+              </div>
+              <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
+                <p className="text-xs text-emerald-50 mb-1">Gastos vs Renda</p>
+                <p className="text-xl font-bold">
+                  {monthlyData.length > 0 && monthlyData[monthlyData.length - 1].income > 0
+                    ? ((monthlyData[monthlyData.length - 1].expense / monthlyData[monthlyData.length - 1].income) * 100).toFixed(1)
+                    : '0.0'}%
+                </p>
+              </div>
+              <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
+                <p className="text-xs text-emerald-50 mb-1">Saldo Médio</p>
+                <p className="text-xl font-bold">
+                  R$ {monthlyData.length > 0
+                    ? (monthlyData.reduce((sum, m) => sum + m.balance, 0) / monthlyData.length).toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+                    : '0'}
+                </p>
               </div>
             </div>
           </div>
@@ -586,105 +771,208 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings, onUpd
             </div>
           </div>
 
-          {/* Trend Chart */}
-          <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 p-6">
-            <h3 className="text-lg font-bold text-zinc-800 mb-4">Evolução Financeira</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => {
-                    const [, month] = value.split('-');
-                    return `${month}`;
-                  }}
-                />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb' }}
-                  formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                />
-                <Legend />
-                <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} name="Receita" />
-                <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={2} name="Despesa" />
-                <Line type="monotone" dataKey="balance" stroke="#6366f1" strokeWidth={2} name="Saldo" />
-              </LineChart>
-            </ResponsiveContainer>
+          {/* Charts Row: Trend + Net Worth */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Trend Chart */}
+            <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 p-6">
+              <h3 className="text-lg font-bold text-zinc-800 mb-4">Comparação Mês a Mês</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={monthlyData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(value) => {
+                      const [, month] = value.split('-');
+                      return `${month}`;
+                    }}
+                  />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb' }}
+                    formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                  />
+                  <Legend />
+                  <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} name="Receita" />
+                  <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={2} name="Despesa" />
+                  <Line type="monotone" dataKey="balance" stroke="#6366f1" strokeWidth={2} name="Saldo" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Net Worth Evolution */}
+            <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 p-6">
+              <h3 className="text-lg font-bold text-zinc-800 mb-4">Evolução do Patrimônio Líquido</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={netWorthEvolution}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(value) => {
+                      const [, month] = value.split('-');
+                      return `${month}`;
+                    }}
+                  />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb' }}
+                    formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                  />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="netWorth"
+                    stroke="#8b5cf6"
+                    strokeWidth={3}
+                    name="Patrimônio Acumulado"
+                    dot={{ fill: '#8b5cf6', r: 4 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+              <div className="mt-4 p-4 bg-purple-50 rounded-xl">
+                <p className="text-sm text-purple-900 font-medium">
+                  Patrimônio atual: <span className="text-lg font-bold">
+                    R$ {(netWorthEvolution[netWorthEvolution.length - 1]?.netWorth || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </p>
+              </div>
+            </div>
           </div>
 
-          {/* Category Ranking */}
+          {/* Heatmap de Gastos */}
           <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 p-6">
-            <h3 className="text-lg font-bold text-zinc-800 mb-4">Top Categorias de Gastos</h3>
-            <div className="space-y-3">
-              {categoryRanking.map((cat, idx) => (
-                <div key={cat.category} className="flex items-center justify-between p-4 bg-zinc-50 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-zinc-900 text-white flex items-center justify-center font-bold text-sm">
-                      {idx + 1}
+            <h3 className="text-lg font-bold text-zinc-800 mb-4">Heatmap de Gastos por Dia da Semana</h3>
+            <p className="text-sm text-zinc-500 mb-4">Identifique padrões de consumo ao longo do mês</p>
+            <div className="overflow-x-auto">
+              <div className="grid grid-cols-7 gap-2 min-w-[600px]">
+                {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
+                  <div key={day} className="text-center text-xs font-bold text-zinc-700 mb-2">
+                    {day}
+                  </div>
+                ))}
+                {heatmapData.map((cell, idx) => {
+                  const intensity = cell.amount / heatmapMax;
+                  const bgColor = cell.amount === 0
+                    ? 'bg-zinc-50'
+                    : `bg-rose-${Math.ceil(intensity * 5) * 100}`;
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`aspect-square rounded-lg flex items-center justify-center text-xs font-medium transition-all hover:scale-110 hover:shadow-lg cursor-pointer ${
+                        cell.amount === 0
+                          ? 'bg-zinc-50 text-zinc-300'
+                          : intensity > 0.7
+                            ? 'bg-rose-500 text-white'
+                            : intensity > 0.5
+                              ? 'bg-rose-400 text-white'
+                              : intensity > 0.3
+                                ? 'bg-rose-300 text-rose-900'
+                                : intensity > 0.1
+                                  ? 'bg-rose-200 text-rose-900'
+                                  : 'bg-rose-100 text-rose-800'
+                      }`}
+                      title={`${cell.day} - ${cell.week}: R$ ${cell.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                    >
+                      {cell.amount > 0 ? `${(cell.amount / 1000).toFixed(1)}k` : '-'}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Top 10 Maiores Gastos */}
+          <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 p-6">
+            <h3 className="text-lg font-bold text-zinc-800 mb-4 flex items-center gap-2">
+              <Zap className="text-rose-500" size={24} />
+              Top 10 Maiores Gastos do Período
+            </h3>
+            <div className="space-y-2">
+              {topExpenses.map((expense, idx) => (
+                <div key={expense.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-zinc-50 to-white rounded-xl hover:shadow-md transition-all border border-zinc-100">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm ${
+                      idx === 0 ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg' :
+                      idx === 1 ? 'bg-gradient-to-br from-zinc-300 to-zinc-400 text-white shadow-md' :
+                      idx === 2 ? 'bg-gradient-to-br from-orange-300 to-orange-400 text-white shadow-md' :
+                      'bg-zinc-100 text-zinc-700'
+                    }`}>
+                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
                     </div>
                     <div>
-                      <p className="font-bold text-zinc-800">{cat.category}</p>
-                      <p className="text-xs text-zinc-500">
-                        Mês anterior: R$ {cat.previousAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </p>
+                      <p className="font-bold text-zinc-800">{expense.description}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-zinc-500">
+                          {new Date(expense.paymentDate || expense.date).toLocaleDateString('pt-BR')}
+                        </span>
+                        <span className="text-xs bg-zinc-200 text-zinc-700 px-2 py-0.5 rounded-full font-medium">
+                          {expense.category}
+                        </span>
+                        {expense.issuer && (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                            {expense.issuer}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-lg text-zinc-900">
-                      R$ {cat.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
-                    <div className={`text-xs font-bold flex items-center gap-1 justify-end ${
-                      cat.change <= 0 ? 'text-emerald-600' : 'text-rose-600'
-                    }`}>
-                      {cat.change <= 0 ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
-                      {Math.abs(cat.change).toFixed(1)}%
-                    </div>
-                  </div>
+                  <p className="font-bold text-xl text-rose-600">
+                    R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Card Comparison */}
+          {/* Category Ranking with Trends */}
           <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 p-6">
-            <h3 className="text-lg font-bold text-zinc-800 mb-4">Comparação de Cartões</h3>
+            <h3 className="text-lg font-bold text-zinc-800 mb-4">Análise de Tendências por Categoria</h3>
             <div className="space-y-3">
-              {cardComparison.map(card => (
-                <div key={card.card} className="p-4 bg-zinc-50 rounded-xl">
-                  <div className="flex items-center justify-between mb-2">
+              {categoryRanking.map((cat, idx) => (
+                <div key={cat.category} className="p-4 bg-zinc-50 rounded-xl">
+                  <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <CreditCard size={20} className="text-zinc-600" />
-                      <p className="font-bold text-zinc-800">{card.card}</p>
+                      <div className="w-8 h-8 rounded-lg bg-zinc-900 text-white flex items-center justify-center font-bold text-sm">
+                        {idx + 1}
+                      </div>
+                      <div>
+                        <p className="font-bold text-zinc-800">{cat.category}</p>
+                        <p className="text-xs text-zinc-500">
+                          Mês anterior: R$ {cat.previousAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </p>
+                      </div>
                     </div>
-                    <p className="font-bold text-lg text-zinc-900">
-                      R$ {card.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
+                    <div className="text-right">
+                      <p className="font-bold text-lg text-zinc-900">
+                        R$ {cat.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                      <div className={`text-xs font-bold flex items-center gap-1 justify-end ${
+                        cat.change <= 0 ? 'text-emerald-600' : 'text-rose-600'
+                      }`}>
+                        {cat.change <= 0 ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
+                        {Math.abs(cat.change).toFixed(1)}%
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between text-xs text-zinc-500">
-                    <span>{card.count} transações</span>
-                    <span>Próximas faturas: R$ {card.projected.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  {/* Visual trend indicator */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-2 bg-zinc-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          cat.change <= 0 ? 'bg-emerald-500' : 'bg-rose-500'
+                        }`}
+                        style={{ width: `${Math.min(100, (cat.amount / categoryRanking[0].amount) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-zinc-500 font-medium w-12 text-right">
+                      {((cat.amount / categoryRanking[0].amount) * 100).toFixed(0)}%
+                    </span>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* Free Balance Projection */}
-          <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 p-6">
-            <h3 className="text-lg font-bold text-zinc-800 mb-4">Projeção de Saldo Livre (6 meses)</h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={freeBalanceProjection}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="monthName" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb' }}
-                  formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                />
-                <Bar dataKey="freeBalance" fill="#6366f1" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
           </div>
         </div>
       )}
