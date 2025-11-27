@@ -101,6 +101,23 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file size (max 4MB to be safe with Gemini API)
+    const maxSize = 4 * 1024 * 1024; // 4MB
+    if (file.size > maxSize) {
+      alert(`Arquivo muito grande. O tamanho máximo permitido é 4MB.\nTamanho do arquivo: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+      return;
+    }
+
+    // Validate file type
+    const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'text/csv'];
+    const validExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.csv'];
+    const fileExtension = file.name.toLowerCase().match(/\.[^.]+$/)?.[0];
+
+    if (!validTypes.includes(file.type) && (!fileExtension || !validExtensions.includes(fileExtension))) {
+      alert('Tipo de arquivo não suportado. Por favor, envie um arquivo PDF, JPG, PNG ou CSV.');
+      return;
+    }
+
     // Reset states
     setImportSuccess(false);
     setDuplicateDetected(false);
@@ -120,8 +137,12 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
             file,
             fileName: file.name,
             fileData: base64Data,
-            mimeType: file.type
+            mimeType: file.type || 'application/octet-stream'
         });
+    };
+
+    reader.onerror = () => {
+      alert('Erro ao ler o arquivo. Por favor, tente novamente.');
     };
 
     reader.readAsDataURL(file);
@@ -180,8 +201,27 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
             setLoading(false);
             setSelectedFile(null);
         }
-    } catch (error) {
-        alert("Erro ao processar arquivo. Tente novamente.");
+    } catch (error: any) {
+        console.error("Erro ao processar arquivo:", error);
+
+        let errorMessage = "Erro ao processar arquivo.";
+
+        // Check for specific error types
+        if (error?.message?.includes('INVALID_ARGUMENT')) {
+            errorMessage = "Erro ao processar arquivo:\n\n" +
+                          "• O arquivo pode estar corrompido ou em formato incompatível\n" +
+                          "• Tamanho muito grande (máx 4MB)\n" +
+                          "• Tente converter para PDF ou usar uma captura de tela\n\n" +
+                          "Dica: Se for uma prévia de fatura, tire um print da tela e envie como imagem.";
+        } else if (error?.message?.includes('API_KEY_NOT_CONFIGURED')) {
+            errorMessage = "Chave de API não configurada. Configure sua chave do Gemini nas configurações.";
+        } else if (error?.message?.includes('quota')) {
+            errorMessage = "Limite de uso da API atingido. Aguarde alguns minutos e tente novamente.";
+        } else if (error?.message) {
+            errorMessage = `Erro: ${error.message}`;
+        }
+
+        alert(errorMessage);
         setLoading(false);
         setSelectedFile(null);
     }

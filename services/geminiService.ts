@@ -101,6 +101,15 @@ export const parseImportFile = async (
     const ai = getAI();
     const tipoImportacao = detectarTipoImportacao({ name: fileName, type: mimeType });
 
+    // Validate base64 data
+    if (!fileData || fileData.length === 0) {
+      throw new Error('INVALID_ARGUMENT: Arquivo vazio ou inválido');
+    }
+
+    // Check approximate file size (base64 is ~33% larger than original)
+    const approximateSize = (fileData.length * 0.75) / (1024 * 1024); // in MB
+    console.log(`Processing file: ${fileName}, type: ${mimeType}, size: ~${approximateSize.toFixed(2)}MB`);
+
     // Planilhas tratadas localmente
     if (tipoImportacao === 'planilha') {
       return {
@@ -442,10 +451,25 @@ export const parseImportFile = async (
       };
     }
     return { normalized: [], tipoImportacao };
-  } catch (error) {
-    logApiCall({ endpoint: 'parseImportFile', status: 'error', duration: Date.now() - startTime, error: String(error) });
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    logApiCall({ endpoint: 'parseImportFile', status: 'error', duration, error: String(error) });
+
     console.error("Gemini import error:", error);
-    throw error;
+    console.error("File details:", { fileName, mimeType, fileSize: fileData.length });
+
+    // Provide more specific error messages
+    if (error?.message?.includes('API_KEY_NOT_CONFIGURED')) {
+      throw new Error('API_KEY_NOT_CONFIGURED');
+    } else if (error?.message?.includes('INVALID_ARGUMENT')) {
+      throw new Error('INVALID_ARGUMENT: O arquivo pode estar em formato incompatível ou corrompido. Tente converter para PDF ou use uma captura de tela.');
+    } else if (error?.message?.includes('quota')) {
+      throw new Error('Limite de uso da API atingido. Aguarde alguns minutos e tente novamente.');
+    } else if (error?.message?.includes('RESOURCE_EXHAUSTED')) {
+      throw new Error('Limite de requisições excedido. Aguarde um momento e tente novamente.');
+    } else {
+      throw error;
+    }
   }
 };
 
