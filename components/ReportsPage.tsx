@@ -844,8 +844,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings, onUpd
           <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 p-6">
             <h3 className="text-lg font-bold text-zinc-800 mb-4">Heatmap de Gastos por Dia da Semana</h3>
             <p className="text-sm text-zinc-500 mb-4">Identifique padrões de consumo ao longo do mês</p>
-            <div className="overflow-x-auto">
-              <div className="grid grid-cols-7 gap-2 min-w-[600px]">
+            <div className="overflow-x-auto overflow-y-hidden">
+              <div className="grid grid-cols-7 gap-2 min-w-[600px] p-1">
                 {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
                   <div key={day} className="text-center text-xs font-bold text-zinc-700 mb-2">
                     {day}
@@ -853,14 +853,11 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings, onUpd
                 ))}
                 {heatmapData.map((cell, idx) => {
                   const intensity = cell.amount / heatmapMax;
-                  const bgColor = cell.amount === 0
-                    ? 'bg-zinc-50'
-                    : `bg-rose-${Math.ceil(intensity * 5) * 100}`;
 
                   return (
                     <div
                       key={idx}
-                      className={`aspect-square rounded-lg flex items-center justify-center text-xs font-medium transition-all hover:scale-110 hover:shadow-lg cursor-pointer ${
+                      className={`aspect-square rounded-lg flex items-center justify-center text-xs font-medium transition-all hover:brightness-110 hover:shadow-lg cursor-pointer ${
                         cell.amount === 0
                           ? 'bg-zinc-50 text-zinc-300'
                           : intensity > 0.7
