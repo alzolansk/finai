@@ -673,7 +673,13 @@ export const chatWithAdvisor = async (
   // Create a detailed summary
   const summary = relevantTransactions
     .slice(0, useFullHistory ? relevantTransactions.length : 200) // Limit to 200 for token efficiency
-    .map(t => `${t.date}: ${t.description} - R$ ${t.amount} (${t.category}) [${t.type === TransactionType.INCOME ? 'RECEITA' : 'DESPESA'}]`)
+    .map(t => {
+      const baseInfo = `${t.description} - R$ ${t.amount} (${t.category}) [${t.type === TransactionType.INCOME ? 'RECEITA' : 'DESPESA'}]`;
+      const dateInfo = t.paymentDate && t.paymentDate !== t.date
+        ? `Data: ${t.date}, Vencimento: ${t.paymentDate}`
+        : `Data: ${t.date}`;
+      return `${dateInfo} | ${baseInfo}`;
+    })
     .join('\n');
 
   // Enrich context with wishlist, agenda and invoices - HOLISTIC ANALYSIS
@@ -725,7 +731,8 @@ export const chatWithAdvisor = async (
     const dataQueryKeywords = [
       'quanto', 'qual', 'quantas', 'quantos', 'soma', 'total', 'gastei',
       'recebi', 'saldo', 'quanto foi', 'mostre', 'liste', 'quais foram',
-      'receita', 'receitas', 'recebimento', 'recebimentos', 'despesa', 'despesas'
+      'receita', 'receitas', 'recebimento', 'recebimentos', 'despesa', 'despesas',
+      'vencimento', 'vence', 'vencem', 'venceu', 'venceram'
     ];
     const adviceKeywords = [
       'consigo comprar', 'posso comprar', 'devo comprar', 'vale a pena',
@@ -769,10 +776,22 @@ export const chatWithAdvisor = async (
         3. NÃO dê conselhos ou recomendações não solicitadas
         4. NÃO mencione "impacto no fluxo de caixa" ou análises financeiras
         5. Se não encontrar dados específicos, diga claramente e sugira verificar filtros/período
+
         6. IMPORTANTE: Cada transação é marcada como [RECEITA] ou [DESPESA]
            - Para perguntas sobre "receitas", "recebimentos", "recebi": filtre APENAS [RECEITA]
            - Para perguntas sobre "despesas", "gastos", "gastei": filtre APENAS [DESPESA]
            - Sempre especifique se são receitas ou despesas na resposta
+
+        7. FILTROS DE DATA - CRÍTICO:
+           - As transações têm dois tipos de data:
+             * "Data:" = data da compra/transação original
+             * "Vencimento:" = data de pagamento/recebimento
+           - Quando o usuário perguntar sobre "vencimento", "recebimento", "pagamento" em um mês:
+             * Use o campo "Vencimento:" para filtrar
+             * Exemplo: "receitas com vencimento em dezembro" = filtre por Vencimento: 2025-12-XX
+           - Quando o usuário perguntar sobre "compras", "gastos" em um mês sem mencionar vencimento:
+             * Use o campo "Data:" para filtrar
+           - Se a transação só tem "Data:" (sem "Vencimento:"), use a Data para ambos os casos
 
         Formato de resposta:
         - Resposta direta à pergunta em 1-2 frases
