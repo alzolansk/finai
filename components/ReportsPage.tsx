@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Transaction, TransactionType, Category, UserSettings } from '../types';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { TrendingUp, TrendingDown, Calendar, DollarSign, CreditCard, Repeat, Package, AlertTriangle, Download, ChevronRight, Target, EyeOff, Eye } from 'lucide-react';
-import { getMonthName } from '../utils/dateUtils';
+import { getMonthName, projectRecurringTransactions } from '../utils/dateUtils';
 
 interface ReportsPageProps {
   transactions: Transaction[];
@@ -34,9 +34,17 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings, onUpd
   // Calculate monthly data for trends
   const monthlyData = useMemo(() => {
     const data: Record<string, { month: string; income: number; expense: number; balance: number; date: Date }> = {};
+    const now = new Date();
+    const maxFutureDate = new Date(now.getFullYear(), now.getMonth() + 12, 1); // Max 12 months in future
 
     transactions
-      .filter(t => !t.isProjected && !t.isReimbursable) // Exclude reimbursable transactions
+      .filter(t => {
+        if (t.isProjected || t.isReimbursable) return false;
+
+        // Filter out transactions too far in the future (likely data entry errors)
+        const date = new Date(t.paymentDate || t.date);
+        return date <= maxFutureDate;
+      })
       .forEach(t => {
         const date = new Date(t.paymentDate || t.date);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -59,13 +67,27 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings, onUpd
       });
 
     // Calculate balance and sort by date
-    return Object.values(data)
+    // For the time horizon filter, we want to show the LAST N months from today's perspective
+    const sortedData = Object.values(data)
       .map(d => ({
         ...d,
         balance: d.income - d.expense
       }))
-      .sort((a, b) => a.date.getTime() - b.date.getTime())
-      .slice(-timeHorizon);
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    // Get current month index
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const currentIndex = sortedData.findIndex(d => d.month === currentMonthKey);
+
+    // If current month exists, slice from (currentIndex - timeHorizon + 1) to (currentIndex + 1)
+    // This ensures we show the last N months INCLUDING current month
+    if (currentIndex >= 0) {
+      const startIndex = Math.max(0, currentIndex - timeHorizon + 1);
+      return sortedData.slice(startIndex, currentIndex + 1);
+    }
+
+    // Fallback: just take last N months
+    return sortedData.slice(-timeHorizon);
   }, [transactions, timeHorizon]);
 
   // Calculate percentage changes
@@ -367,12 +389,37 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings, onUpd
       let income = settings?.monthlyIncome || 0;
       let expenses = 0;
 
-      // Count recurring expenses
+      // Project recurring expenses for this specific month
+      const projectedRecurring = projectRecurringTransactions(transactions, targetMonth);
+
+      // Get unique recurring expenses (avoid duplicates from historical data)
+      const recurringExpensesForMonth = new Map<string, number>();
+
+      // Add real recurring transactions that exist in this month
       transactions
-        .filter(t => t.isRecurring && t.type === TransactionType.EXPENSE && !t.isProjected)
+        .filter(t => {
+          if (!t.isRecurring || t.type !== TransactionType.EXPENSE || t.isProjected) return false;
+          const date = new Date(t.paymentDate || t.date);
+          return date.getFullYear() === targetMonth.getFullYear() &&
+                 date.getMonth() === targetMonth.getMonth();
+        })
         .forEach(t => {
-          expenses += t.amount;
+          recurringExpensesForMonth.set(t.description, t.amount);
         });
+
+      // Add projected recurring transactions for future months
+      projectedRecurring
+        .filter(t => t.type === TransactionType.EXPENSE)
+        .forEach(t => {
+          if (!recurringExpensesForMonth.has(t.description)) {
+            recurringExpensesForMonth.set(t.description, t.amount);
+          }
+        });
+
+      // Sum all unique recurring expenses
+      recurringExpensesForMonth.forEach(amount => {
+        expenses += amount;
+      });
 
       // Count installments for this month
       transactions
