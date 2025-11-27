@@ -22,6 +22,15 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
   const [duplicateInfo, setDuplicateInfo] = useState<{ dueDate: string; importedAt: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // New states for confirmation flow
+  const [pendingImport, setPendingImport] = useState<{
+    result: any;
+    fileName: string;
+    fileData: string;
+    mimeType: string;
+  } | null>(null);
+  const [userContext, setUserContext] = useState('');
+
   // Staging for logic that handles multiple installments
   const [detectedInstallments, setDetectedInstallments] = useState(1);
 
@@ -97,11 +106,13 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
         const base64Data = base64String.split(',')[1];
 
         try {
+            // First parse WITHOUT user context - just to preview
             const result = await parseImportFile(base64Data, file.type, file.name, existingTransactions);
+
             if (result.normalized.length > 0) {
                 // For bank statements, skip duplicate detection (they have different logic)
                 const isBankStatement = result.documentType === 'bank_statement';
-                
+
                 if (!isBankStatement) {
                     // Generate fingerprint for invoices only
                     const fingerprint = generateInvoiceFingerprint(result.dueDate || null, result.normalized);
@@ -121,39 +132,14 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                     }
                 }
 
-                // Generate transaction IDs upfront so we can save them with the invoice
-                const transactionIds = result.normalized.map(() => crypto.randomUUID());
-
-                // Assign the pre-generated IDs to transactions
-                const transactionsWithIds = result.normalized.map((t: any, index: number) => ({
-                    ...t,
-                    id: transactionIds[index],
-                    createdAt: Date.now()
-                }));
-
-                // Save invoice record only for credit card invoices
-                if (!isBankStatement) {
-                    saveImportedInvoice({
-                        id: crypto.randomUUID(),
-                        dueDate: result.dueDate || 'no-date',
-                        totalAmount: result.normalized.reduce((sum, t) => sum + t.amount, 0),
-                        transactionCount: result.normalized.length,
-                        importedAt: Date.now(),
-                        fingerprint: generateInvoiceFingerprint(result.dueDate || null, result.normalized),
-                        transactionIds: transactionIds,
-                        issuer: result.issuer
-                    });
-                }
-
-                // Show success state with appropriate info
-                setImportSuccess(true);
-                setImportDueDate(result.dueDate || null);
-                setImportDocumentType(result.documentType || 'invoice');
-
-                // Wait for animation then add transactions
-                setTimeout(() => {
-                    onAdd(transactionsWithIds);
-                }, 1500);
+                // Store pending import for confirmation
+                setPendingImport({
+                    result,
+                    fileName: file.name,
+                    fileData: base64Data,
+                    mimeType: file.type
+                });
+                setLoading(false);
             } else {
                 alert("Não conseguimos identificar transações neste arquivo.");
                 setLoading(false);
@@ -165,6 +151,71 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
     };
 
     reader.readAsDataURL(file);
+  };
+
+  const handleConfirmImport = async () => {
+    if (!pendingImport) return;
+
+    setLoading(true);
+    try {
+        // Re-parse with user context if provided
+        const result = userContext.trim()
+            ? await parseImportFile(
+                pendingImport.fileData,
+                pendingImport.mimeType,
+                pendingImport.fileName,
+                existingTransactions,
+                undefined, // ownerName
+                userContext.trim()
+              )
+            : pendingImport.result;
+
+        const isBankStatement = result.documentType === 'bank_statement';
+
+        // Generate transaction IDs upfront so we can save them with the invoice
+        const transactionIds = result.normalized.map(() => crypto.randomUUID());
+
+        // Assign the pre-generated IDs to transactions
+        const transactionsWithIds = result.normalized.map((t: any, index: number) => ({
+            ...t,
+            id: transactionIds[index],
+            createdAt: Date.now()
+        }));
+
+        // Save invoice record only for credit card invoices
+        if (!isBankStatement) {
+            saveImportedInvoice({
+                id: crypto.randomUUID(),
+                dueDate: result.dueDate || 'no-date',
+                totalAmount: result.normalized.reduce((sum, t) => sum + t.amount, 0),
+                transactionCount: result.normalized.length,
+                importedAt: Date.now(),
+                fingerprint: generateInvoiceFingerprint(result.dueDate || null, result.normalized),
+                transactionIds: transactionIds,
+                issuer: result.issuer
+            });
+        }
+
+        // Show success state with appropriate info
+        setImportSuccess(true);
+        setImportDueDate(result.dueDate || null);
+        setImportDocumentType(result.documentType || 'invoice');
+        setPendingImport(null);
+        setUserContext('');
+
+        // Wait for animation then add transactions
+        setTimeout(() => {
+            onAdd(transactionsWithIds);
+        }, 1500);
+    } catch (error) {
+        alert("Erro ao processar arquivo. Tente novamente.");
+        setLoading(false);
+    }
+  };
+
+  const handleCancelImport = () => {
+    setPendingImport(null);
+    setUserContext('');
   };
 
   const handleCreditToggle = (checked: boolean) => {
@@ -364,7 +415,91 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                      setDuplicateInfo(null);
                      setImportDueDate(null);
                      setImportDocumentType(null);
+                     setPendingImport(null);
+                     setUserContext('');
                  }} className="absolute top-0 right-0 p-2 text-zinc-400 hover:text-zinc-800"><X /></button>
+
+                 {/* Confirmation Screen */}
+                 {pendingImport && !loading ? (
+                     <div className="w-full max-w-2xl animate-fadeIn">
+                         <div className="bg-blue-50 border-2 border-blue-200 rounded-3xl p-6 mb-6">
+                             <div className="flex items-start gap-4 mb-4">
+                                 <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
+                                     <FileText className="text-blue-600" size={24} />
+                                 </div>
+                                 <div className="flex-1 text-left">
+                                     <h3 className="font-bold text-blue-900 text-lg mb-1">Arquivo Processado</h3>
+                                     <p className="text-blue-700 text-sm mb-2">{pendingImport.fileName}</p>
+                                     <div className="flex items-center gap-4 text-xs text-blue-600">
+                                         <span>📄 {pendingImport.result.normalized.length} transações detectadas</span>
+                                         {pendingImport.result.issuer && <span>🏦 {pendingImport.result.issuer}</span>}
+                                         {pendingImport.result.dueDate && (
+                                             <span>📅 Venc: {new Date(pendingImport.result.dueDate).toLocaleDateString('pt-BR')}</span>
+                                         )}
+                                         <span className="font-bold">
+                                             {pendingImport.result.documentType === 'bank_statement' ? '📊 Extrato' : '💳 Fatura'}
+                                         </span>
+                                     </div>
+                                 </div>
+                             </div>
+
+                             {/* Preview of first few transactions */}
+                             <div className="bg-white rounded-xl p-4 mb-4 max-h-48 overflow-y-auto">
+                                 <p className="text-xs font-bold text-zinc-400 uppercase mb-3">Preview das transações</p>
+                                 <div className="space-y-2">
+                                     {pendingImport.result.normalized.slice(0, 5).map((t: any, idx: number) => (
+                                         <div key={idx} className="flex justify-between items-center text-sm">
+                                             <span className="text-zinc-700 truncate flex-1">{t.description}</span>
+                                             <span className="text-zinc-900 font-bold ml-2">R$ {t.amount.toFixed(2)}</span>
+                                         </div>
+                                     ))}
+                                     {pendingImport.result.normalized.length > 5 && (
+                                         <p className="text-xs text-zinc-400 italic text-center pt-2">
+                                             +{pendingImport.result.normalized.length - 5} transações...
+                                         </p>
+                                     )}
+                                 </div>
+                             </div>
+
+                             {/* Context Input */}
+                             <div>
+                                 <label className="text-xs font-bold text-blue-800 uppercase tracking-wider block mb-2 text-left">
+                                     Adicionar contexto para a IA (opcional)
+                                 </label>
+                                 <textarea
+                                     value={userContext}
+                                     onChange={(e) => setUserContext(e.target.value)}
+                                     placeholder="Ex: Considere essas movimentações para a fatura de 20/02 do cartão Nubank"
+                                     className="w-full p-4 bg-white border-2 border-blue-200 rounded-xl focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all text-zinc-800 resize-none"
+                                     rows={3}
+                                 />
+                                 <p className="text-xs text-blue-600 mt-2 text-left">
+                                     💡 Use este campo para dar instruções específicas sobre como processar o arquivo.
+                                     A IA ajustará a interpretação baseada no seu contexto.
+                                 </p>
+                             </div>
+                         </div>
+
+                         {/* Action Buttons */}
+                         <div className="flex gap-3">
+                             <button
+                                 onClick={handleCancelImport}
+                                 className="flex-1 py-4 bg-zinc-100 text-zinc-700 rounded-2xl font-bold hover:bg-zinc-200 transition-all"
+                             >
+                                 Cancelar
+                             </button>
+                             <button
+                                 onClick={handleConfirmImport}
+                                 className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                             >
+                                 <Check size={20} />
+                                 Confirmar Importação
+                             </button>
+                         </div>
+                     </div>
+                 ) : (
+                     <>
+                     {/* Original Import UI */}
 
                  <div className={`w-full max-w-sm h-64 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center gap-4 transition-all ${
                      duplicateDetected ? 'border-orange-500 bg-orange-50/50' :
@@ -445,6 +580,8 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                  <p className="text-xs text-zinc-400 mt-6 max-w-xs">
                     Nossa IA identifica automaticamente se é fatura ou extrato, e aplica filtros para evitar duplicações (transferências internas e pagamentos de faturas são ignorados).
                  </p>
+                 </>
+                 )}
              </div>
         ) : mode === 'ai' ? (
              <div className="flex-1 flex flex-col justify-center animate-fadeIn">

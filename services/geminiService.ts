@@ -93,7 +93,8 @@ export const parseImportFile = async (
   mimeType: string,
   fileName: string,
   existingTransactions: Transaction[] = [],
-  ownerName?: string // Optional: User's name to detect internal transfers
+  ownerName?: string, // Optional: User's name to detect internal transfers
+  userContext?: string // Optional: Additional context from user to guide AI interpretation
 ): Promise<{ normalized: TransacaoNormalizada[]; dueDate?: string; issuer?: string; tipoImportacao: TipoImportacao; documentType?: 'invoice' | 'bank_statement' }> => {
   const startTime = Date.now();
   try {
@@ -174,6 +175,8 @@ export const parseImportFile = async (
             text: `Extract all financial transactions from this document/image.
             Current Year: ${new Date().getFullYear()}.
             Current Month: ${new Date().getMonth() + 1}.
+
+            ${userContext ? `\n⚠️ CONTEXTO ADICIONAL DO USUÁRIO (PRIORIDADE MÁXIMA):\n"${userContext}"\n\nESTE CONTEXTO DEVE GUIAR A INTERPRETAÇÃO DO DOCUMENTO. Por exemplo:\n- Se o usuário mencionar que é uma fatura de cartão específico, considere como fatura desse cartão\n- Se mencionar uma data de vencimento específica, use essa data para todas as transações\n- Se mencionar que deve ser tratado como extrato, trate como extrato mesmo que pareça fatura\n` : ''}
 
             CRITICAL RULES:
 
