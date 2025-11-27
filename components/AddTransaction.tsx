@@ -23,6 +23,12 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // New states for confirmation flow
+  const [selectedFile, setSelectedFile] = useState<{
+    file: File;
+    fileName: string;
+    fileData: string;
+    mimeType: string;
+  } | null>(null);
   const [pendingImport, setPendingImport] = useState<{
     result: any;
     fileName: string;
@@ -93,64 +99,88 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setLoading(true);
+    // Reset states
     setImportSuccess(false);
     setDuplicateDetected(false);
     setDuplicateInfo(null);
     setImportDueDate(null);
     setImportDocumentType(null);
+    setPendingImport(null);
+
     const reader = new FileReader();
 
-    reader.onloadend = async () => {
+    reader.onloadend = () => {
         const base64String = reader.result as string;
         const base64Data = base64String.split(',')[1];
 
-        try {
-            // First parse WITHOUT user context - just to preview
-            const result = await parseImportFile(base64Data, file.type, file.name, existingTransactions);
-
-            if (result.normalized.length > 0) {
-                // For bank statements, skip duplicate detection (they have different logic)
-                const isBankStatement = result.documentType === 'bank_statement';
-
-                if (!isBankStatement) {
-                    // Generate fingerprint for invoices only
-                    const fingerprint = generateInvoiceFingerprint(result.dueDate || null, result.normalized);
-
-                    // Check if already imported
-                    const existingInvoice = isInvoiceAlreadyImported(fingerprint);
-
-                    if (existingInvoice) {
-                        // Duplicate detected!
-                        setDuplicateDetected(true);
-                        setDuplicateInfo({
-                            dueDate: existingInvoice.dueDate,
-                            importedAt: existingInvoice.importedAt
-                        });
-                        setLoading(false);
-                        return;
-                    }
-                }
-
-                // Store pending import for confirmation
-                setPendingImport({
-                    result,
-                    fileName: file.name,
-                    fileData: base64Data,
-                    mimeType: file.type
-                });
-                setLoading(false);
-            } else {
-                alert("Não conseguimos identificar transações neste arquivo.");
-                setLoading(false);
-            }
-        } catch (error) {
-            alert("Erro ao processar arquivo. Tente novamente.");
-            setLoading(false);
-        }
+        // Just store the file, don't process yet
+        setSelectedFile({
+            file,
+            fileName: file.name,
+            fileData: base64Data,
+            mimeType: file.type
+        });
     };
 
     reader.readAsDataURL(file);
+  };
+
+  const handleProcessFile = async () => {
+    if (!selectedFile) return;
+
+    setLoading(true);
+    try {
+        // First parse WITHOUT user context - just to preview
+        const result = await parseImportFile(
+            selectedFile.fileData,
+            selectedFile.mimeType,
+            selectedFile.fileName,
+            existingTransactions
+        );
+
+        if (result.normalized.length > 0) {
+            // For bank statements, skip duplicate detection (they have different logic)
+            const isBankStatement = result.documentType === 'bank_statement';
+
+            if (!isBankStatement) {
+                // Generate fingerprint for invoices only
+                const fingerprint = generateInvoiceFingerprint(result.dueDate || null, result.normalized);
+
+                // Check if already imported
+                const existingInvoice = isInvoiceAlreadyImported(fingerprint);
+
+                if (existingInvoice) {
+                    // Duplicate detected!
+                    setDuplicateDetected(true);
+                    setDuplicateInfo({
+                        dueDate: existingInvoice.dueDate,
+                        importedAt: existingInvoice.importedAt
+                    });
+                    setLoading(false);
+                    setSelectedFile(null);
+                    return;
+                }
+            }
+
+            // Store pending import for confirmation
+            setPendingImport({
+                result,
+                fileName: selectedFile.fileName,
+                fileData: selectedFile.fileData,
+                mimeType: selectedFile.mimeType
+            });
+            setSelectedFile(null);
+            setLoading(false);
+        } else {
+            alert("Não conseguimos identificar transações neste arquivo.");
+            setLoading(false);
+            setSelectedFile(null);
+        }
+    } catch (error) {
+        alert("Erro ao processar arquivo. Tente novamente.");
+        setLoading(false);
+        setSelectedFile(null);
+    }
   };
 
   const handleConfirmImport = async () => {
@@ -216,6 +246,13 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
   const handleCancelImport = () => {
     setPendingImport(null);
     setUserContext('');
+  };
+
+  const handleCancelFileSelection = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleCreditToggle = (checked: boolean) => {
@@ -416,12 +453,49 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                      setImportDueDate(null);
                      setImportDocumentType(null);
                      setPendingImport(null);
+                     setSelectedFile(null);
                      setUserContext('');
+                     if (fileInputRef.current) {
+                         fileInputRef.current.value = '';
+                     }
                  }} className="absolute top-0 right-0 p-2 text-zinc-400 hover:text-zinc-800"><X /></button>
 
-                 {/* Confirmation Screen */}
-                 {pendingImport && !loading ? (
-                     <div className="w-full max-w-2xl animate-fadeIn">
+                 {/* File Selected - Ready to Process */}
+                 {selectedFile && !loading ? (
+                     <div className="w-full max-w-lg animate-fadeIn">
+                         <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-3xl p-8 shadow-lg">
+                             <div className="flex items-center gap-4 mb-6">
+                                 <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shrink-0 shadow-md">
+                                     <FileText className="text-white" size={32} />
+                                 </div>
+                                 <div className="flex-1 text-left">
+                                     <h3 className="font-bold text-blue-900 text-xl mb-1">Arquivo Selecionado</h3>
+                                     <p className="text-blue-700 text-sm font-medium break-all">{selectedFile.fileName}</p>
+                                 </div>
+                             </div>
+
+                             <div className="flex gap-3">
+                                 <button
+                                     onClick={handleCancelFileSelection}
+                                     className="flex-1 py-4 bg-white text-zinc-700 rounded-2xl font-bold hover:bg-zinc-50 border-2 border-zinc-200 transition-all"
+                                 >
+                                     Cancelar
+                                 </button>
+                                 <button
+                                     onClick={handleProcessFile}
+                                     className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                                 >
+                                     <Sparkles size={20} />
+                                     Processar com IA
+                                 </button>
+                             </div>
+                         </div>
+                         <p className="text-xs text-zinc-500 mt-4">
+                             A IA irá analisar o documento para identificar transações, datas e categorias automaticamente.
+                         </p>
+                     </div>
+                 ) : pendingImport && !loading ? (
+                     <div className="w-full max-w-2xl animate-fadeIn">{/* Confirmation Screen */}
                          <div className="bg-blue-50 border-2 border-blue-200 rounded-3xl p-6 mb-6">
                              <div className="flex items-start gap-4 mb-4">
                                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
@@ -444,19 +518,43 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                              </div>
 
                              {/* Preview of first few transactions */}
-                             <div className="bg-white rounded-xl p-4 mb-4 max-h-48 overflow-y-auto">
-                                 <p className="text-xs font-bold text-zinc-400 uppercase mb-3">Preview das transações</p>
-                                 <div className="space-y-2">
-                                     {pendingImport.result.normalized.slice(0, 5).map((t: any, idx: number) => (
-                                         <div key={idx} className="flex justify-between items-center text-sm">
-                                             <span className="text-zinc-700 truncate flex-1">{t.description}</span>
-                                             <span className="text-zinc-900 font-bold ml-2">R$ {t.amount.toFixed(2)}</span>
+                             <div className="bg-white rounded-2xl border border-blue-100 p-5 mb-4">
+                                 <div className="flex items-center justify-between mb-4">
+                                     <p className="text-xs font-bold text-blue-800 uppercase tracking-wider">Preview das Transações</p>
+                                     <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-bold">
+                                         {pendingImport.result.normalized.length} total
+                                     </span>
+                                 </div>
+                                 <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
+                                     {pendingImport.result.normalized.slice(0, 8).map((t: any, idx: number) => (
+                                         <div key={idx} className="flex items-start gap-3 p-3 bg-zinc-50 rounded-xl hover:bg-zinc-100 transition-colors">
+                                             <div className="flex-1 min-w-0">
+                                                 <p className="text-sm font-semibold text-zinc-800 truncate">{t.description}</p>
+                                                 <div className="flex items-center gap-2 mt-1">
+                                                     <span className="text-xs text-zinc-500">{t.category}</span>
+                                                     {t.date && (
+                                                         <>
+                                                             <span className="text-zinc-300">•</span>
+                                                             <span className="text-xs text-zinc-500">
+                                                                 {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                                             </span>
+                                                         </>
+                                                     )}
+                                                 </div>
+                                             </div>
+                                             <div className="shrink-0 text-right">
+                                                 <span className={`text-sm font-bold ${t.type === 'INCOME' ? 'text-emerald-600' : 'text-zinc-900'}`}>
+                                                     {t.type === 'INCOME' ? '+' : ''} R$ {t.amount.toFixed(2)}
+                                                 </span>
+                                             </div>
                                          </div>
                                      ))}
-                                     {pendingImport.result.normalized.length > 5 && (
-                                         <p className="text-xs text-zinc-400 italic text-center pt-2">
-                                             +{pendingImport.result.normalized.length - 5} transações...
-                                         </p>
+                                     {pendingImport.result.normalized.length > 8 && (
+                                         <div className="text-center py-2">
+                                             <p className="text-xs text-zinc-400 font-medium">
+                                                 +{pendingImport.result.normalized.length - 8} transações adicionais
+                                             </p>
+                                         </div>
                                      )}
                                  </div>
                              </div>
