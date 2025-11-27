@@ -3,7 +3,7 @@ import { Category, Transaction, TransactionType } from '../types';
 import { parseTransactionFromText, parseImportFile } from '../services/geminiService';
 import { generateInvoiceFingerprint, isInvoiceAlreadyImported, saveImportedInvoice, getCreditCardHistory, suggestCreditCardDueDate } from '../services/storageService';
 import { parseLocalDate } from '../utils/dateUtils';
-import { Mic, Send, Loader2, Wand2, Check, Layers, Upload, FileText, X, AlertTriangle, Sparkles, TrendingDown, TrendingUp, Wallet, CreditCard, Banknote } from 'lucide-react';
+import { Mic, Send, Loader2, Wand2, Check, Layers, Upload, FileText, X, AlertTriangle, Sparkles, TrendingDown, TrendingUp, Wallet, CreditCard, Banknote, Calendar, DollarSign } from 'lucide-react';
 
 interface AddTransactionProps {
   onAdd: (transactions: Transaction[]) => void;
@@ -36,6 +36,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
     mimeType: string;
   } | null>(null);
   const [userContext, setUserContext] = useState('');
+  const [showAllTransactions, setShowAllTransactions] = useState(false);
 
   // Staging for logic that handles multiple installments
   const [detectedInstallments, setDetectedInstallments] = useState(1);
@@ -497,37 +498,55 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                  ) : pendingImport && !loading ? (
                      <div className="w-full max-w-2xl animate-fadeIn">{/* Confirmation Screen */}
                          <div className="bg-blue-50 border-2 border-blue-200 rounded-3xl p-6 mb-6">
-                             <div className="flex items-start gap-4 mb-4">
-                                 <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
-                                     <FileText className="text-blue-600" size={24} />
+                             <div className="flex items-start gap-4 mb-6">
+                                 <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center shrink-0 shadow-md">
+                                     <FileText className="text-white" size={28} />
                                  </div>
                                  <div className="flex-1 text-left">
-                                     <h3 className="font-bold text-blue-900 text-lg mb-1">Arquivo Processado</h3>
-                                     <p className="text-blue-700 text-sm mb-2">{pendingImport.fileName}</p>
-                                     <div className="flex items-center gap-4 text-xs text-blue-600">
-                                         <span>📄 {pendingImport.result.normalized.length} transações detectadas</span>
-                                         {pendingImport.result.issuer && <span>🏦 {pendingImport.result.issuer}</span>}
-                                         {pendingImport.result.dueDate && (
-                                             <span>📅 Venc: {new Date(pendingImport.result.dueDate).toLocaleDateString('pt-BR')}</span>
+                                     <h3 className="font-bold text-blue-900 text-xl mb-2">Arquivo Processado</h3>
+                                     <p className="text-blue-700 text-sm mb-3 font-medium break-all">{pendingImport.fileName}</p>
+
+                                     {/* Info Grid */}
+                                     <div className="grid grid-cols-2 gap-2">
+                                         <div className="bg-white rounded-lg px-3 py-2 border border-blue-100">
+                                             <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider mb-0.5">Transações</p>
+                                             <p className="text-sm font-bold text-blue-900">{pendingImport.result.normalized.length}</p>
+                                         </div>
+
+                                         {pendingImport.result.issuer && (
+                                             <div className="bg-white rounded-lg px-3 py-2 border border-blue-100">
+                                                 <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider mb-0.5">Emissor</p>
+                                                 <p className="text-sm font-bold text-blue-900 truncate">{pendingImport.result.issuer}</p>
+                                             </div>
                                          )}
-                                         <span className="font-bold">
-                                             {pendingImport.result.documentType === 'bank_statement' ? '📊 Extrato' : '💳 Fatura'}
-                                         </span>
+
+                                         {pendingImport.result.dueDate && (
+                                             <div className="bg-white rounded-lg px-3 py-2 border border-blue-100">
+                                                 <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider mb-0.5">Vencimento</p>
+                                                 <p className="text-sm font-bold text-blue-900">
+                                                     {new Date(pendingImport.result.dueDate).toLocaleDateString('pt-BR')}
+                                                 </p>
+                                             </div>
+                                         )}
+
+                                         <div className="bg-white rounded-lg px-3 py-2 border border-blue-100">
+                                             <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider mb-0.5">Tipo</p>
+                                             <p className="text-sm font-bold text-blue-900">
+                                                 {pendingImport.result.documentType === 'bank_statement' ? 'Extrato' : 'Fatura'}
+                                             </p>
+                                         </div>
                                      </div>
                                  </div>
                              </div>
 
-                             {/* Preview of first few transactions */}
+                             {/* Preview of first 3 transactions */}
                              <div className="bg-white rounded-2xl border border-blue-100 p-5 mb-4">
                                  <div className="flex items-center justify-between mb-4">
-                                     <p className="text-xs font-bold text-blue-800 uppercase tracking-wider">Preview das Transações</p>
-                                     <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-bold">
-                                         {pendingImport.result.normalized.length} total
-                                     </span>
+                                     <p className="text-xs font-bold text-blue-800 uppercase tracking-wider">Preview</p>
                                  </div>
-                                 <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
-                                     {pendingImport.result.normalized.slice(0, 8).map((t: any, idx: number) => (
-                                         <div key={idx} className="flex items-start gap-3 p-3 bg-zinc-50 rounded-xl hover:bg-zinc-100 transition-colors">
+                                 <div className="space-y-2">
+                                     {pendingImport.result.normalized.slice(0, 3).map((t: any, idx: number) => (
+                                         <div key={idx} className="flex items-start gap-3 p-3 bg-zinc-50 rounded-xl">
                                              <div className="flex-1 min-w-0">
                                                  <p className="text-sm font-semibold text-zinc-800 truncate">{t.description}</p>
                                                  <div className="flex items-center gap-2 mt-1">
@@ -549,14 +568,18 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                              </div>
                                          </div>
                                      ))}
-                                     {pendingImport.result.normalized.length > 8 && (
-                                         <div className="text-center py-2">
-                                             <p className="text-xs text-zinc-400 font-medium">
-                                                 +{pendingImport.result.normalized.length - 8} transações adicionais
-                                             </p>
-                                         </div>
-                                     )}
                                  </div>
+
+                                 {/* View all button */}
+                                 {pendingImport.result.normalized.length > 3 && (
+                                     <button
+                                         onClick={() => setShowAllTransactions(true)}
+                                         className="w-full mt-3 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                                     >
+                                         <Layers size={16} />
+                                         Ver todas as {pendingImport.result.normalized.length} transações
+                                     </button>
+                                 )}
                              </div>
 
                              {/* Context Input */}
@@ -1145,6 +1168,81 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
             </form>
         )}
       </div>
+
+      {/* Modal - All Transactions */}
+      {showAllTransactions && pendingImport && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl animate-slideUp">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-zinc-100">
+              <div>
+                <h3 className="text-xl font-bold text-zinc-900">Todas as Transações</h3>
+                <p className="text-sm text-zinc-500 mt-1">
+                  {pendingImport.result.normalized.length} transações detectadas
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAllTransactions(false)}
+                className="p-2 hover:bg-zinc-100 rounded-xl transition-colors"
+              >
+                <X size={24} className="text-zinc-600" />
+              </button>
+            </div>
+
+            {/* Modal Body - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-2">
+                {pendingImport.result.normalized.map((t: any, idx: number) => (
+                  <div key={idx} className="flex items-start gap-3 p-4 bg-zinc-50 rounded-xl hover:bg-zinc-100 transition-colors border border-zinc-100">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <p className="text-sm font-semibold text-zinc-800">{t.description}</p>
+                        <span className={`text-base font-bold shrink-0 ${t.type === 'INCOME' ? 'text-emerald-600' : 'text-zinc-900'}`}>
+                          {t.type === 'INCOME' ? '+' : ''} R$ {t.amount.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-zinc-500">
+                        <span className="bg-white px-2 py-1 rounded border border-zinc-200 font-medium">
+                          {t.category}
+                        </span>
+                        {t.date && (
+                          <span className="flex items-center gap-1">
+                            <Calendar size={12} />
+                            {new Date(t.date).toLocaleDateString('pt-BR', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
+                          </span>
+                        )}
+                        {t.paymentDate && t.paymentDate !== t.date && (
+                          <span className="flex items-center gap-1 text-blue-600">
+                            <DollarSign size={12} />
+                            Venc: {new Date(t.paymentDate).toLocaleDateString('pt-BR', {
+                              day: '2-digit',
+                              month: 'short'
+                            })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-zinc-100 bg-zinc-50">
+              <button
+                onClick={() => setShowAllTransactions(false)}
+                className="w-full py-3 bg-zinc-900 text-white rounded-2xl font-bold hover:bg-zinc-800 transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
