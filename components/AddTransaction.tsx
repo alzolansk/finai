@@ -825,6 +825,111 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                     </div>
                 </div>
 
+                {/* STEP 3.5: PARCELAMENTO (independente da forma de pagamento) */}
+                {formData.type === TransactionType.EXPENSE && (
+                    <div>
+                        {detectedInstallments > 1 ? (
+                            <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <Layers size={16} className="text-blue-600" />
+                                        <span className="text-sm font-bold text-blue-900">Parcelamento Detectado</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setDetectedInstallments(1);
+                                            setShowCustomInstallment(false);
+                                            setCustomInstallmentValue('');
+                                        }}
+                                        className="text-xs text-zinc-400 hover:text-zinc-800 underline"
+                                    >
+                                        Cancelar
+                                    </button>
+                                </div>
+                                <p className="text-blue-700 text-sm">
+                                    {detectedInstallments}x de R$ {(Number(formData.amount) / detectedInstallments).toFixed(2)}
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block">
+                                    Parcelar? <span className="text-zinc-300 font-normal normal-case">(Empréstimo, Financiamento, etc.)</span>
+                                </label>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setDetectedInstallments(1);
+                                            setShowCustomInstallment(false);
+                                        }}
+                                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                                            detectedInstallments === 1 && !showCustomInstallment
+                                                ? 'bg-white text-zinc-900 shadow-sm border-2 border-zinc-300'
+                                                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border-2 border-transparent'
+                                        }`}
+                                    >
+                                        À vista
+                                    </button>
+                                    {[2, 3, 6, 12].map(n => (
+                                        <button
+                                            key={n}
+                                            type="button"
+                                            onClick={() => {
+                                                setDetectedInstallments(n);
+                                                setShowCustomInstallment(false);
+                                            }}
+                                            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                                                detectedInstallments === n && !showCustomInstallment
+                                                    ? 'bg-white text-zinc-900 shadow-sm border-2 border-zinc-300'
+                                                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border-2 border-transparent'
+                                            }`}
+                                        >
+                                            {n}x
+                                        </button>
+                                    ))}
+                                    {!showCustomInstallment ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowCustomInstallment(true);
+                                                setCustomInstallmentValue('');
+                                            }}
+                                            className="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border-2 border-transparent"
+                                        >
+                                            Outros
+                                        </button>
+                                    ) : (
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="99"
+                                            placeholder="Ex: 10"
+                                            value={customInstallmentValue}
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                setCustomInstallmentValue(value);
+                                                const numValue = parseInt(value);
+                                                if (value && numValue > 0 && numValue <= 99) {
+                                                    setDetectedInstallments(numValue);
+                                                }
+                                            }}
+                                            onBlur={() => {
+                                                if (!customInstallmentValue || parseInt(customInstallmentValue) < 1) {
+                                                    setShowCustomInstallment(false);
+                                                    setDetectedInstallments(1);
+                                                }
+                                            }}
+                                            autoFocus
+                                            className="flex-1 py-2 px-3 rounded-lg text-sm font-medium bg-white text-zinc-900 shadow-sm border-2 border-zinc-300 focus:ring-2 focus:ring-blue-400 outline-none"
+                                        />
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* STEP 4: DATAS */}
                 <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -931,115 +1036,17 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                             <div className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-5 space-y-4 animate-slideUp">
                                 <div className="flex items-center gap-2 text-emerald-900 font-bold">
                                     <CreditCard size={20} />
-                                    Detalhes do Crédito
+                                    Qual Cartão?
                                 </div>
-
-                                {/* Parcelas */}
-                                {detectedInstallments > 1 ? (
-                                    <div className="bg-white rounded-xl p-4 border border-emerald-200">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <Layers size={16} className="text-emerald-600" />
-                                                <span className="text-sm font-bold text-emerald-900">Parcelado Detectado</span>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => setDetectedInstallments(1)}
-                                                className="text-xs text-zinc-400 hover:text-zinc-800 underline"
-                                            >
-                                                Cancelar
-                                            </button>
-                                        </div>
-                                        <p className="text-emerald-700 text-sm">
-                                            {detectedInstallments}x de R$ {(Number(formData.amount) / detectedInstallments).toFixed(2)}
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-emerald-800">Parcelar compra?</label>
-                                        <div className="flex gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setDetectedInstallments(1);
-                                                    setShowCustomInstallment(false);
-                                                }}
-                                                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                                                    detectedInstallments === 1 && !showCustomInstallment
-                                                        ? 'bg-white text-emerald-900 shadow-sm'
-                                                        : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                                                }`}
-                                            >
-                                                À vista
-                                            </button>
-                                            {[2, 3, 6, 12].map(n => (
-                                                <button
-                                                    key={n}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setDetectedInstallments(n);
-                                                        setShowCustomInstallment(false);
-                                                    }}
-                                                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                                                        detectedInstallments === n && !showCustomInstallment
-                                                            ? 'bg-white text-emerald-900 shadow-sm'
-                                                            : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                                                    }`}
-                                                >
-                                                    {n}x
-                                                </button>
-                                            ))}
-                                            {!showCustomInstallment ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setShowCustomInstallment(true);
-                                                        setCustomInstallmentValue('');
-                                                    }}
-                                                    className="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                                                >
-                                                    Outros
-                                                </button>
-                                            ) : (
-                                                <input
-                                                    type="number"
-                                                    min="1"
-                                                    max="99"
-                                                    placeholder="Ex: 10"
-                                                    value={customInstallmentValue}
-                                                    onChange={(e) => {
-                                                        const value = e.target.value;
-                                                        setCustomInstallmentValue(value);
-                                                        const numValue = parseInt(value);
-                                                        if (value && numValue > 0 && numValue <= 99) {
-                                                            setDetectedInstallments(numValue);
-                                                        }
-                                                    }}
-                                                    onBlur={() => {
-                                                        if (!customInstallmentValue || parseInt(customInstallmentValue) < 1) {
-                                                            setShowCustomInstallment(false);
-                                                            setDetectedInstallments(1);
-                                                        }
-                                                    }}
-                                                    autoFocus
-                                                    className="flex-1 py-2 px-3 rounded-lg text-sm font-medium bg-white text-emerald-900 shadow-sm border border-emerald-300 focus:ring-2 focus:ring-emerald-400 outline-none"
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
 
                                 {/* Campo de Cartão de Crédito com Autocomplete */}
                                 <div className="relative">
-                                    <label className="text-xs font-bold text-emerald-800 block mb-2 flex items-center gap-2">
-                                        Qual cartão?
-                                        {availableCards.length > 0 && (
-                                            <span className="text-emerald-600 flex items-center gap-1">
-                                                <Sparkles size={12} />
-                                                <span className="text-[10px]">IA sugere datas</span>
-                                            </span>
-                                        )}
-                                    </label>
+                                    {availableCards.length > 0 && (
+                                        <div className="flex items-center gap-1 mb-2 text-emerald-600">
+                                            <Sparkles size={12} />
+                                            <span className="text-[10px] font-medium">IA sugere datas de vencimento</span>
+                                        </div>
+                                    )}
                                     <input
                                         type="text"
                                         required
