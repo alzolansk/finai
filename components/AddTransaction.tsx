@@ -42,6 +42,10 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
   // Staging for logic that handles multiple installments
   const [detectedInstallments, setDetectedInstallments] = useState(1);
 
+  // Custom installment input
+  const [showCustomInstallment, setShowCustomInstallment] = useState(false);
+  const [customInstallmentValue, setCustomInstallmentValue] = useState('');
+
   // Credit card autocomplete
   const [creditCardInput, setCreditCardInput] = useState('');
   const [showCardSuggestions, setShowCardSuggestions] = useState(false);
@@ -956,9 +960,12 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                         <div className="flex gap-2">
                                             <button
                                                 type="button"
-                                                onClick={() => setDetectedInstallments(1)}
+                                                onClick={() => {
+                                                    setDetectedInstallments(1);
+                                                    setShowCustomInstallment(false);
+                                                }}
                                                 className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                                                    detectedInstallments === 1
+                                                    detectedInstallments === 1 && !showCustomInstallment
                                                         ? 'bg-white text-emerald-900 shadow-sm'
                                                         : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                                                 }`}
@@ -969,9 +976,12 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                                 <button
                                                     key={n}
                                                     type="button"
-                                                    onClick={() => setDetectedInstallments(n)}
+                                                    onClick={() => {
+                                                        setDetectedInstallments(n);
+                                                        setShowCustomInstallment(false);
+                                                    }}
                                                     className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                                                        detectedInstallments === n
+                                                        detectedInstallments === n && !showCustomInstallment
                                                             ? 'bg-white text-emerald-900 shadow-sm'
                                                             : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                                                     }`}
@@ -979,6 +989,42 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                                     {n}x
                                                 </button>
                                             ))}
+                                            {!showCustomInstallment ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setShowCustomInstallment(true);
+                                                        setCustomInstallmentValue('');
+                                                    }}
+                                                    className="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                                                >
+                                                    Outros
+                                                </button>
+                                            ) : (
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max="99"
+                                                    placeholder="Ex: 10"
+                                                    value={customInstallmentValue}
+                                                    onChange={(e) => {
+                                                        const value = e.target.value;
+                                                        setCustomInstallmentValue(value);
+                                                        const numValue = parseInt(value);
+                                                        if (value && numValue > 0 && numValue <= 99) {
+                                                            setDetectedInstallments(numValue);
+                                                        }
+                                                    }}
+                                                    onBlur={() => {
+                                                        if (!customInstallmentValue || parseInt(customInstallmentValue) < 1) {
+                                                            setShowCustomInstallment(false);
+                                                            setDetectedInstallments(1);
+                                                        }
+                                                    }}
+                                                    autoFocus
+                                                    className="flex-1 py-2 px-3 rounded-lg text-sm font-medium bg-white text-emerald-900 shadow-sm border border-emerald-300 focus:ring-2 focus:ring-emerald-400 outline-none"
+                                                />
+                                            )}
                                         </div>
                                     </div>
                                 )}
