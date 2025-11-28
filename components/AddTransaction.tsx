@@ -825,108 +825,29 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                     </div>
                 </div>
 
-                {/* STEP 3.5: PARCELAMENTO (independente da forma de pagamento) */}
-                {formData.type === TransactionType.EXPENSE && (
-                    <div>
-                        {detectedInstallments > 1 ? (
-                            <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <Layers size={16} className="text-blue-600" />
-                                        <span className="text-sm font-bold text-blue-900">Parcelamento Detectado</span>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setDetectedInstallments(1);
-                                            setShowCustomInstallment(false);
-                                            setCustomInstallmentValue('');
-                                        }}
-                                        className="text-xs text-zinc-400 hover:text-zinc-800 underline"
-                                    >
-                                        Cancelar
-                                    </button>
-                                </div>
-                                <p className="text-blue-700 text-sm">
-                                    {detectedInstallments}x de R$ {(Number(formData.amount) / detectedInstallments).toFixed(2)}
-                                </p>
+                {/* AI Detected Installments Badge */}
+                {detectedInstallments > 1 && formData.type === TransactionType.EXPENSE && (
+                    <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4">
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                                <Sparkles size={16} className="text-blue-600" />
+                                <span className="text-sm font-bold text-blue-900">Parcelamento Detectado pela IA</span>
                             </div>
-                        ) : (
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block">
-                                    Parcelar? <span className="text-zinc-300 font-normal normal-case">(Empréstimo, Financiamento, etc.)</span>
-                                </label>
-                                <div className="flex gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setDetectedInstallments(1);
-                                            setShowCustomInstallment(false);
-                                        }}
-                                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                                            detectedInstallments === 1 && !showCustomInstallment
-                                                ? 'bg-white text-zinc-900 shadow-sm border-2 border-zinc-300'
-                                                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border-2 border-transparent'
-                                        }`}
-                                    >
-                                        À vista
-                                    </button>
-                                    {[2, 3, 6, 12].map(n => (
-                                        <button
-                                            key={n}
-                                            type="button"
-                                            onClick={() => {
-                                                setDetectedInstallments(n);
-                                                setShowCustomInstallment(false);
-                                            }}
-                                            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                                                detectedInstallments === n && !showCustomInstallment
-                                                    ? 'bg-white text-zinc-900 shadow-sm border-2 border-zinc-300'
-                                                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border-2 border-transparent'
-                                            }`}
-                                        >
-                                            {n}x
-                                        </button>
-                                    ))}
-                                    {!showCustomInstallment ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setShowCustomInstallment(true);
-                                                setCustomInstallmentValue('');
-                                            }}
-                                            className="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border-2 border-transparent"
-                                        >
-                                            Outros
-                                        </button>
-                                    ) : (
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            max="99"
-                                            placeholder="Ex: 10"
-                                            value={customInstallmentValue}
-                                            onChange={(e) => {
-                                                const value = e.target.value;
-                                                setCustomInstallmentValue(value);
-                                                const numValue = parseInt(value);
-                                                if (value && numValue > 0 && numValue <= 99) {
-                                                    setDetectedInstallments(numValue);
-                                                }
-                                            }}
-                                            onBlur={() => {
-                                                if (!customInstallmentValue || parseInt(customInstallmentValue) < 1) {
-                                                    setShowCustomInstallment(false);
-                                                    setDetectedInstallments(1);
-                                                }
-                                            }}
-                                            autoFocus
-                                            className="flex-1 py-2 px-3 rounded-lg text-sm font-medium bg-white text-zinc-900 shadow-sm border-2 border-zinc-300 focus:ring-2 focus:ring-blue-400 outline-none"
-                                        />
-                                    )}
-                                </div>
-                            </div>
-                        )}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setDetectedInstallments(1);
+                                    setShowCustomInstallment(false);
+                                    setCustomInstallmentValue('');
+                                }}
+                                className="text-xs text-zinc-400 hover:text-zinc-800 underline"
+                            >
+                                Remover
+                            </button>
+                        </div>
+                        <p className="text-blue-700 text-sm">
+                            {detectedInstallments}x de R$ {(Number(formData.amount) / detectedInstallments).toFixed(2)}
+                        </p>
                     </div>
                 )}
 
@@ -1091,6 +1012,82 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Opções de Parcelamento dentro de Cartão de Crédito */}
+                                <div className="mt-4 space-y-2">
+                                    <label className="text-xs font-bold text-emerald-800 uppercase tracking-wider block">
+                                        Parcelar?
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setDetectedInstallments(1);
+                                                setShowCustomInstallment(false);
+                                            }}
+                                            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                                                detectedInstallments === 1 && !showCustomInstallment
+                                                    ? 'bg-white text-emerald-900 shadow-sm border-2 border-emerald-400'
+                                                    : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-2 border-transparent'
+                                            }`}
+                                        >
+                                            À vista
+                                        </button>
+                                        {[2, 3, 6, 12].map(n => (
+                                            <button
+                                                key={n}
+                                                type="button"
+                                                onClick={() => {
+                                                    setDetectedInstallments(n);
+                                                    setShowCustomInstallment(false);
+                                                }}
+                                                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                                                    detectedInstallments === n && !showCustomInstallment
+                                                        ? 'bg-white text-emerald-900 shadow-sm border-2 border-emerald-400'
+                                                        : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-2 border-transparent'
+                                                }`}
+                                            >
+                                                {n}x
+                                            </button>
+                                        ))}
+                                        {!showCustomInstallment ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setShowCustomInstallment(true);
+                                                    setCustomInstallmentValue('');
+                                                }}
+                                                className="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-2 border-transparent"
+                                            >
+                                                Outros
+                                            </button>
+                                        ) : (
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="99"
+                                                placeholder="Ex: 10"
+                                                value={customInstallmentValue}
+                                                onChange={(e) => {
+                                                    const value = e.target.value;
+                                                    setCustomInstallmentValue(value);
+                                                    const numValue = parseInt(value);
+                                                    if (value && numValue > 0 && numValue <= 99) {
+                                                        setDetectedInstallments(numValue);
+                                                    }
+                                                }}
+                                                onBlur={() => {
+                                                    if (!customInstallmentValue || parseInt(customInstallmentValue) < 1) {
+                                                        setShowCustomInstallment(false);
+                                                        setDetectedInstallments(1);
+                                                    }
+                                                }}
+                                                autoFocus
+                                                className="flex-1 py-2 px-3 rounded-lg text-sm font-medium bg-white text-emerald-900 shadow-sm border-2 border-emerald-400 focus:ring-2 focus:ring-emerald-500 outline-none"
+                                            />
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </>
@@ -1109,7 +1106,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                     ...formData,
                                     isRecurring,
                                     // Se marcar como recorrente E já tem cartão de crédito, vincular automaticamente
-                                    linkedToInvoice: isRecurring && formData.isCreditPurchase && creditCardInput ? true : formData.linkedToInvoice,
+                                    linkedToInvoice: isRecurring && formData.isCreditPurchase && creditCardInput ? true : false,
                                     creditCardIssuer: isRecurring && formData.isCreditPurchase && creditCardInput ? creditCardInput : formData.creditCardIssuer
                                 });
                             }}
@@ -1126,114 +1123,17 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                             </span>
                         </div>
                     </div>
-                </div>
 
-                {/* Vincular cartão (apenas para recorrentes de despesa) */}
-                {formData.isRecurring && formData.type === TransactionType.EXPENSE && (
-                    <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 space-y-3 animate-slideUp">
-                        {/* Se já escolheu crédito, apenas confirma o vínculo */}
-                        {formData.isCreditPurchase && creditCardInput ? (
-                            <div className="flex items-start gap-3">
-                                <input
-                                    type="checkbox"
-                                    id="linkedToInvoice"
-                                    checked={formData.linkedToInvoice !== false}
-                                    onChange={(e) => {
-                                        setFormData({
-                                            ...formData,
-                                            linkedToInvoice: e.target.checked,
-                                            creditCardIssuer: e.target.checked ? creditCardInput : undefined
-                                        });
-                                    }}
-                                    className="w-5 h-5 rounded border-2 border-zinc-300 text-zinc-900 focus:ring-2 focus:ring-zinc-200 cursor-pointer mt-0.5"
-                                />
-                                <div className="flex-1">
-                                    <label htmlFor="linkedToInvoice" className="text-sm text-zinc-700 cursor-pointer select-none font-medium block">
-                                        Vincular ao cartão <span className="font-bold text-emerald-700">{creditCardInput}</span>?
-                                    </label>
-                                    <p className="text-xs text-zinc-500 mt-1">
-                                        Esta assinatura será incluída automaticamente nas faturas futuras deste cartão
-                                    </p>
-                                </div>
+                    {/* Info sobre vínculo automático se já tiver cartão selecionado */}
+                    {formData.isRecurring && formData.isCreditPurchase && creditCardInput && formData.type === TransactionType.EXPENSE && (
+                        <div className="mt-3 ml-8 text-xs text-emerald-700 bg-emerald-50 p-3 rounded-lg border border-emerald-200">
+                            <div className="flex items-center gap-2">
+                                <Check size={14} className="shrink-0" />
+                                <span>Esta assinatura será vinculada automaticamente às faturas do <span className="font-bold">{creditCardInput}</span></span>
                             </div>
-                        ) : (
-                            /* Se não escolheu crédito, mostra opção de vincular a qualquer cartão */
-                            <>
-                                <div className="flex items-center gap-3">
-                                    <input
-                                        type="checkbox"
-                                        id="linkedToInvoice"
-                                        checked={formData.linkedToInvoice || false}
-                                        onChange={(e) => {
-                                            const checked = e.target.checked;
-                                            setFormData({
-                                                ...formData,
-                                                linkedToInvoice: checked,
-                                                creditCardIssuer: checked ? formData.creditCardIssuer : undefined
-                                            });
-                                        }}
-                                        className="w-5 h-5 rounded border-2 border-zinc-300 text-zinc-900 focus:ring-2 focus:ring-zinc-200 cursor-pointer"
-                                    />
-                                    <label htmlFor="linkedToInvoice" className="text-sm text-zinc-700 cursor-pointer select-none font-medium">
-                                        Vincular a um cartão de crédito
-                                    </label>
-                                </div>
-
-                                {formData.linkedToInvoice && (
-                                    <div className="pl-8 animate-fadeIn space-y-2">
-                                        <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block">Qual cartão?</label>
-
-                                        {/* Reutilizar autocomplete de cartões */}
-                                        <div className="relative">
-                                            <input
-                                                type="text"
-                                                required
-                                                value={formData.creditCardIssuer || ''}
-                                                onChange={(e) => {
-                                                    setFormData({...formData, creditCardIssuer: e.target.value});
-                                                    setShowCardSuggestions(true);
-                                                }}
-                                                onFocus={() => setShowCardSuggestions(availableCards.length > 0)}
-                                                onBlur={() => setTimeout(() => setShowCardSuggestions(false), 200)}
-                                                className="w-full p-3 bg-white border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-300 outline-none transition-all text-zinc-800"
-                                                placeholder="Ex: Nubank, Itaú, C6 Bank"
-                                            />
-
-                                            {/* Dropdown de Sugestões para assinatura */}
-                                            {showCardSuggestions && availableCards.length > 0 && (
-                                                <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-zinc-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
-                                                    {availableCards
-                                                        .filter(card => card.issuer.toLowerCase().includes((formData.creditCardIssuer || '').toLowerCase()))
-                                                        .map((card, idx) => (
-                                                            <button
-                                                                key={idx}
-                                                                type="button"
-                                                                onMouseDown={(e) => {
-                                                                    e.preventDefault(); // Previne o blur
-                                                                    setFormData({...formData, creditCardIssuer: card.issuer});
-                                                                    setShowCardSuggestions(false);
-                                                                }}
-                                                                className="w-full p-3 text-left hover:bg-zinc-50 transition-colors border-b border-zinc-100 last:border-b-0"
-                                                            >
-                                                                <div className="font-medium text-zinc-900">{card.issuer}</div>
-                                                                <div className="text-xs text-zinc-600">
-                                                                    Vence dia {card.mostCommonDueDay}
-                                                                </div>
-                                                            </button>
-                                                        ))}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <p className="text-xs text-zinc-500">
-                                            Esta assinatura será incluída automaticamente nas faturas futuras
-                                        </p>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-                )}
+                        </div>
+                    )}
+                </div>
 
                 <button
                     type="submit"
