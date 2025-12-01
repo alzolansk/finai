@@ -184,8 +184,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </div>
                         <p className="text-zinc-400 text-xs md:text-sm font-medium mb-0.5 md:mb-1">Saldo Líquido</p>
-                        <h3 className="text-2xl md:text-4xl font-bold tracking-tight">
-                        R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        <h3 className="text-lg sm:text-2xl md:text-4xl font-bold tracking-tight truncate">
+                          R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </h3>
                     </div>
                     {/* Background decor - hidden on mobile */}
@@ -198,9 +198,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <div className="p-1.5 md:p-2 bg-emerald-50 rounded-lg md:rounded-xl text-emerald-600"><ArrowUpRight size={18} className="md:w-6 md:h-6" /></div>
                         <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-1.5 py-0.5 md:px-2 md:py-1 rounded-md md:rounded-lg">Receitas</span>
                     </div>
-                    <div>
+                    <div className="min-w-0 overflow-hidden">
                         <p className="text-zinc-400 text-xs md:text-sm mb-0.5 md:mb-1">Entradas</p>
-                        <p className="text-xl md:text-3xl font-bold text-zinc-900">R$ {totalIncome.toLocaleString('pt-BR')}</p>
+                        <p className="text-base sm:text-xl md:text-3xl font-bold text-zinc-900 truncate">R$ {totalIncome.toLocaleString('pt-BR')}</p>
                     </div>
                 </div>
 
@@ -210,9 +210,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                          <div className="p-1.5 md:p-2 bg-rose-50 rounded-lg md:rounded-xl text-rose-600"><TrendingDown size={18} className="md:w-6 md:h-6" /></div>
                          <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-rose-700 bg-rose-50 px-1.5 py-0.5 md:px-2 md:py-1 rounded-md md:rounded-lg">Despesas</span>
                     </div>
-                    <div>
+                    <div className="min-w-0 overflow-hidden">
                         <p className="text-zinc-400 text-xs md:text-sm mb-0.5 md:mb-1">Saídas</p>
-                        <p className="text-xl md:text-3xl font-bold text-zinc-900">R$ {totalExpense.toLocaleString('pt-BR')}</p>
+                        <p className="text-base sm:text-xl md:text-3xl font-bold text-zinc-900 truncate">R$ {totalExpense.toLocaleString('pt-BR')}</p>
                     </div>
                 </div>
             </div>
@@ -230,11 +230,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                         
                         <div className="relative z-10">
-                            <div className="flex justify-between items-end mb-2">
-                                <span className={`text-xl md:text-3xl font-bold ${isGoalReached ? 'text-emerald-600' : 'text-zinc-900'}`}>
+                            <div className="flex justify-between items-end mb-2 gap-2">
+                                <span className={`text-base sm:text-xl md:text-3xl font-bold truncate min-w-0 ${isGoalReached ? 'text-emerald-600' : 'text-zinc-900'}`}>
                                     R$ {Math.max(0, savings).toLocaleString('pt-BR')}
                                 </span>
-                                <span className="text-zinc-400 font-medium text-[10px] md:text-sm mb-0.5 md:mb-1">/ R$ {settings.savingsGoal.toLocaleString('pt-BR')}</span>
+                                <span className="text-zinc-400 font-medium text-[10px] md:text-sm mb-0.5 md:mb-1 shrink-0">/ R$ {settings.savingsGoal.toLocaleString('pt-BR')}</span>
                             </div>
 
                             <div className="w-full bg-zinc-100 rounded-full h-2.5 md:h-4 mb-2 md:mb-3 overflow-hidden">

@@ -1,9 +1,7 @@
 import React, { ReactNode, useState } from 'react';
-import { Home, Plus, PieChart, MessageSquareText, X, Sparkles, Zap, AlertTriangle, Settings, Trash2, Activity, ChevronDown, ChevronUp, Calendar, Repeat, TrendingUp, FileText, Heart, Search, BarChart3, DollarSign, Bell, Users, Menu } from 'lucide-react';
+import { Home, Plus, PieChart, MessageSquareText, X, Sparkles, Zap, AlertTriangle, Settings, Calendar, Repeat, TrendingUp, Heart, BarChart3, DollarSign, Bell } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { SmartAlert } from '../services/forecastService';
-import { clearAllData, getApiLogs, ApiLog } from '../services/storageService';
-import SyncSettings from './SyncSettings';
 
 interface LayoutProps {
   children: ReactNode;
@@ -57,19 +55,10 @@ const Layout: React.FC<LayoutProps> = ({
   unreadAlertsCount = 0
 }) => {
   const [inputText, setInputText] = React.useState('');
-  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
-  const [showApiLogs, setShowApiLogs] = React.useState(false);
-  const [apiLogs, setApiLogs] = React.useState<ApiLog[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [hoveredTab, setHoveredTab] = React.useState<string | null>(null);
   const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    if (isSettingsOpen && showApiLogs) {
-        setApiLogs(getApiLogs());
-    }
-  }, [isSettingsOpen, showApiLogs]);
 
   React.useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -145,7 +134,7 @@ const Layout: React.FC<LayoutProps> = ({
                  )}
 
                  <button
-                    onClick={() => setIsSettingsOpen(true)}
+                    onClick={() => onTabChange('settings')}
                     className="p-2 rounded-full active:bg-zinc-200 md:hover:bg-zinc-100 text-zinc-400 active:text-zinc-900 md:hover:text-zinc-900 transition-colors"
                     title="Configurações"
                  >
@@ -538,144 +527,6 @@ const Layout: React.FC<LayoutProps> = ({
 
       {/* Extra Panel (e.g. Review Panel) */}
       {extraPanel}
-
-      {/* Settings Modal */}
-      {isSettingsOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-zinc-900/20 backdrop-blur-sm animate-fadeIn">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn">
-            <div className="p-6 border-b border-zinc-100 flex justify-between items-center">
-                <h3 className="font-bold text-lg text-zinc-900">Configurações</h3>
-                <button onClick={() => setIsSettingsOpen(false)} className="p-2 hover:bg-zinc-100 rounded-full text-zinc-400 hover:text-zinc-900 transition-colors">
-                <X size={20} />
-                </button>
-            </div>
-            <div className="p-6">
-                <div className="space-y-6">
-                
-                {/* API Monitoring Section (Hidden/Collapsible) */}
-                <div>
-                    <button 
-                        onClick={() => setShowApiLogs(!showApiLogs)}
-                        className="flex items-center justify-between w-full text-left mb-3 group"
-                    >
-                        <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider group-hover:text-zinc-600 transition-colors">Monitoramento de API</h4>
-                        {showApiLogs ? <ChevronUp size={14} className="text-zinc-400" /> : <ChevronDown size={14} className="text-zinc-400" />}
-                    </button>
-                    
-                    {showApiLogs && (
-                        <div className="bg-zinc-900 rounded-xl p-4 overflow-hidden animate-slideUp">
-                            <div className="flex items-center gap-2 mb-3 text-zinc-400 text-xs">
-                                <Activity size={14} />
-                                <span>Últimas chamadas (Gemini AI)</span>
-                            </div>
-                            <div className="space-y-2 max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 pr-2">
-                                {apiLogs.length === 0 ? (
-                                    <p className="text-zinc-600 text-xs italic">Nenhum registro encontrado.</p>
-                                ) : (
-                                    apiLogs.map(log => (
-                                        <div key={log.id} className="flex items-center justify-between text-xs border-b border-zinc-800 pb-2 last:border-0 last:pb-0">
-                                            <div>
-                                                <p className="text-zinc-300 font-mono">{log.endpoint}</p>
-                                                <p className="text-zinc-600">{new Date(log.timestamp).toLocaleTimeString()}</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${log.status === 'success' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-rose-900/30 text-rose-400'}`}>
-                                                    {log.status.toUpperCase()}
-                                                </span>
-                                                <p className="text-zinc-500 mt-0.5">{log.duration}ms</p>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Import History Section */}
-                <div>
-                    <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Dados</h4>
-                    <div className="space-y-2">
-                        <button
-                            onClick={() => {
-                                setIsSettingsOpen(false);
-                                onTabChange('debtor-dashboard');
-                            }}
-                            className="w-full py-3 bg-gradient-to-r from-emerald-50 to-blue-50 border border-emerald-200 text-emerald-700 font-bold rounded-xl hover:from-emerald-100 hover:to-blue-100 hover:border-emerald-300 transition-all flex items-center justify-center gap-2 text-sm shadow-sm"
-                        >
-                            <Users size={16} />
-                            Dashboard de Cobrança
-                        </button>
-                        <button
-                            onClick={() => {
-                                setIsSettingsOpen(false);
-                                onTabChange('explore');
-                            }}
-                            className="w-full py-3 bg-white border border-zinc-200 text-zinc-700 font-medium rounded-xl hover:bg-zinc-50 hover:border-zinc-300 transition-all flex items-center justify-center gap-2 text-sm"
-                        >
-                            <Search size={16} />
-                            Explorar Transações
-                        </button>
-                        <button
-                            onClick={() => {
-                                setIsSettingsOpen(false);
-                                onTabChange('import-history');
-                            }}
-                            className="w-full py-3 bg-white border border-zinc-200 text-zinc-700 font-medium rounded-xl hover:bg-zinc-50 hover:border-zinc-300 transition-all flex items-center justify-center gap-2 text-sm"
-                        >
-                            <FileText size={16} />
-                            Histórico de Importações
-                        </button>
-                        <button
-                            onClick={() => {
-                                setIsSettingsOpen(false);
-                                onTabChange('duplicates');
-                            }}
-                            className="w-full py-3 bg-white border border-zinc-200 text-zinc-700 font-medium rounded-xl hover:bg-zinc-50 hover:border-zinc-300 transition-all flex items-center justify-center gap-2 text-sm"
-                        >
-                            <AlertTriangle size={16} />
-                            Auditoria de Duplicados
-                        </button>
-                    </div>
-                </div>
-
-                {/* Cloud Sync Settings */}
-                <SyncSettings />
-
-                <div>
-                    <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Zona de Perigo</h4>
-                    <div className="bg-rose-50 border border-rose-100 rounded-xl p-4">
-                    <div className="flex items-start gap-3 mb-4">
-                        <div className="p-2 bg-rose-100 text-rose-600 rounded-lg shrink-0">
-                        <AlertTriangle size={20} />
-                        </div>
-                        <div>
-                        <h5 className="font-bold text-rose-900 text-sm">Excluir todos os dados</h5>
-                        <p className="text-xs text-rose-700 mt-1">Esta ação não pode ser desfeita. Todos os seus registros, metas e configurações serão apagados permanentemente.</p>
-                        </div>
-                    </div>
-                    <button 
-                        onClick={() => {
-                        if (confirm('Tem certeza absoluta? Todos os seus dados serão perdidos.')) {
-                            clearAllData();
-                            window.location.reload();
-                        }
-                        }}
-                        className="w-full py-3 bg-white border border-rose-200 text-rose-600 font-bold rounded-xl hover:bg-rose-600 hover:text-white transition-all flex items-center justify-center gap-2 text-sm shadow-sm"
-                    >
-                        <Trash2 size={16} />
-                        Excluir todos os registros
-                    </button>
-                    </div>
-                </div>
-                </div>
-            </div>
-            <div className="p-4 bg-zinc-50 text-center text-xs text-zinc-400">
-                FinAI v1.0.0
-            </div>
-            </div>
-        </div>
-      )}
     </div>
   );
 };

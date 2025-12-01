@@ -5,6 +5,9 @@ import { parseTransactionFromText, parseImportFile } from '../services/geminiSer
 import { generateInvoiceFingerprint, isInvoiceAlreadyImported, saveImportedInvoice, getCreditCardHistory, suggestCreditCardDueDate } from '../services/storageService';
 import { parseLocalDate } from '../utils/dateUtils';
 import { Mic, Send, Loader2, Wand2, Check, Layers, Upload, FileText, X, AlertTriangle, Sparkles, TrendingDown, TrendingUp, Wallet, CreditCard, Banknote, Calendar, DollarSign } from 'lucide-react';
+import CinematicImportExperience from './CinematicImportExperience';
+import CinematicFileDropzone from './CinematicFileDropzone';
+import CinematicConfirmation from './CinematicConfirmation';
 
 interface AddTransactionProps {
   onAdd: (transactions: Transaction[]) => void;
@@ -531,242 +534,220 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                      }
                  }} className="absolute top-0 right-0 p-2 text-zinc-400 hover:text-zinc-800"><X /></button>
 
-                 {/* File Selected - Ready to Process */}
-                 {selectedFile && !loading ? (
+                 {/* Cinematic Processing Experience */}
+                 {selectedFile && loading ? (
+                     <div className="w-full animate-fadeIn">
+                         <CinematicImportExperience 
+                             fileName={selectedFile.fileName} 
+                             isProcessing={loading}
+                         />
+                     </div>
+                 ) : selectedFile && !loading ? (
+                     /* File Selected - Ready to Process - Cinematic */
                      <div className="w-full max-w-2xl animate-fadeIn">
-                         <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-3xl p-8 shadow-lg">
-                             <div className="flex items-center gap-4 mb-6">
-                                 <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shrink-0 shadow-md">
-                                     <FileText className="text-white" size={32} />
+                         <div className="relative bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 rounded-3xl p-6 md:p-8 border border-zinc-700/50 shadow-2xl overflow-hidden">
+                             {/* Animated background glow */}
+                             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
+                             <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+                             
+                             {/* Header */}
+                             <div className="relative z-10 flex items-center gap-4 mb-6">
+                                 <div className="relative">
+                                     <div className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg"
+                                          style={{ boxShadow: '0 0 30px rgba(59, 130, 246, 0.4)' }}>
+                                         <FileText className="w-7 h-7 md:w-8 md:h-8 text-white" />
+                                     </div>
+                                     <div className="absolute inset-0 bg-blue-500 rounded-2xl animate-ping opacity-20" />
+                                     <Sparkles className="absolute -top-1 -right-1 w-5 h-5 text-amber-400 animate-pulse" />
                                  </div>
-                                 <div className="flex-1 text-left">
-                                     <h3 className="font-bold text-blue-900 text-xl mb-1">Arquivo Selecionado</h3>
-                                     <p className="text-blue-700 text-sm font-medium break-all">{selectedFile.fileName}</p>
+                                 <div className="flex-1 min-w-0">
+                                     <h3 className="text-white font-bold text-xl md:text-2xl mb-1">Arquivo Pronto</h3>
+                                     <p className="text-zinc-400 text-sm font-mono truncate">{selectedFile.fileName}</p>
                                  </div>
                              </div>
 
-                             {/* Context Input - Moved here from second step */}
-                             <div className="mb-6">
-                                 <label className="text-xs font-bold text-blue-800 uppercase tracking-wider block mb-2 text-left">
-                                     Adicionar contexto para a IA (opcional)
+                             {/* Context Input */}
+                             <div className="relative z-10 mb-6">
+                                 <label className="text-xs font-bold text-zinc-300 uppercase tracking-wider block mb-3 flex items-center gap-2">
+                                     <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                                     Contexto para a IA (opcional)
                                  </label>
                                  <textarea
                                      value={userContext}
                                      onChange={(e) => setUserContext(e.target.value)}
                                      placeholder="Ex: Considere essas movimentações para a fatura de 20/02 do cartão Nubank"
-                                     className="w-full p-4 bg-white border-2 border-blue-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-zinc-800 resize-none"
+                                     className="w-full p-4 bg-zinc-800/60 backdrop-blur-sm border border-zinc-700/50 rounded-xl focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all text-white placeholder-zinc-500 resize-none"
                                      rows={3}
                                  />
-                                 <p className="text-xs text-blue-700 mt-2 text-left">
-                                     💡 Adicione instruções específicas para ajudar a IA a interpretar corretamente o arquivo.
+                                 <p className="text-xs text-zinc-500 mt-2 flex items-start gap-1.5">
+                                     <span className="text-amber-400 shrink-0">💡</span>
+                                     <span>Adicione instruções específicas para ajudar a IA a interpretar corretamente o arquivo.</span>
                                  </p>
                              </div>
 
-                             <div className="flex gap-3">
+                             {/* Action Buttons */}
+                             <div className="relative z-10 flex gap-3">
                                  <button
                                      onClick={handleCancelFileSelection}
-                                     className="flex-1 py-4 bg-white text-zinc-700 rounded-2xl font-bold hover:bg-zinc-50 border-2 border-zinc-200 transition-all"
+                                     className="flex-1 py-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded-2xl font-bold transition-all border border-zinc-700 hover:border-zinc-600"
                                  >
                                      Cancelar
                                  </button>
                                  <button
                                      onClick={handleProcessFile}
-                                     className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                                     className="flex-1 py-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-2xl font-bold transition-all shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
                                  >
                                      <Sparkles size={20} />
                                      Processar com IA
                                  </button>
                              </div>
                          </div>
-                         <p className="text-xs text-zinc-500 mt-4 text-center">
-                             A IA irá analisar o documento para identificar transações, datas e categorias automaticamente.
+                         <p className="text-xs text-zinc-500 mt-4 text-center flex items-center justify-center gap-1.5">
+                             <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />
+                             A IA irá analisar o documento automaticamente
                          </p>
                      </div>
                  ) : pendingImport && !loading ? (
-                     <div className="w-full max-w-2xl animate-fadeIn">{/* Confirmation Screen */}
-                         <div className="bg-blue-50 border-2 border-blue-200 rounded-3xl p-6 mb-6">
-                             <div className="flex items-start gap-4 mb-6">
-                                 <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center shrink-0 shadow-md">
-                                     <FileText className="text-white" size={28} />
+                     /* Cinematic Confirmation Screen */
+                     <CinematicConfirmation
+                         fileName={pendingImport.fileName}
+                         transactionCount={pendingImport.result.normalized.length}
+                         issuer={pendingImport.result.issuer}
+                         dueDate={pendingImport.result.dueDate}
+                         documentType={pendingImport.result.documentType}
+                         transactions={pendingImport.result.normalized}
+                         onConfirm={handleConfirmImport}
+                         onCancel={handleCancelImport}
+                     />
+                 ) : loading ? (
+                     /* Cinematic Import Experience */
+                     <div className="w-full animate-fadeIn">
+                         <CinematicImportExperience 
+                             fileName={selectedFile?.fileName || 'documento'} 
+                             isProcessing={loading}
+                         />
+                     </div>
+                 ) : duplicateDetected ? (
+                     /* Duplicate Detected State - Cinematic */
+                     <div className="w-full max-w-md animate-fadeIn">
+                         <div className="relative bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 rounded-3xl p-8 border border-orange-500/30 shadow-2xl overflow-hidden">
+                             {/* Animated background */}
+                             <div className="absolute top-0 right-0 w-48 h-48 bg-orange-500/10 rounded-full blur-3xl animate-pulse" />
+                             
+                             <div className="relative z-10 text-center">
+                                 <div className="relative w-20 h-20 mx-auto mb-6">
+                                     <div className="absolute inset-0 bg-orange-500 rounded-full animate-ping opacity-20" />
+                                     <div className="absolute inset-0 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center shadow-lg"
+                                          style={{ boxShadow: '0 0 30px rgba(249, 115, 22, 0.4)' }}>
+                                         <AlertTriangle className="w-10 h-10 text-white" />
+                                     </div>
                                  </div>
-                                 <div className="flex-1 text-left">
-                                     <h3 className="font-bold text-blue-900 text-xl mb-2">Arquivo Processado</h3>
-                                     <p className="text-blue-700 text-sm mb-3 font-medium break-all">{pendingImport.fileName}</p>
-                                 </div>
-                             </div>
-
-                             {/* Info Grid - All in one row */}
-                             <div className="grid grid-cols-4 gap-2 mb-6">
-                                 <div className="bg-white rounded-lg px-3 py-2 border border-blue-100">
-                                     <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider mb-0.5">Transações</p>
-                                     <p className="text-sm font-bold text-blue-900">{pendingImport.result.normalized.length}</p>
-                                 </div>
-
-                                 <div className="bg-white rounded-lg px-3 py-2 border border-blue-100">
-                                     <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider mb-0.5">Emissor</p>
-                                     <p className="text-sm font-bold text-blue-900 truncate">{pendingImport.result.issuer || '-'}</p>
-                                 </div>
-
-                                 <div className="bg-white rounded-lg px-3 py-2 border border-blue-100">
-                                     <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider mb-0.5">Vencimento</p>
-                                     <p className="text-sm font-bold text-blue-900">
-                                         {pendingImport.result.dueDate ? new Date(pendingImport.result.dueDate).toLocaleDateString('pt-BR') : '-'}
-                                     </p>
-                                 </div>
-
-                                 <div className="bg-white rounded-lg px-3 py-2 border border-blue-100">
-                                     <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider mb-0.5">Tipo</p>
-                                     <p className="text-sm font-bold text-blue-900">
-                                         {pendingImport.result.documentType === 'bank_statement' ? 'Extrato' : 'Fatura'}
-                                     </p>
-                                 </div>
-                             </div>
-
-                             {/* Preview of first 3 transactions - No background */}
-                             <div className="mb-4">
-                                 <div className="flex items-center justify-between mb-3">
-                                     <p className="text-xs font-bold text-blue-800 uppercase tracking-wider">Preview</p>
-                                 </div>
-                                 <div className="space-y-2">
-                                     {pendingImport.result.normalized.slice(0, 3).map((t: any, idx: number) => (
-                                         <div key={idx} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-blue-100">
-                                             <div className="flex-1 min-w-0">
-                                                 <p className="text-sm font-semibold text-zinc-800 truncate">{t.description}</p>
-                                                 <div className="flex items-center gap-2 mt-1">
-                                                     <span className="text-xs text-zinc-500">{t.category}</span>
-                                                     {t.date && (
-                                                         <>
-                                                             <span className="text-zinc-300">•</span>
-                                                             <span className="text-xs text-zinc-500">
-                                                                 {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                                                             </span>
-                                                         </>
-                                                     )}
-                                                 </div>
-                                             </div>
-                                             <div className="shrink-0 text-right">
-                                                 <span className={`text-sm font-bold ${t.type === 'INCOME' ? 'text-emerald-600' : 'text-zinc-900'}`}>
-                                                     {t.type === 'INCOME' ? '+' : ''} R$ {t.amount.toFixed(2)}
-                                                 </span>
-                                             </div>
-                                         </div>
-                                     ))}
-                                 </div>
-
-                                 {/* View all button */}
-                                 {pendingImport.result.normalized.length > 3 && (
-                                     <button
-                                         onClick={() => setShowAllTransactions(true)}
-                                         className="w-full mt-3 py-2.5 bg-white hover:bg-blue-50 text-blue-700 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 border border-blue-200"
-                                     >
-                                         <Layers size={16} />
-                                         Ver todas as {pendingImport.result.normalized.length} transações
-                                     </button>
+                                 
+                                 <h3 className="text-white font-bold text-2xl mb-3">Fatura Já Importada</h3>
+                                 
+                                 {duplicateInfo && (
+                                     <div className="bg-orange-500/10 backdrop-blur-sm rounded-xl p-4 mb-4 border border-orange-500/30">
+                                         {duplicateInfo.dueDate !== 'no-date' && (
+                                             <p className="text-orange-300 text-sm mb-1">
+                                                 <span className="text-zinc-400">Vencimento:</span> {new Date(duplicateInfo.dueDate).toLocaleDateString('pt-BR')}
+                                             </p>
+                                         )}
+                                         <p className="text-orange-300 text-sm">
+                                             <span className="text-zinc-400">Importada em:</span> {new Date(duplicateInfo.importedAt).toLocaleDateString('pt-BR')}
+                                         </p>
+                                     </div>
                                  )}
+                                 
+                                 <p className="text-zinc-400 text-sm">
+                                     Esta fatura já foi processada anteriormente e não pode ser importada novamente.
+                                 </p>
                              </div>
                          </div>
-
-                         {/* Action Buttons */}
-                         <div className="flex gap-3">
-                             <button
-                                 onClick={handleCancelImport}
-                                 className="flex-1 py-4 bg-zinc-100 text-zinc-700 rounded-2xl font-bold hover:bg-zinc-200 transition-all"
-                             >
-                                 Cancelar
-                             </button>
-                             <button
-                                 onClick={handleConfirmImport}
-                                 className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                             >
-                                 <Check size={20} />
-                                 Confirmar Importação
-                             </button>
+                     </div>
+                 ) : importSuccess ? (
+                     /* Success State - Cinematic */
+                     <div className="w-full max-w-md animate-fadeIn">
+                         <div className="relative bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 rounded-3xl p-8 border border-emerald-500/30 shadow-2xl overflow-hidden">
+                             {/* Animated background */}
+                             <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl animate-pulse" />
+                             <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+                             
+                             <div className="relative z-10 text-center">
+                                 <div className="relative w-20 h-20 mx-auto mb-6">
+                                     <div className="absolute inset-0 bg-emerald-500 rounded-full animate-ping opacity-20" />
+                                     <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center shadow-lg"
+                                          style={{ boxShadow: '0 0 30px rgba(16, 185, 129, 0.4)' }}>
+                                         <Check className="w-10 h-10 text-white" strokeWidth={3} />
+                                     </div>
+                                     <Sparkles className="absolute -top-1 -right-1 w-5 h-5 text-amber-400 animate-pulse" />
+                                 </div>
+                                 
+                                 <h3 className="text-white font-bold text-2xl mb-3">
+                                     {importDocumentType === 'bank_statement' ? 'Extrato Processado!' : 'Fatura Processada!'}
+                                 </h3>
+                                 
+                                 <div className="bg-emerald-500/10 backdrop-blur-sm rounded-xl p-4 border border-emerald-500/30">
+                                     {importDueDate && importDocumentType === 'invoice' ? (
+                                         <p className="text-emerald-300 text-sm">
+                                             <span className="text-zinc-400">Vencimento:</span> {new Date(importDueDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                                         </p>
+                                     ) : (
+                                         <p className="text-emerald-300 text-sm">
+                                             Transações filtradas e categorizadas com sucesso
+                                         </p>
+                                     )}
+                                 </div>
+                             </div>
                          </div>
                      </div>
                  ) : (
-                     <>
-                     {/* Original Import UI */}
+                     /* Cinematic File Dropzone */
+                     <CinematicFileDropzone 
+                         onFileSelect={(file) => {
+                             // Validate file size (max 4MB)
+                             const maxSize = 4 * 1024 * 1024;
+                             if (file.size > maxSize) {
+                                 alert(`Arquivo muito grande. O tamanho máximo permitido é 4MB.\nTamanho do arquivo: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+                                 return;
+                             }
 
-                 <div className={`w-full max-w-sm h-64 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center gap-4 transition-all ${
-                     duplicateDetected ? 'border-orange-500 bg-orange-50/50' :
-                     importSuccess ? 'border-emerald-500 bg-emerald-50/50' :
-                     loading ? 'border-emerald-500 bg-emerald-50/50' :
-                     'border-zinc-300 hover:border-zinc-800 hover:bg-zinc-50'
-                 }`}>
-                     {duplicateDetected ? (
-                         <>
-                            <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center animate-fadeIn">
-                                <AlertTriangle className="w-12 h-12 text-orange-600" />
-                            </div>
-                            <div className="animate-fadeIn">
-                                <p className="text-orange-800 font-bold text-lg mb-2">Fatura Já Importada!</p>
-                                {duplicateInfo && (
-                                    <div className="text-orange-600 text-sm space-y-1">
-                                        {duplicateInfo.dueDate !== 'no-date' && (
-                                            <p>Vencimento: {new Date(duplicateInfo.dueDate).toLocaleDateString('pt-BR')}</p>
-                                        )}
-                                        <p>Importada em: {new Date(duplicateInfo.importedAt).toLocaleDateString('pt-BR')}</p>
-                                    </div>
-                                )}
-                                <p className="text-orange-700 text-xs mt-3 max-w-xs">
-                                    Esta fatura já foi processada anteriormente. Não é possível importar novamente.
-                                </p>
-                            </div>
-                         </>
-                     ) : importSuccess ? (
-                         <>
-                            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center animate-fadeIn">
-                                <Check className="w-12 h-12 text-emerald-600" />
-                            </div>
-                            <div className="animate-fadeIn">
-                                <p className="text-emerald-800 font-bold text-lg mb-2">
-                                    {importDocumentType === 'bank_statement' ? 'Extrato Processado!' : 'Fatura Processada!'}
-                                </p>
-                                {importDueDate && importDocumentType === 'invoice' && (
-                                    <p className="text-emerald-600 text-sm">
-                                        Data de Vencimento: {new Date(importDueDate).toLocaleDateString('pt-BR')}
-                                    </p>
-                                )}
-                                {importDocumentType === 'bank_statement' && (
-                                    <p className="text-emerald-600 text-sm">
-                                        Transações filtradas e categorizadas
-                                    </p>
-                                )}
-                            </div>
-                         </>
-                     ) : loading ? (
-                         <>
-                            <Loader2 className="w-10 h-10 text-emerald-600 animate-spin" />
-                            <p className="text-emerald-700 font-bold">Analisando Documento...</p>
-                            <p className="text-emerald-600 text-xs max-w-xs">
-                                Identificando tipo, data e aplicando filtros inteligentes...
-                            </p>
-                         </>
-                     ) : (
-                         <>
-                            <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center text-zinc-400">
-                                <FileText size={32} />
-                            </div>
-                            <div>
-                                <p className="font-bold text-zinc-800">Clique para enviar documento</p>
-                                <p className="text-xs text-zinc-400 mt-1">Fatura ou Extrato (PDF, JPG, PNG, CSV)</p>
-                            </div>
-                            {!duplicateDetected && (
-                                <input
-                                    type="file"
-                                    ref={fileInputRef}
-                                    onChange={handleFileImport}
-                                    accept=".csv, .pdf, image/*"
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                />
-                            )}
-                         </>
-                     )}
-                 </div>
-                 <p className="text-xs text-zinc-400 mt-6 max-w-xs">
-                    Nossa IA identifica automaticamente se é fatura ou extrato, e aplica filtros para evitar duplicações (transferências internas e pagamentos de faturas são ignorados).
-                 </p>
-                 </>
+                             // Validate file type
+                             const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'text/csv'];
+                             const validExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.csv'];
+                             const fileExtension = file.name.toLowerCase().match(/\.[^.]+$/)?.[0];
+
+                             if (!validTypes.includes(file.type) && (!fileExtension || !validExtensions.includes(fileExtension))) {
+                                 alert('Tipo de arquivo não suportado. Por favor, envie um arquivo PDF, JPG, PNG ou CSV.');
+                                 return;
+                             }
+
+                             // Reset states
+                             setImportSuccess(false);
+                             setDuplicateDetected(false);
+                             setDuplicateInfo(null);
+                             setImportDueDate(null);
+                             setImportDocumentType(null);
+                             setPendingImport(null);
+
+                             const reader = new FileReader();
+                             reader.onloadend = () => {
+                                 const base64String = reader.result as string;
+                                 const base64Data = base64String.split(',')[1];
+                                 setSelectedFile({
+                                     file,
+                                     fileName: file.name,
+                                     fileData: base64Data,
+                                     mimeType: file.type || 'application/octet-stream'
+                                 });
+                             };
+                             reader.onerror = () => {
+                                 alert('Erro ao ler o arquivo. Por favor, tente novamente.');
+                             };
+                             reader.readAsDataURL(file);
+                         }}
+                         accept=".csv, .pdf, image/*"
+                         maxSize={4}
+                     />
                  )}
              </div>
         ) : mode === 'ai' ? (

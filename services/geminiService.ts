@@ -499,31 +499,119 @@ export const parseImportFile = async (
   }
 };
 
-// 3. Insights: Analyze history and generate unlimited tips
+// 3. Insights: Analyze history and generate intelligent, actionable tips
 export const generateInsights = async (transactions: Transaction[]): Promise<Insight[]> => {
   if (transactions.length === 0) return [];
   const startTime = Date.now();
 
   // Sort by date desc and take recent ones for relevance
-  const recentTransactions = transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 100);
-  const jsonHistory = JSON.stringify(recentTransactions);
+  const recentTransactions = transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 150);
+  
+  // Calculate financial context for smarter insights
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  
+  // Group by month for trend analysis
+  const monthlyData: Record<string, { income: number; expense: number; categories: Record<string, number> }> = {};
+  
+  recentTransactions.forEach(t => {
+    const date = new Date(t.paymentDate || t.date);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    
+    if (!monthlyData[key]) {
+      monthlyData[key] = { income: 0, expense: 0, categories: {} };
+    }
+    
+    if (t.type === TransactionType.INCOME) {
+      monthlyData[key].income += t.amount;
+    } else {
+      monthlyData[key].expense += t.amount;
+      monthlyData[key].categories[t.category] = (monthlyData[key].categories[t.category] || 0) + t.amount;
+    }
+  });
+  
+  // Get recurring subscriptions
+  const subscriptions = recentTransactions.filter(t => t.isRecurring);
+  const totalSubscriptions = subscriptions.reduce((sum, t) => sum + t.amount, 0);
+  
+  // Identify spending patterns
+  const categoryTotals: Record<string, number> = {};
+  recentTransactions.filter(t => t.type === TransactionType.EXPENSE).forEach(t => {
+    categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+  });
+  
+  const topCategories = Object.entries(categoryTotals)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  const jsonHistory = JSON.stringify(recentTransactions.slice(0, 100));
+  const contextSummary = {
+    totalSubscriptions,
+    subscriptionCount: subscriptions.length,
+    topCategories: topCategories.map(([cat, val]) => ({ category: cat, total: val })),
+    monthlyTrend: Object.entries(monthlyData).slice(0, 3).map(([month, data]) => ({
+      month,
+      balance: data.income - data.expense,
+      topCategory: Object.entries(data.categories).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A'
+    }))
+  };
 
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: `Analyze these financial transactions: ${jsonHistory}.
-      Identify patterns, wasteful subscriptions, or high spending.
+      contents: `Você é um analista financeiro pessoal inteligente. Analise estas transações e contexto:
+
+      TRANSAÇÕES RECENTES: ${jsonHistory}
       
-      Requirements:
-      - Generate as many insights as necessary (do not limit to 3).
-      - Be specific about values (Use BRL currency format).
-      - Types: 'warning' (bad), 'tip' (neutral/advice), 'success' (good).
-      - Language: Portuguese.
-      - If the insight is about a specific transaction (e.g. "Netflix is expensive"), include its ID in 'relatedTransactionId'.
-      - If you suggest a lower value (e.g. "Negotiate internet to R$ 100"), include 'suggestedAmount'.
+      CONTEXTO CALCULADO:
+      - Total em assinaturas: R$ ${totalSubscriptions.toFixed(2)} (${subscriptions.length} assinaturas)
+      - Top categorias de gasto: ${topCategories.map(([cat, val]) => `${cat}: R$ ${val.toFixed(2)}`).join(', ')}
+      - Tendência mensal: ${JSON.stringify(contextSummary.monthlyTrend)}
       
-      Return JSON array.`,
+      DATA ATUAL: ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+      DIA DO MÊS: ${now.getDate()} (${now.getDate() <= 10 ? 'início' : now.getDate() <= 20 ? 'meio' : 'fim'} do mês)
+
+      GERE INSIGHTS INTELIGENTES seguindo estas diretrizes:
+
+      1. ANÁLISE DE PADRÕES:
+         - Identifique gastos que aumentaram vs mês anterior
+         - Detecte assinaturas duplicadas ou subutilizadas
+         - Encontre oportunidades de economia baseadas em comportamento real
+
+      2. INSIGHTS CONTEXTUAIS:
+         - Se estamos no início do mês: foque em planejamento
+         - Se estamos no fim do mês: foque em revisão e ajustes
+         - Considere sazonalidade (férias, festas, etc.)
+
+      3. TIPOS DE INSIGHT:
+         - 'warning': Alerta sobre gasto excessivo, tendência negativa, risco financeiro
+         - 'tip': Dica prática e acionável para economizar ou otimizar
+         - 'success': Reconhecimento de bom comportamento financeiro
+
+      4. QUALIDADE DOS INSIGHTS:
+         - Seja ESPECÍFICO (mencione valores, categorias, transações)
+         - Seja ACIONÁVEL (diga O QUE fazer, não apenas o problema)
+         - Seja PERSONALIZADO (baseie-se nos dados reais do usuário)
+         - Use linguagem NATURAL e amigável (como um amigo financeiro)
+
+      5. PRIORIZAÇÃO:
+         - Primeiro: alertas urgentes (gastos fora do padrão)
+         - Segundo: oportunidades de economia significativas (>R$ 50/mês)
+         - Terceiro: dicas de otimização e boas práticas
+
+      6. FORMATO:
+         - Título: curto e impactante (máx 6 palavras)
+         - Descrição: 2-3 frases explicando o insight e a ação sugerida
+         - Se aplicável: inclua relatedTransactionId e suggestedAmount
+
+      EXEMPLOS DE BONS INSIGHTS:
+      - "Streaming em dobro?" → "Você tem Netflix e Prime Video. Considerando que ambos têm catálogos similares, cancelar um pode economizar R$ 45/mês."
+      - "Delivery disparou 📈" → "Seus gastos com iFood aumentaram 40% este mês (R$ 380 vs R$ 270). Que tal cozinhar mais em casa?"
+      - "Parabéns! 🎉" → "Você reduziu gastos com transporte em 25% este mês. Continue assim!"
+
+      Retorne um array JSON com 4-8 insights relevantes e acionáveis.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -531,12 +619,12 @@ export const generateInsights = async (transactions: Transaction[]): Promise<Ins
           items: {
             type: Type.OBJECT,
             properties: {
-              title: { type: Type.STRING },
-              description: { type: Type.STRING },
+              title: { type: Type.STRING, description: "Título curto e impactante" },
+              description: { type: Type.STRING, description: "Explicação detalhada com ação sugerida" },
               type: { type: Type.STRING, enum: ["warning", "tip", "success"] },
-              savingsPotential: { type: Type.NUMBER, description: "Estimated savings amount if applicable, else 0" },
-              relatedTransactionId: { type: Type.STRING, description: "The ID of the transaction this insight refers to, if any" },
-              suggestedAmount: { type: Type.NUMBER, description: "A suggested new amount for this transaction, if applicable" }
+              savingsPotential: { type: Type.NUMBER, description: "Economia potencial em R$, ou 0" },
+              relatedTransactionId: { type: Type.STRING, description: "ID da transação relacionada, se aplicável" },
+              suggestedAmount: { type: Type.NUMBER, description: "Valor sugerido para ajuste, se aplicável" }
             }
           }
         }
@@ -592,19 +680,84 @@ interface AdvisorContext {
       issuer?: string;
     }[];
   };
+  userSettings?: {
+    monthlyIncome?: number;
+    savingsGoal?: number;
+  };
 }
 
-// 4. Chat with Financial Advisor
+// Helper: Detect user intent for smarter responses
+const detectUserIntent = (message: string): {
+  type: 'query' | 'advice' | 'action' | 'greeting' | 'comparison' | 'forecast';
+  urgency: 'low' | 'medium' | 'high';
+  topics: string[];
+} => {
+  const msg = message.toLowerCase();
+  
+  // Greeting patterns
+  const greetings = ['oi', 'olá', 'ola', 'hey', 'e aí', 'eai', 'bom dia', 'boa tarde', 'boa noite', 'tudo bem'];
+  if (greetings.some(g => msg.startsWith(g) || msg === g)) {
+    return { type: 'greeting', urgency: 'low', topics: [] };
+  }
+  
+  // Query patterns (data lookup)
+  const queryPatterns = ['quanto', 'qual', 'quantas', 'quantos', 'soma', 'total', 'gastei', 'recebi', 'saldo', 'mostre', 'liste'];
+  
+  // Advice patterns
+  const advicePatterns = ['consigo', 'posso', 'devo', 'vale a pena', 'recomenda', 'sugere', 'acha', 'opina', 'conselho', 'dica', 'ajuda', 'melhor'];
+  
+  // Action patterns
+  const actionPatterns = ['adicionar', 'criar', 'remover', 'deletar', 'mudar', 'alterar', 'cancelar'];
+  
+  // Comparison patterns
+  const comparisonPatterns = ['comparar', 'diferença', 'versus', 'vs', 'melhor que', 'pior que', 'mais que', 'menos que'];
+  
+  // Forecast patterns
+  const forecastPatterns = ['previsão', 'projeção', 'futuro', 'próximo mês', 'próximos meses', 'vou conseguir', 'vai dar'];
+  
+  // Urgency detection
+  const urgentPatterns = ['urgente', 'agora', 'hoje', 'preciso', 'socorro', 'ajuda', 'problema', 'erro'];
+  
+  const topics: string[] = [];
+  
+  // Detect topics
+  if (msg.includes('fatura') || msg.includes('cartão') || msg.includes('cartao')) topics.push('invoices');
+  if (msg.includes('assinatura') || msg.includes('recorrente') || msg.includes('mensal')) topics.push('subscriptions');
+  if (msg.includes('meta') || msg.includes('objetivo') || msg.includes('desejo') || msg.includes('wishlist')) topics.push('goals');
+  if (msg.includes('economia') || msg.includes('economizar') || msg.includes('poupar')) topics.push('savings');
+  if (msg.includes('gasto') || msg.includes('despesa')) topics.push('expenses');
+  if (msg.includes('receita') || msg.includes('salário') || msg.includes('renda')) topics.push('income');
+  
+  let type: 'query' | 'advice' | 'action' | 'greeting' | 'comparison' | 'forecast' = 'query';
+  
+  if (forecastPatterns.some(p => msg.includes(p))) type = 'forecast';
+  else if (comparisonPatterns.some(p => msg.includes(p))) type = 'comparison';
+  else if (actionPatterns.some(p => msg.includes(p))) type = 'action';
+  else if (advicePatterns.some(p => msg.includes(p))) type = 'advice';
+  else if (queryPatterns.some(p => msg.includes(p))) type = 'query';
+  
+  const urgency = urgentPatterns.some(p => msg.includes(p)) ? 'high' : 
+                  type === 'advice' || type === 'forecast' ? 'medium' : 'low';
+  
+  return { type, urgency, topics };
+};
+
+// 4. Chat with Financial Advisor - Enhanced with personality and smart context
 export const chatWithAdvisor = async (
   history: {role: string, parts: {text: string}[]}[],
   transactions: Transaction[],
   context: AdvisorContext = {}
 ): Promise<{ text: string; cta?: ChatCTA }> => {
   const startTime = Date.now();
-  const lastUserMsg = history[history.length - 1].parts[0].text.toLowerCase();
+  const lastUserMessage = history[history.length - 1].parts[0].text;
+  const lastUserMsg = lastUserMessage.toLowerCase();
   const wishlistItems = context.wishlistItems || [];
   const invoiceSummaries = context.invoiceSummaries || [];
   const invoiceFocus = context.invoiceFocus;
+  const userSettings = context.userSettings;
+  
+  // Detect user intent for smarter responses
+  const userIntent = detectUserIntent(lastUserMessage);
 
   // Default agenda/payments window (next 60 days)
   const fallbackUpcoming = (() => {
@@ -779,133 +932,185 @@ export const chatWithAdvisor = async (
     ? `Fatura em foco: ${invoiceFocus.title} (${invoiceFocus.issuer || 'Cartao'}), venc ${invoiceFocus.dueDate || 'sem data'}, total R$ ${invoiceFocus.amount.toFixed(2)}. Itens:\n${invoiceFocus.items.slice(0, 40).map(item => `${item.paymentDate || item.date || 's/data'}: ${item.description} - R$ ${(item.amount || 0).toFixed(2)} (${item.category || 'Sem categoria'})`).join('\n')}`
     : '';
 
-  // Detect question type for smarter responses
-  const isSimpleDataQuery = (() => {
-    const dataQueryKeywords = [
-      'quanto', 'qual', 'quantas', 'quantos', 'soma', 'total', 'gastei',
-      'recebi', 'saldo', 'quanto foi', 'mostre', 'liste', 'quais foram',
-      'receita', 'receitas', 'recebimento', 'recebimentos', 'despesa', 'despesas',
-      'vencimento', 'vence', 'vencem', 'venceu', 'venceram'
-    ];
-    const adviceKeywords = [
-      'consigo comprar', 'posso comprar', 'devo comprar', 'vale a pena',
-      'recomenda', 'sugere', 'acha', 'opina', 'conselho', 'dica', 'ajuda'
-    ];
+  // Build dynamic personality based on context
+  const now = new Date();
+  const hour = now.getHours();
+  const dayOfWeek = now.getDay();
+  const dayOfMonth = now.getDate();
+  
+  const timeGreeting = hour < 12 ? 'bom dia' : hour < 18 ? 'boa tarde' : 'boa noite';
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const isEndOfMonth = dayOfMonth >= 25;
+  const isStartOfMonth = dayOfMonth <= 5;
 
-    const hasDataKeyword = dataQueryKeywords.some(kw => lastUserMsg.includes(kw));
-    const hasAdviceKeyword = adviceKeywords.some(kw => lastUserMsg.includes(kw));
-
-    // It's a simple query if it has data keywords but NO advice keywords
-    return hasDataKeyword && !hasAdviceKeyword;
-  })();
+  // Financial health score (simple calculation)
+  const financialHealthScore = avgBalance > 0 
+    ? Math.min(100, Math.round((avgBalance / avgIncome) * 100 * 2))
+    : Math.max(0, 50 + Math.round((avgBalance / avgIncome) * 100));
 
   try {
     const ai = getAI();
 
-    // Smart system instruction based on query type
-    const systemInstruction = isSimpleDataQuery
-      ? `Voce e FinAI, assistente financeiro para consultas de dados.
+    // Build context-aware system instruction
+    const basePersonality = `Você é Fin, um assistente financeiro pessoal inteligente e amigável. 
+    
+    SUA PERSONALIDADE:
+    - Você é como um amigo financeiramente experiente, não um robô
+    - Use linguagem natural e brasileira (pode usar expressões como "show", "beleza", "tranquilo")
+    - Seja empático mas honesto - não esconda problemas financeiros
+    - Use emojis com moderação para tornar a conversa mais leve (1-2 por resposta)
+    - Adapte seu tom: mais sério para problemas, mais leve para conquistas
+    
+    CONTEXTO TEMPORAL:
+    - Agora: ${now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} às ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+    - ${isWeekend ? '🌴 É fim de semana!' : '💼 Dia útil'}
+    - ${isStartOfMonth ? '📅 Início do mês - bom momento para planejar!' : isEndOfMonth ? '⏰ Fim do mês - hora de revisar!' : ''}
+    
+    SAÚDE FINANCEIRA DO USUÁRIO: ${financialHealthScore}/100
+    ${financialHealthScore >= 70 ? '✅ Situação saudável' : financialHealthScore >= 40 ? '⚠️ Atenção necessária' : '🚨 Situação crítica'}`;
 
-        CONTEXTO FINANCEIRO (ultimos meses): ${snapshotText}
+    // Smart system instruction based on intent type
+    let systemInstruction: string;
+    
+    if (userIntent.type === 'greeting') {
+      systemInstruction = `${basePersonality}
+      
+      O usuário está te cumprimentando. Responda de forma amigável e proativa:
+      1. Cumprimente de volta (${timeGreeting}!)
+      2. Dê um resumo rápido da situação financeira atual
+      3. Sugira uma ação útil baseada no contexto (ex: "quer ver como estão suas metas?" ou "posso te mostrar os próximos vencimentos")
+      
+      CONTEXTO FINANCEIRO: ${snapshotText}
+      
+      Seja breve (2-3 frases) e acolhedor.`;
+      
+    } else if (userIntent.type === 'query') {
+      systemInstruction = `${basePersonality}
+
+        MODO: CONSULTA DE DADOS 📊
+
+        CONTEXTO FINANCEIRO (últimos meses): ${snapshotText}
 
         TRANSAÇÕES RELEVANTES (${relevantTransactions.length} analisadas):
         ${summary}
 
-        CONTEXTO EXTRA DO APP:
-
-        📋 LISTA DE DESEJOS (${wishlistItems.length} itens):
-        ${wishlistSummary || 'nenhum desejo cadastrado.'}
-
-        📅 AGENDA/PAGAMENTOS proximos (${paymentsContext.length}):
-        ${paymentSummary || 'sem vencimentos relevantes.'}
-
-        💳 FATURAS importadas (${invoiceSummaries.length}):
-        ${invoiceSummaryText || 'nenhuma fatura salva.'}
+        CONTEXTO DO APP:
+        📋 Lista de Desejos: ${wishlistSummary || 'vazia'}
+        📅 Próximos Pagamentos: ${paymentSummary || 'nenhum'}
+        💳 Faturas: ${invoiceSummaryText || 'nenhuma'}
         ${invoiceFocusText ? `\n${invoiceFocusText}` : ''}
 
-        REGRAS PARA CONSULTAS DE DADOS:
-        1. Responda APENAS o que foi perguntado
-        2. Seja direto e objetivo (máximo 2-3 frases)
-        3. NÃO dê conselhos ou recomendações não solicitadas
-        4. NÃO mencione "impacto no fluxo de caixa" ou análises financeiras
-        5. Se não encontrar dados específicos, diga claramente e sugira verificar filtros/período
+        REGRAS PARA CONSULTAS:
+        1. Responda de forma DIRETA e PRECISA
+        2. Use formatação clara (bullets se necessário)
+        3. Sempre especifique o período dos dados
+        4. Se não encontrar dados, sugira onde procurar
+        
+        FILTROS DE DATA:
+        - "Data:" = data da compra/transação
+        - "Vencimento:" = data de pagamento
+        - Use o campo apropriado baseado na pergunta
+        
+        TIPOS DE TRANSAÇÃO:
+        - [RECEITA] = entradas de dinheiro
+        - [DESPESA] = saídas de dinheiro
+        
+        Formato: Resposta direta + dados relevantes. Sem conselhos não solicitados.
+        Valores em R$ (BRL).`;
+        
+    } else if (userIntent.type === 'advice' || userIntent.type === 'forecast') {
+      systemInstruction = `${basePersonality}
 
-        6. IMPORTANTE: Cada transação é marcada como [RECEITA] ou [DESPESA]
-           - Para perguntas sobre "receitas", "recebimentos", "recebi": filtre APENAS [RECEITA]
-           - Para perguntas sobre "despesas", "gastos", "gastei": filtre APENAS [DESPESA]
-           - Sempre especifique se são receitas ou despesas na resposta
+        MODO: CONSULTORIA FINANCEIRA 🎯
 
-        7. FILTROS DE DATA - CRÍTICO:
-           - As transações têm dois tipos de data:
-             * "Data:" = data da compra/transação original
-             * "Vencimento:" = data de pagamento/recebimento
-           - Quando o usuário perguntar sobre "vencimento", "recebimento", "pagamento" em um mês:
-             * Use o campo "Vencimento:" para filtrar
-             * Exemplo: "receitas com vencimento em dezembro" = filtre por Vencimento: 2025-12-XX
-           - Quando o usuário perguntar sobre "compras", "gastos" em um mês sem mencionar vencimento:
-             * Use o campo "Data:" para filtrar
-           - Se a transação só tem "Data:" (sem "Vencimento:"), use a Data para ambos os casos
+        CONTEXTO FINANCEIRO: ${snapshotText}
+        
+        ${userSettings?.monthlyIncome ? `Renda declarada: R$ ${userSettings.monthlyIncome.toFixed(2)}` : ''}
+        ${userSettings?.savingsGoal ? `Meta de economia: R$ ${userSettings.savingsGoal.toFixed(2)}/mês` : ''}
 
-        Formato de resposta:
-        - Resposta direta à pergunta em 1-2 frases
-        - Se aplicável, liste os valores encontrados com seus tipos (receita/despesa)
-        - Apenas dados, sem análise ou conselhos
-
-        Valores sempre em BRL (R$).`
-      : `Voce e FinAI, assistente financeiro central com visao holistica. Voce enxerga transacoes, lista de desejos inteligentes e agenda de pagamentos.
-
-        CONTEXTO FINANCEIRO (ultimos meses): ${snapshotText}
-
-        TRANSAÇÕES RELEVANTES (${relevantTransactions.length} analisadas):
+        TRANSAÇÕES RELEVANTES:
         ${summary}
-
-        CONTEXTO EXTRA DO APP:
 
         📋 LISTA DE DESEJOS (${wishlistItems.length} itens):
         ${wishlistSummary || 'nenhum desejo cadastrado.'}
         ${wishlistConflicts}
+        Compromisso mensal com parcelas: R$ ${totalWishlistCommitment.toFixed(2)} (${avgIncome > 0 ? ((totalWishlistCommitment / avgIncome) * 100).toFixed(1) : 0}% da renda)
 
-        Compromisso mensal total com parcelas: R$ ${totalWishlistCommitment.toFixed(2)} (${((totalWishlistCommitment / avgIncome) * 100).toFixed(1)}% da renda média)
+        📅 AGENDA (${paymentsContext.length} pagamentos):
+        ${paymentSummary || 'sem vencimentos.'}
 
-        📅 AGENDA/PAGAMENTOS proximos (${paymentsContext.length}):
-        ${paymentSummary || 'sem vencimentos relevantes.'}
-
-        💳 FATURAS importadas (${invoiceSummaries.length}):
-        ${invoiceSummaryText || 'nenhuma fatura salva.'}
+        💳 FATURAS (${invoiceSummaries.length}):
+        ${invoiceSummaryText || 'nenhuma.'}
         ${invoiceFocusText ? `\n${invoiceFocusText}` : ''}
 
-        REGRAS DE ANÁLISE HOLÍSTICA:
+        DIRETRIZES DE CONSULTORIA:
 
-        1. WISHLIST - Análise integrada:
-           - Verifique se múltiplos itens competem pelos mesmos recursos
-           - Alerte se compromisso total com parcelas > 30% da renda
-           - Sugira priorização baseada em urgência e viabilidade
-           - Identifique conflitos (ex: 3 itens parcelados ao mesmo tempo)
+        1. ANÁLISE HOLÍSTICA:
+           - Considere TODOS os compromissos existentes
+           - Avalie impacto no fluxo de caixa dos próximos 3 meses
+           - Identifique conflitos entre objetivos
 
-        2. PERGUNTAS sobre metas/desejos:
-           - Informe valor alvo, quanto já foi guardado, forma de pagamento
-           - Se houver múltiplos itens, compare e priorize
-           - Calcule impacto combinado no orçamento
+        2. SEJA HONESTO E REALISTA:
+           - Se não é viável, diga claramente (mas com empatia)
+           - Ofereça alternativas concretas
+           - Use números reais, não estimativas vagas
 
-        3. PERGUNTAS sobre faturas/pagamentos:
-           - Priorize fatura em foco quando houver
-           - Detalhe valores e vencimentos
-           - Correlacione com wishlist se relevante
+        3. FORMATO DE RESPOSTA:
+           a) Veredito direto (1 frase clara)
+           b) Análise de impacto (2-3 bullets com números)
+           c) Recomendação prática (o que fazer agora)
+           d) Se relevante: alternativas ou próximos passos
 
-        4. RECOMENDAÇÕES de compra:
-           - SEMPRE inclua CTA para adicionar à wishlist
-           - Avalie impacto considerando compromissos existentes
-           - Seja honesto sobre priorização vs. outros itens
+        4. PARA RECOMENDAÇÕES DE COMPRA:
+           - Avalie se cabe no orçamento atual
+           - Compare com outros objetivos da wishlist
+           - Sugira adicionar à wishlist se fizer sentido
+           - CTA: 'CTA: {"type":"wishlist_add","name":"ITEM","rationale":"motivo","suggestedPrice":1234.56}'
 
-        5. FORMATO DE RESPOSTA (max 120 palavras):
-           a) Veredito direto em 1 frase
-           b) 2-3 bullets sobre impacto no fluxo de caixa e % da renda
-           c) 2 bullets de recomendações práticas
-           d) Se aplicável, análise de conflitos com outros objetivos
+        Máximo 150 palavras. Seja direto mas humano.`;
+        
+    } else if (userIntent.type === 'comparison') {
+      systemInstruction = `${basePersonality}
 
-        Valores sempre em BRL (R$). Seja direto, honesto e prático.
+        MODO: ANÁLISE COMPARATIVA 📈
 
-        CTA opcional (no final): 'CTA: {"type":"wishlist_add","name":"ITEM","rationale":"motivo","suggestedPrice":1234.56}'`;
+        CONTEXTO: ${snapshotText}
+        
+        TRANSAÇÕES: ${summary}
+        
+        WISHLIST: ${wishlistSummary || 'vazia'}
+        
+        REGRAS:
+        1. Compare dados de forma clara e visual
+        2. Use percentuais e variações
+        3. Destaque tendências (↑ aumentou, ↓ diminuiu, → estável)
+        4. Conclua com insight acionável
+        
+        Formato: Comparação clara + conclusão prática.`;
+        
+    } else {
+      // Default: balanced response
+      systemInstruction = `${basePersonality}
+
+        CONTEXTO FINANCEIRO: ${snapshotText}
+
+        TRANSAÇÕES: ${summary}
+
+        📋 WISHLIST: ${wishlistSummary || 'vazia'}
+        📅 AGENDA: ${paymentSummary || 'vazia'}
+        💳 FATURAS: ${invoiceSummaryText || 'nenhuma'}
+        ${invoiceFocusText || ''}
+
+        REGRAS:
+        1. Entenda a intenção do usuário
+        2. Responda de forma útil e contextualizada
+        3. Seja proativo mas não invasivo
+        4. Ofereça próximos passos quando relevante
+        
+        CTA opcional: 'CTA: {"type":"wishlist_add","name":"ITEM","rationale":"motivo","suggestedPrice":1234.56}'
+        
+        Máximo 120 palavras. Valores em R$.`;
+    }
 
     const chat = ai.chats.create({
       model: "gemini-2.5-flash",

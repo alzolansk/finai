@@ -195,74 +195,97 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions, onUpdate, o
       </div>
 
       {loading && insights.length === 0 ? (
-        <div className="bg-white rounded-3xl p-10 border border-zinc-100 text-center">
-          <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
-             <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+        <div className="bg-gradient-to-br from-emerald-50 to-white rounded-3xl p-10 border border-emerald-100 text-center">
+          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+             <Wand2 className="w-8 h-8 text-emerald-600" />
           </div>
-          <h3 className="text-zinc-800 font-bold mb-2">Gerando insights...</h3>
-          <p className="text-zinc-500 max-w-sm mx-auto">Analisando seus hábitos financeiros e identificando oportunidades de economia.</p>
+          <h3 className="text-zinc-800 font-bold mb-2">Analisando seus dados... 🔍</h3>
+          <p className="text-zinc-500 max-w-sm mx-auto">Estou identificando padrões, oportunidades de economia e comportamentos financeiros. Isso leva alguns segundos.</p>
+          <div className="mt-4 flex justify-center gap-1">
+            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          </div>
         </div>
       ) : transactions.length < 5 ? (
-        <div className="bg-white rounded-3xl p-10 border border-zinc-100 text-center">
-          <div className="w-16 h-16 bg-zinc-50 rounded-full flex items-center justify-center mx-auto mb-4">
-             <Lightbulb className="text-zinc-400" />
+        <div className="bg-gradient-to-br from-blue-50 to-white rounded-3xl p-10 border border-blue-100 text-center">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+             <Lightbulb className="text-blue-500" />
           </div>
-          <h3 className="text-zinc-800 font-bold mb-2">Ainda aprendendo...</h3>
-          <p className="text-zinc-500 max-w-sm mx-auto">Preciso de mais alguns dados para gerar relatórios precisos. Continue registrando seus gastos!</p>
+          <h3 className="text-zinc-800 font-bold mb-2">Ainda conhecendo você! 👋</h3>
+          <p className="text-zinc-500 max-w-sm mx-auto">Preciso de pelo menos 5 transações para começar a gerar insights personalizados. Continue registrando seus gastos e logo terei dicas valiosas para você!</p>
+          <div className="mt-4 text-xs text-blue-600 font-medium">
+            {transactions.length}/5 transações registradas
+          </div>
         </div>
       ) : (
         <>
         {/* Desktop Inline View with Vertical Scroll */}
         <div className="hidden md:block">
           <div className="flex overflow-x-auto gap-4 pb-4 scrollbar-thin scrollbar-thumb-zinc-200 scrollbar-track-transparent hover:scrollbar-thumb-zinc-300">
-            {insights.map(insight => (
+            {insights.map((insight, index) => (
                 <div 
                 key={insight.id} 
-                className={`min-w-[320px] max-w-[320px] p-6 rounded-2xl border bg-white flex flex-col justify-between ${
-                    insight.type === 'warning' ? 'border-l-4 border-l-rose-500' : 
-                    insight.type === 'success' ? 'border-l-4 border-l-emerald-500' : 'border-l-4 border-l-blue-500'
+                className={`min-w-[320px] max-w-[320px] p-6 rounded-2xl border bg-white flex flex-col justify-between transition-all hover:shadow-lg hover:-translate-y-1 ${
+                    insight.type === 'warning' ? 'border-l-4 border-l-rose-500 hover:border-rose-200' : 
+                    insight.type === 'success' ? 'border-l-4 border-l-emerald-500 hover:border-emerald-200' : 'border-l-4 border-l-blue-500 hover:border-blue-200'
                 }`}
+                style={{ animationDelay: `${index * 100}ms` }}
                 >
                 <div>
                     <div className="flex items-center gap-3 mb-4">
-                        {insight.type === 'warning' ? <AlertCircle size={24} className="text-rose-500 shrink-0" /> : 
-                        insight.type === 'success' ? <CheckCircle2 size={24} className="text-emerald-500 shrink-0" /> : <Lightbulb size={24} className="text-blue-500 shrink-0" />}
-                        <h3 className="font-bold text-base text-zinc-800">{insight.title}</h3>
+                        <div className={`p-2 rounded-xl ${
+                            insight.type === 'warning' ? 'bg-rose-50' : 
+                            insight.type === 'success' ? 'bg-emerald-50' : 'bg-blue-50'
+                        }`}>
+                            {insight.type === 'warning' ? <AlertCircle size={20} className="text-rose-500" /> : 
+                            insight.type === 'success' ? <CheckCircle2 size={20} className="text-emerald-500" /> : <Lightbulb size={20} className="text-blue-500" />}
+                        </div>
+                        <h3 className="font-bold text-base text-zinc-800 line-clamp-2">{insight.title}</h3>
                     </div>
                     <p className="text-zinc-600 text-sm leading-relaxed mb-4">{insight.description}</p>
                 </div>
                 
-                {insight.savingsPotential && insight.savingsPotential > 0 && (
-                    <div className="bg-emerald-50 p-3 rounded-xl flex items-center gap-2 text-emerald-800 text-sm font-bold">
-                        <BadgePercent size={18} />
-                        Economia potencial: R$ {insight.savingsPotential.toLocaleString('pt-BR')}
-                    </div>
-                )}
+                <div className="space-y-3">
+                    {insight.savingsPotential && insight.savingsPotential > 0 && (
+                        <div className="bg-gradient-to-r from-emerald-50 to-emerald-100 p-3 rounded-xl flex items-center gap-2 text-emerald-800 text-sm font-bold">
+                            <BadgePercent size={18} />
+                            <span>Economia: <span className="text-emerald-600">R$ {insight.savingsPotential.toLocaleString('pt-BR')}</span>/mês</span>
+                        </div>
+                    )}
 
-                {insight.relatedTransactionId && (
-                    <button 
-                        onClick={() => {
-                            const t = transactions.find(tr => tr.id === insight.relatedTransactionId);
-                            if (t) {
-                                setEditingTransaction(t);
-                                setFormData({
-                                    ...t,
-                                    amount: insight.suggestedAmount || t.amount
-                                });
-                                setIsModalOpen(true);
-                            }
-                        }}
-                        className="mt-3 w-full py-3 border border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:border-zinc-900 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
-                    >
-                        <Edit2 size={16} />
-                        Ajustar valor
-                    </button>
-                )}
+                    {insight.relatedTransactionId && (
+                        <button 
+                            onClick={() => {
+                                const t = transactions.find((tr: Transaction) => tr.id === insight.relatedTransactionId);
+                                if (t) {
+                                    setEditingTransaction(t);
+                                    setFormData({
+                                        ...t,
+                                        amount: insight.suggestedAmount || t.amount
+                                    });
+                                    setIsModalOpen(true);
+                                }
+                            }}
+                            className="w-full py-3 bg-zinc-900 text-white hover:bg-zinc-800 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
+                        >
+                            <Wand2 size={16} />
+                            Aplicar sugestão
+                        </button>
+                    )}
+                </div>
                 </div>
             ))}
              {insights.length === 0 && !loading && (
-                <div className="p-10 text-center text-zinc-400 text-sm w-full">
-                    Nenhum insight gerado. Clique em atualizar para gerar novos insights.
+                <div className="p-10 text-center w-full bg-zinc-50 rounded-2xl border border-dashed border-zinc-200">
+                    <Lightbulb className="w-8 h-8 text-zinc-300 mx-auto mb-3" />
+                    <p className="text-zinc-400 text-sm">Nenhum insight disponível.</p>
+                    <button 
+                        onClick={() => fetchInsights(true)}
+                        className="mt-3 text-emerald-600 font-bold text-sm hover:text-emerald-700"
+                    >
+                        Gerar insights agora
+                    </button>
                 </div>
              )}
           </div>
@@ -270,54 +293,67 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions, onUpdate, o
         
         {/* Mobile Horizontal Scroll */}
         <div className="md:hidden flex overflow-x-auto gap-3 pb-4 snap-x scrollbar-hide -mx-4 px-4">
-            {insights.slice(0, 5).map(insight => (
+            {insights.slice(0, 6).map((insight, index) => (
                 <div 
                 key={insight.id} 
-                className={`min-w-[220px] p-3 rounded-xl border bg-white flex flex-col justify-between snap-center ${
+                className={`min-w-[200px] max-w-[200px] p-3 rounded-xl border bg-white flex flex-col justify-between snap-center transition-all active:scale-95 ${
                     insight.type === 'warning' ? 'border-l-4 border-l-rose-500' : 
                     insight.type === 'success' ? 'border-l-4 border-l-emerald-500' : 'border-l-4 border-l-blue-500'
                 }`}
                 >
                 <div>
                     <div className="flex items-center gap-2 mb-2">
-                        {insight.type === 'warning' ? <AlertCircle size={16} className="text-rose-500 shrink-0" /> : 
-                        insight.type === 'success' ? <CheckCircle2 size={16} className="text-emerald-500 shrink-0" /> : <Lightbulb size={16} className="text-blue-500 shrink-0" />}
-                        <h3 className="font-bold text-xs text-zinc-800 line-clamp-1">{insight.title}</h3>
+                        <div className={`p-1.5 rounded-lg ${
+                            insight.type === 'warning' ? 'bg-rose-50' : 
+                            insight.type === 'success' ? 'bg-emerald-50' : 'bg-blue-50'
+                        }`}>
+                            {insight.type === 'warning' ? <AlertCircle size={12} className="text-rose-500" /> : 
+                            insight.type === 'success' ? <CheckCircle2 size={12} className="text-emerald-500" /> : <Lightbulb size={12} className="text-blue-500" />}
+                        </div>
+                        <h3 className="font-bold text-[11px] text-zinc-800 line-clamp-2 flex-1">{insight.title}</h3>
                     </div>
-                    <p className="text-zinc-600 text-[10px] leading-relaxed line-clamp-3 mb-3">{insight.description}</p>
+                    <p className="text-zinc-600 text-[10px] leading-relaxed line-clamp-3 mb-2">{insight.description}</p>
                 </div>
                 
-                {insight.savingsPotential && insight.savingsPotential > 0 && (
-                    <div className="bg-emerald-50 p-2 rounded-lg flex items-center gap-2 text-emerald-800 text-[10px] font-bold">
-                        <BadgePercent size={12} />
-                        R$ {insight.savingsPotential.toLocaleString('pt-BR')}
-                    </div>
-                )}
+                <div className="space-y-2">
+                    {insight.savingsPotential && insight.savingsPotential > 0 && (
+                        <div className="bg-emerald-50 p-2 rounded-lg flex items-center gap-1.5 text-emerald-700 text-[10px] font-bold">
+                            <BadgePercent size={12} />
+                            R$ {insight.savingsPotential.toLocaleString('pt-BR')}/mês
+                        </div>
+                    )}
 
-                {insight.relatedTransactionId && (
-                    <button 
-                        onClick={() => {
-                            const t = transactions.find(tr => tr.id === insight.relatedTransactionId);
-                            if (t) {
-                                setEditingTransaction(t);
-                                setFormData({
-                                    ...t,
-                                    amount: insight.suggestedAmount || t.amount
-                                });
-                                setIsModalOpen(true);
-                            }
-                        }}
-                        className="mt-2 w-full py-2 border border-zinc-200 text-zinc-600 active:text-zinc-900 active:border-zinc-900 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1.5"
-                    >
-                        <Edit2 size={10} />
-                        Ajustar
-                    </button>
-                )}
+                    {insight.relatedTransactionId && (
+                        <button 
+                            onClick={() => {
+                                const t = transactions.find((tr: Transaction) => tr.id === insight.relatedTransactionId);
+                                if (t) {
+                                    setEditingTransaction(t);
+                                    setFormData({
+                                        ...t,
+                                        amount: insight.suggestedAmount || t.amount
+                                    });
+                                    setIsModalOpen(true);
+                                }
+                            }}
+                            className="w-full py-2 bg-zinc-900 text-white active:bg-zinc-700 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1"
+                        >
+                            <Wand2 size={10} />
+                            Aplicar
+                        </button>
+                    )}
+                </div>
                 </div>
             ))}
              {insights.length === 0 && !loading && (
-                <div className="p-6 w-full text-center text-zinc-400 text-xs">
-                    Nenhum insight gerado.
+                <div className="p-6 w-full text-center bg-zinc-50 rounded-xl border border-dashed border-zinc-200">
+                    <p className="text-zinc-400 text-xs mb-2">Nenhum insight disponível</p>
+                    <button 
+                        onClick={() => fetchInsights(true)}
+                        className="text-emerald-600 font-bold text-xs"
+                    >
+                        Gerar agora
+                    </button>
                 </div>
              )}
         </div>

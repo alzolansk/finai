@@ -13,6 +13,7 @@ import DuplicatesPage from './components/DuplicatesPage';
 import BudgetsPage from './components/BudgetsPage';
 import NotificationsPanel from './components/NotificationsPanel';
 import DebtorDashboard from './components/DebtorDashboard';
+import SettingsPage from './components/SettingsPage';
 import { Transaction, UserSettings, ChatMessage, TransactionType, Category, TimePeriod, WishlistItem, WishlistPriority, WishlistItemType, BudgetAlert } from './types';
 import { generateSmartAlerts } from './services/forecastService';
 import { getTransactions, saveTransaction, getUserSettings, saveUserSettings, deleteTransaction, updateTransaction, getSavingsReviews, saveSavingsReview, SavingsReview, getAgendaChecklist, toggleAgendaChecklist, AgendaChecklistEntry, getWishlistItems, saveWishlistItem, deleteWishlistItem, getImportedInvoices } from './services/storageService';
@@ -304,7 +305,11 @@ const App: React.FC = () => {
         const response = await chatWithAdvisor(apiHistory, transactions, {
           wishlistItems,
           upcomingPayments,
-          invoiceSummaries: invoiceSnapshots
+          invoiceSummaries: invoiceSnapshots,
+          userSettings: settings ? {
+            monthlyIncome: settings.monthlyIncome,
+            savingsGoal: settings.savingsGoal
+          } : undefined
         });
 
         const botMessage: ChatMessage = {
@@ -662,6 +667,14 @@ const App: React.FC = () => {
       {activeTab === 'debtor-dashboard' && (
         <DebtorDashboard
           transactions={transactions}
+        />
+      )}
+
+      {activeTab === 'settings' && (
+        <SettingsPage
+          onNavigate={setActiveTab}
+          isTurboMode={isTurboMode}
+          onToggleTurboMode={() => setIsTurboMode(!isTurboMode)}
         />
       )}
     </Layout>
