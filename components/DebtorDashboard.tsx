@@ -21,9 +21,16 @@ export default function DebtorDashboard({ transactions }: DebtorDashboardProps) 
     const summaries = new Map<string, DebtorSummary>();
 
     transactions
-      .filter(t => t.type === TransactionType.INCOME && t.debtor)
+      .filter(t =>
+        // INCOME with debtor OR EXPENSE that is reimbursable
+        (t.type === TransactionType.INCOME && t.debtor) ||
+        (t.type === TransactionType.EXPENSE && t.isReimbursable)
+      )
       .forEach(transaction => {
-        const debtorName = transaction.debtor!;
+        // Get debtor name from either field
+        const debtorName = transaction.type === TransactionType.INCOME
+          ? transaction.debtor!
+          : transaction.reimbursedBy || 'Sem nome';
 
         if (!summaries.has(debtorName)) {
           summaries.set(debtorName, {
@@ -221,9 +228,16 @@ export default function DebtorDashboard({ transactions }: DebtorDashboardProps) 
                               }`}>
                                 {transaction.description}
                               </p>
-                              <p className="text-xs text-zinc-500 mt-1">
-                                {formatDate(transaction.paymentDate || transaction.date)}
-                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <p className="text-xs text-zinc-500">
+                                  {formatDate(transaction.paymentDate || transaction.date)}
+                                </p>
+                                {transaction.type === TransactionType.EXPENSE && transaction.isReimbursable && (
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold">
+                                    💰 Reembolso
+                                  </span>
+                                )}
+                              </div>
                               {transaction.tags && transaction.tags.length > 0 && (
                                 <div className="flex gap-1 mt-1">
                                   {transaction.tags.map((tag, idx) => (
@@ -272,7 +286,7 @@ export default function DebtorDashboard({ transactions }: DebtorDashboardProps) 
         {/* Help Text */}
         <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
           <p className="text-sm text-blue-700">
-            💡 <strong>Dica:</strong> As receitas com devedor aparecem aqui e também na sua agenda de recebimentos.
+            💡 <strong>Dica:</strong> Este dashboard mostra tanto receitas com devedor quanto gastos de terceiros marcados como reembolsáveis.
             Use tags como #reembolso para organizar melhor suas cobranças.
           </p>
         </div>
