@@ -340,7 +340,9 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
 
              items.push({
                 id: t.id,
-                title: t.description,
+                title: t.type === TransactionType.INCOME && t.debtor
+                    ? `${t.debtor} - ${t.description}`
+                    : t.description,
                 amount: t.amount,
                 dueDate: (t.paymentDate || t.date).split('T')[0],
                 type: t.type,

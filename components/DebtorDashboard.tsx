@@ -37,19 +37,25 @@ export default function DebtorDashboard({ transactions }: DebtorDashboardProps) 
         const summary = summaries.get(debtorName)!;
         summary.transactions.push(transaction);
 
-        // Check if payment is pending (future date or no payment date)
+        // Check if payment is pending
+        // For debtor income: consider pending if future date OR within last 30 days
+        // This allows users to track debts that are due or recently due
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
         const paymentDate = transaction.paymentDate
           ? new Date(transaction.paymentDate)
-          : null;
+          : new Date(transaction.date);
 
-        if (paymentDate) {
-          paymentDate.setHours(0, 0, 0, 0);
-        }
+        paymentDate.setHours(0, 0, 0, 0);
 
-        const isPending = !paymentDate || paymentDate > today;
+        // Consider "pending" if:
+        // - Future date (not yet due)
+        // - Within last 30 days (recently due, likely not paid yet)
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const isPending = paymentDate >= thirtyDaysAgo;
 
         if (isPending) {
           summary.totalPending += transaction.amount;
@@ -87,19 +93,21 @@ export default function DebtorDashboard({ transactions }: DebtorDashboardProps) 
 
   if (debtorSummaries.length === 0) {
     return (
-      <div className="min-h-screen bg-zinc-950 px-4 py-6">
-        <div className="max-w-2xl mx-auto">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-white mb-2">📊 Dashboard de Cobrança</h1>
-            <p className="text-sm text-zinc-400">Acompanhe suas pendências por pessoa</p>
-          </div>
+      <div className="fixed inset-0 bg-zinc-950 overflow-y-auto">
+        <div className="min-h-screen px-4 py-6">
+          <div className="max-w-2xl mx-auto">
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-white mb-2">📊 Dashboard de Cobrança</h1>
+              <p className="text-sm text-zinc-400">Acompanhe suas pendências por pessoa</p>
+            </div>
 
-          <div className="bg-zinc-900 rounded-xl p-8 text-center border border-zinc-800">
-            <Users className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-            <p className="text-zinc-400 mb-2">Nenhuma pendência cadastrada</p>
-            <p className="text-sm text-zinc-500">
-              Adicione receitas com devedor para começar a acompanhar suas cobranças
-            </p>
+            <div className="bg-zinc-900 rounded-xl p-8 text-center border border-zinc-800">
+              <Users className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
+              <p className="text-zinc-400 mb-2">Nenhuma pendência cadastrada</p>
+              <p className="text-sm text-zinc-500">
+                Adicione receitas com devedor para começar a acompanhar suas cobranças
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -107,8 +115,9 @@ export default function DebtorDashboard({ transactions }: DebtorDashboardProps) 
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 px-4 py-6">
-      <div className="max-w-2xl mx-auto">
+    <div className="fixed inset-0 bg-zinc-950 overflow-y-auto">
+      <div className="min-h-screen px-4 py-6">
+        <div className="max-w-2xl mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-white mb-2">📊 Dashboard de Cobrança</h1>
           <p className="text-sm text-zinc-400">Acompanhe suas pendências por pessoa</p>
@@ -194,13 +203,15 @@ export default function DebtorDashboard({ transactions }: DebtorDashboardProps) 
 
                         const paymentDate = transaction.paymentDate
                           ? new Date(transaction.paymentDate)
-                          : null;
+                          : new Date(transaction.date);
 
-                        if (paymentDate) {
-                          paymentDate.setHours(0, 0, 0, 0);
-                        }
+                        paymentDate.setHours(0, 0, 0, 0);
 
-                        const isPending = !paymentDate || paymentDate > today;
+                        // Consider "pending" if within last 30 days or future
+                        const thirtyDaysAgo = new Date(today);
+                        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+                        const isPending = paymentDate >= thirtyDaysAgo;
 
                         return (
                           <div
@@ -216,7 +227,7 @@ export default function DebtorDashboard({ transactions }: DebtorDashboardProps) 
                                 {transaction.description}
                               </p>
                               <p className="text-xs text-zinc-500 mt-1">
-                                {paymentDate ? formatDate(transaction.paymentDate!) : 'Data não definida'}
+                                {formatDate(transaction.paymentDate || transaction.date)}
                               </p>
                               {transaction.tags && transaction.tags.length > 0 && (
                                 <div className="flex gap-1 mt-1">
@@ -269,6 +280,7 @@ export default function DebtorDashboard({ transactions }: DebtorDashboardProps) 
             💡 <strong>Dica:</strong> As receitas com devedor aparecem aqui e também na sua agenda de recebimentos.
             Use tags como #reembolso para organizar melhor suas cobranças.
           </p>
+        </div>
         </div>
       </div>
     </div>
