@@ -120,7 +120,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       
       {/* Header & Date Navigation - Mobile Optimized */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-3 md:gap-4">
-        <div>
+        <div className="animate-slideUpFade">
            <h2 className="text-2xl md:text-4xl font-light text-zinc-900 tracking-tight">
               Visão Geral
            </h2>
@@ -173,47 +173,59 @@ const Dashboard: React.FC<DashboardProps> = ({
             {/* Top Cards Grid - Mobile: Stack, Desktop: 3 cols */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
                 {/* Balance Card - Full width on mobile */}
-                <div className="sm:col-span-2 md:col-span-1 bg-zinc-900 text-white p-5 md:p-8 rounded-2xl md:rounded-3xl shadow-xl md:shadow-2xl flex flex-col justify-between min-h-[140px] md:h-56 relative overflow-hidden group transition-all active:scale-[0.98]">
+                <div className="sm:col-span-2 md:col-span-1 bg-zinc-900 text-white p-5 md:p-8 rounded-2xl md:rounded-3xl shadow-xl md:shadow-2xl flex flex-col justify-between min-h-[140px] md:h-56 relative overflow-hidden group transition-all active:scale-[0.98] shine-effect">
                     <div className="relative z-10">
                         <div className="flex justify-between items-start mb-3 md:mb-6">
-                            <div className="w-10 h-10 md:w-12 md:h-12 bg-zinc-800 rounded-xl md:rounded-2xl flex items-center justify-center text-emerald-400 border border-zinc-700 shadow-md">
-                                <Wallet size={20} className="md:w-6 md:h-6" />
+                            <div className="w-10 h-10 md:w-12 md:h-12 bg-zinc-800 rounded-xl md:rounded-2xl flex items-center justify-center text-emerald-400 border border-zinc-700 shadow-md group-hover:shadow-emerald-500/20 transition-shadow">
+                                <Wallet size={20} className="md:w-6 md:h-6 animate-subtle-bounce" />
                             </div>
                             <div className="px-2 py-0.5 md:px-3 md:py-1 rounded-full bg-zinc-800 border border-zinc-700 text-[10px] md:text-xs font-medium text-zinc-400">
                                 {period === 'month' ? 'Mensal' : 'Anual'}
                             </div>
                         </div>
                         <p className="text-zinc-400 text-xs md:text-sm font-medium mb-0.5 md:mb-1">Saldo Líquido</p>
-                        <h3 className="text-lg sm:text-2xl md:text-4xl font-bold tracking-tight truncate">
+                        <h3 className="text-lg sm:text-2xl md:text-4xl font-bold tracking-tight truncate animate-countUp">
                           R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </h3>
                     </div>
-                    {/* Background decor - hidden on mobile */}
-                    <div className="hidden md:block absolute -right-10 -bottom-10 w-48 h-48 bg-zinc-800 rounded-full blur-2xl opacity-50"></div>
+                    {/* Animated background decor */}
+                    <div className="hidden md:block absolute -right-10 -bottom-10 w-48 h-48 bg-zinc-800 rounded-full blur-2xl opacity-50 group-hover:opacity-70 transition-opacity"></div>
+                    <div className="hidden md:block absolute -right-5 -bottom-5 w-32 h-32 bg-emerald-500/10 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    {/* Subtle particle dots */}
+                    <div className="absolute top-4 right-4 w-1 h-1 bg-emerald-400/50 rounded-full animate-float-particle"></div>
+                    <div className="absolute top-8 right-8 w-1.5 h-1.5 bg-blue-400/30 rounded-full animate-float-particle" style={{ animationDelay: '1s' }}></div>
                 </div>
 
                 {/* Income Card */}
-                <div className="bg-white p-4 md:p-8 rounded-2xl md:rounded-3xl border border-zinc-100 shadow-sm flex flex-col justify-center gap-2 md:gap-4 active:border-emerald-200 md:hover:border-emerald-200 transition-all group min-h-[100px] md:h-56">
-                    <div className="flex items-center justify-between">
-                        <div className="p-1.5 md:p-2 bg-emerald-50 rounded-lg md:rounded-xl text-emerald-600"><ArrowUpRight size={18} className="md:w-6 md:h-6" /></div>
+                <div className="bg-white/80 backdrop-blur-sm p-4 md:p-8 rounded-2xl md:rounded-3xl border border-zinc-100 shadow-sm flex flex-col justify-center gap-2 md:gap-4 active:border-emerald-200 md:hover:border-emerald-200 md:hover:shadow-lg md:hover:shadow-emerald-100/50 transition-all duration-300 group min-h-[100px] md:h-56 card-lift relative overflow-hidden">
+                    <div className="flex items-center justify-between relative z-10">
+                        <div className="p-1.5 md:p-2 bg-emerald-50 rounded-lg md:rounded-xl text-emerald-600 group-hover:bg-emerald-100 transition-colors">
+                          <ArrowUpRight size={18} className="md:w-6 md:h-6 group-hover:scale-110 transition-transform" />
+                        </div>
                         <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-1.5 py-0.5 md:px-2 md:py-1 rounded-md md:rounded-lg">Receitas</span>
                     </div>
-                    <div className="min-w-0 overflow-hidden">
+                    <div className="min-w-0 overflow-hidden relative z-10">
                         <p className="text-zinc-400 text-xs md:text-sm mb-0.5 md:mb-1">Entradas</p>
-                        <p className="text-base sm:text-xl md:text-3xl font-bold text-zinc-900 truncate">R$ {totalIncome.toLocaleString('pt-BR')}</p>
+                        <p className="text-base sm:text-xl md:text-3xl font-bold text-zinc-900 truncate number-transition">R$ {totalIncome.toLocaleString('pt-BR')}</p>
                     </div>
+                    {/* Subtle gradient overlay on hover */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/0 to-emerald-100/0 group-hover:from-emerald-50/50 group-hover:to-emerald-100/30 transition-all duration-500 pointer-events-none"></div>
                 </div>
 
                 {/* Expense Card */}
-                <div className="bg-white p-4 md:p-8 rounded-2xl md:rounded-3xl border border-zinc-100 shadow-sm flex flex-col justify-center gap-2 md:gap-4 active:border-rose-200 md:hover:border-rose-200 transition-all group min-h-[100px] md:h-56">
-                    <div className="flex items-center justify-between">
-                         <div className="p-1.5 md:p-2 bg-rose-50 rounded-lg md:rounded-xl text-rose-600"><TrendingDown size={18} className="md:w-6 md:h-6" /></div>
+                <div className="bg-white/80 backdrop-blur-sm p-4 md:p-8 rounded-2xl md:rounded-3xl border border-zinc-100 shadow-sm flex flex-col justify-center gap-2 md:gap-4 active:border-rose-200 md:hover:border-rose-200 md:hover:shadow-lg md:hover:shadow-rose-100/50 transition-all duration-300 group min-h-[100px] md:h-56 card-lift relative overflow-hidden">
+                    <div className="flex items-center justify-between relative z-10">
+                         <div className="p-1.5 md:p-2 bg-rose-50 rounded-lg md:rounded-xl text-rose-600 group-hover:bg-rose-100 transition-colors">
+                           <TrendingDown size={18} className="md:w-6 md:h-6 group-hover:scale-110 transition-transform" />
+                         </div>
                          <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-rose-700 bg-rose-50 px-1.5 py-0.5 md:px-2 md:py-1 rounded-md md:rounded-lg">Despesas</span>
                     </div>
-                    <div className="min-w-0 overflow-hidden">
+                    <div className="min-w-0 overflow-hidden relative z-10">
                         <p className="text-zinc-400 text-xs md:text-sm mb-0.5 md:mb-1">Saídas</p>
-                        <p className="text-base sm:text-xl md:text-3xl font-bold text-zinc-900 truncate">R$ {totalExpense.toLocaleString('pt-BR')}</p>
+                        <p className="text-base sm:text-xl md:text-3xl font-bold text-zinc-900 truncate number-transition">R$ {totalExpense.toLocaleString('pt-BR')}</p>
                     </div>
+                    {/* Subtle gradient overlay on hover */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-rose-50/0 to-rose-100/0 group-hover:from-rose-50/50 group-hover:to-rose-100/30 transition-all duration-500 pointer-events-none"></div>
                 </div>
             </div>
 
@@ -221,27 +233,34 @@ const Dashboard: React.FC<DashboardProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6 md:h-80">
                 {/* Goal Widget */}
                 {settings && period === 'month' && (
-                    <div className="bg-white rounded-2xl md:rounded-3xl p-4 md:p-8 shadow-sm border border-zinc-100 relative overflow-hidden flex flex-col justify-center transition-all h-auto md:h-full">
+                    <div className={`bg-white/80 backdrop-blur-sm rounded-2xl md:rounded-3xl p-4 md:p-8 shadow-sm border border-zinc-100 relative overflow-hidden flex flex-col justify-center transition-all h-auto md:h-full group ${isGoalReached ? 'animate-gentle-pulse' : ''}`}>
                         <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-6 relative z-10">
-                            <div className="p-1.5 md:p-2 bg-emerald-50 rounded-lg text-emerald-600">
-                                <Target size={16} className="md:w-5 md:h-5" />
+                            <div className={`p-1.5 md:p-2 rounded-lg transition-colors ${isGoalReached ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                <Target size={16} className={`md:w-5 md:h-5 ${isGoalReached ? 'animate-subtle-bounce' : ''}`} />
                             </div>
                             <h3 className="font-bold text-zinc-800 text-sm md:text-lg">Meta Mensal</h3>
+                            {isGoalReached && (
+                              <span className="ml-auto text-[10px] md:text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full animate-scaleIn">
+                                🎉 Atingida!
+                              </span>
+                            )}
                         </div>
                         
                         <div className="relative z-10">
                             <div className="flex justify-between items-end mb-2 gap-2">
-                                <span className={`text-base sm:text-xl md:text-3xl font-bold truncate min-w-0 ${isGoalReached ? 'text-emerald-600' : 'text-zinc-900'}`}>
+                                <span className={`text-base sm:text-xl md:text-3xl font-bold truncate min-w-0 number-transition ${isGoalReached ? 'text-emerald-600' : 'text-zinc-900'}`}>
                                     R$ {Math.max(0, savings).toLocaleString('pt-BR')}
                                 </span>
                                 <span className="text-zinc-400 font-medium text-[10px] md:text-sm mb-0.5 md:mb-1 shrink-0">/ R$ {settings.savingsGoal.toLocaleString('pt-BR')}</span>
                             </div>
 
-                            <div className="w-full bg-zinc-100 rounded-full h-2.5 md:h-4 mb-2 md:mb-3 overflow-hidden">
+                            <div className="w-full bg-zinc-100 rounded-full h-2.5 md:h-4 mb-2 md:mb-3 overflow-hidden relative">
                                 <div 
                                     className={`h-full rounded-full transition-all duration-1000 ease-out ${isGoalReached ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-zinc-800'}`}
                                     style={{ width: `${Math.min(100, Math.max(0, goalProgress))}%` }}
                                 ></div>
+                                {/* Shimmer effect on progress bar */}
+                                <div className="absolute inset-0 animate-shimmer opacity-30"></div>
                             </div>
                             
                             <p className="text-sm text-zinc-500">
@@ -250,6 +269,15 @@ const Dashboard: React.FC<DashboardProps> = ({
                                 : `Você já completou ${Math.min(100, Math.max(0, goalProgress)).toFixed(0)}% do objetivo.`}
                             </p>
                         </div>
+                        
+                        {/* Celebration particles when goal reached */}
+                        {isGoalReached && (
+                          <>
+                            <div className="absolute top-2 right-2 w-2 h-2 bg-emerald-400 rounded-full animate-float-particle opacity-60"></div>
+                            <div className="absolute top-4 right-8 w-1.5 h-1.5 bg-blue-400 rounded-full animate-float-particle opacity-60" style={{ animationDelay: '0.5s' }}></div>
+                            <div className="absolute bottom-4 left-4 w-1 h-1 bg-purple-400 rounded-full animate-float-particle opacity-60" style={{ animationDelay: '1s' }}></div>
+                          </>
+                        )}
                     </div>
                 )}
 
@@ -339,9 +367,9 @@ const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Right Column - History & Forecast */}
         <div className="lg:col-span-1 flex flex-col gap-4 md:gap-6">
-            <div className="bg-white p-4 md:p-6 rounded-2xl md:rounded-3xl shadow-sm border border-zinc-100 flex flex-col transition-all lg:h-[568px] h-auto max-h-[400px] lg:max-h-none">
+            <div className="bg-white/80 backdrop-blur-sm p-4 md:p-6 rounded-2xl md:rounded-3xl shadow-sm border border-zinc-100 flex flex-col transition-all lg:h-[568px] h-auto max-h-[400px] lg:max-h-none">
             <h3 className="text-base md:text-xl font-bold text-zinc-800 mb-3 md:mb-6 flex items-center gap-2 shrink-0">
-                <ArrowDownRight className="text-zinc-400" size={16} />
+                <ArrowDownRight className="text-zinc-400 animate-subtle-bounce" size={16} />
                 Recentes
             </h3>
             
@@ -367,21 +395,21 @@ const Dashboard: React.FC<DashboardProps> = ({
                         const IconComponent = iconConfig.icon;
                         
                         return (
-                            <div key={t.id} className="flex justify-between items-center gap-2 md:gap-3 group p-2 md:p-3 active:bg-zinc-50 md:hover:bg-zinc-50 rounded-xl md:rounded-2xl transition-all cursor-default active:scale-[0.98]">
+                            <div key={t.id} className="flex justify-between items-center gap-2 md:gap-3 group p-2 md:p-3 active:bg-zinc-50 md:hover:bg-zinc-50/80 rounded-xl md:rounded-2xl transition-all cursor-default active:scale-[0.98] md:hover:shadow-sm animate-slideUpFade" style={{ animationDelay: `${0.05}s` }}>
                                 <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
-                                    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center shadow-sm transition-all shrink-0 ${t.type === TransactionType.INCOME ? 'bg-emerald-100' : iconConfig.bgColor}`}>
-                                        <IconComponent size={16} className={`md:w-5 md:h-5 ${t.type === TransactionType.INCOME ? 'text-emerald-600' : iconConfig.iconColor}`} />
+                                    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center shadow-sm transition-all shrink-0 group-hover:scale-105 ${t.type === TransactionType.INCOME ? 'bg-emerald-100 group-hover:bg-emerald-200' : iconConfig.bgColor}`}>
+                                        <IconComponent size={16} className={`md:w-5 md:h-5 transition-transform group-hover:scale-110 ${t.type === TransactionType.INCOME ? 'text-emerald-600' : iconConfig.iconColor}`} />
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <p className="text-xs md:text-sm font-bold text-zinc-800 transition-colors truncate" title={t.description}>{t.description}</p>
+                                        <p className="text-xs md:text-sm font-bold text-zinc-800 transition-colors truncate group-hover:text-zinc-900" title={t.description}>{t.description}</p>
                                         <div className="flex items-center gap-1">
                                            <p className="text-[9px] md:text-[10px] text-zinc-400 uppercase tracking-wide font-medium truncate">{t.category}</p>
-                                           {isScheduled && <Clock size={8} className="md:w-2.5 md:h-2.5 text-orange-400 shrink-0" />}
+                                           {isScheduled && <Clock size={8} className="md:w-2.5 md:h-2.5 text-orange-400 shrink-0 animate-subtle-bounce" />}
                                         </div>
                                     </div>
                                 </div>
                                 <div className="text-right shrink-0">
-                                    <span className={`text-xs md:text-sm font-bold block whitespace-nowrap ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-zinc-800'}`}>
+                                    <span className={`text-xs md:text-sm font-bold block whitespace-nowrap number-transition ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-zinc-800'}`}>
                                         {t.type === TransactionType.EXPENSE && '- '}R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                     </span>
                                     <span className="text-[9px] md:text-[10px] text-zinc-300">{new Date(effectiveDate).toLocaleDateString('pt-BR', {day: '2-digit', month:'2-digit'})}</span>
@@ -393,9 +421,9 @@ const Dashboard: React.FC<DashboardProps> = ({
             
             <button
                 onClick={onViewAllHistory}
-                className="w-full mt-4 md:mt-6 py-2.5 md:py-3 text-xs md:text-sm font-bold text-zinc-500 active:bg-zinc-50 md:hover:bg-zinc-50 rounded-lg md:rounded-xl transition-colors active:text-zinc-900 md:hover:text-zinc-900 border border-zinc-200 md:border-transparent md:hover:border-zinc-200 shrink-0"
+                className="w-full mt-4 md:mt-6 py-2.5 md:py-3 text-xs md:text-sm font-bold text-zinc-500 active:bg-zinc-50 md:hover:bg-zinc-50 rounded-lg md:rounded-xl transition-all active:text-zinc-900 md:hover:text-zinc-900 border border-zinc-200 md:border-transparent md:hover:border-zinc-200 shrink-0 group animated-underline"
             >
-                Ver Extrato Completo
+                <span className="group-hover:translate-x-1 inline-block transition-transform">Ver Extrato Completo →</span>
             </button>
             </div>
         </div>

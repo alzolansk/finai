@@ -195,16 +195,41 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions, onUpdate, o
       </div>
 
       {loading && insights.length === 0 ? (
-        <div className="bg-gradient-to-br from-emerald-50 to-white rounded-3xl p-10 border border-emerald-100 text-center">
-          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-             <Wand2 className="w-8 h-8 text-emerald-600" />
-          </div>
-          <h3 className="text-zinc-800 font-bold mb-2">Analisando seus dados... 🔍</h3>
-          <p className="text-zinc-500 max-w-sm mx-auto">Estou identificando padrões, oportunidades de economia e comportamentos financeiros. Isso leva alguns segundos.</p>
-          <div className="mt-4 flex justify-center gap-1">
-            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+        <div className="bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 rounded-3xl p-10 border border-zinc-700/50 text-center relative overflow-hidden">
+          {/* Animated background effects */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+          
+          {/* Neural grid overlay */}
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: 'linear-gradient(rgba(16, 185, 129, 0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(16, 185, 129, 0.5) 1px, transparent 1px)',
+            backgroundSize: '40px 40px'
+          }} />
+          
+          <div className="relative z-10">
+            <div className="w-20 h-20 bg-gradient-to-br from-emerald-500/20 to-blue-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6 relative">
+               <Wand2 className="w-10 h-10 text-emerald-400 animate-neural-pulse" />
+               {/* Orbiting particles */}
+               <div className="absolute inset-0 animate-radar">
+                 <div className="absolute -top-1 left-1/2 w-2 h-2 bg-emerald-500 rounded-full" />
+               </div>
+               <div className="absolute inset-0 animate-radar" style={{ animationDelay: '-1.5s' }}>
+                 <div className="absolute top-1/2 -right-1 w-1.5 h-1.5 bg-blue-500 rounded-full" />
+               </div>
+            </div>
+            <h3 className="text-white font-bold mb-2 text-xl ai-gradient-text-animated">Analisando seus dados...</h3>
+            <p className="text-zinc-400 max-w-sm mx-auto mb-6">Identificando padrões, oportunidades de economia e comportamentos financeiros.</p>
+            
+            {/* Progress bar */}
+            <div className="w-48 h-1 bg-zinc-700 rounded-full mx-auto overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500 animate-data-process" />
+            </div>
+            
+            <div className="mt-4 flex justify-center gap-1.5">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full ai-thinking-dot"></div>
+              <div className="w-2 h-2 bg-emerald-500 rounded-full ai-thinking-dot"></div>
+              <div className="w-2 h-2 bg-emerald-500 rounded-full ai-thinking-dot"></div>
+            </div>
           </div>
         </div>
       ) : transactions.length < 5 ? (

@@ -1,7 +1,11 @@
-import React, { ReactNode, useState } from 'react';
-import { Home, Plus, PieChart, MessageSquareText, X, Sparkles, Zap, AlertTriangle, Settings, Calendar, Repeat, TrendingUp, Heart, BarChart3, DollarSign, Bell } from 'lucide-react';
+import React, { ReactNode } from 'react';
+import { Home, Plus, PieChart, Sparkles, Zap, AlertTriangle, Settings, Calendar, Repeat, TrendingUp, Heart, BarChart3, DollarSign, Bell } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { SmartAlert } from '../services/forecastService';
+import FloatingOrbs from './FloatingOrbs';
+import ParticleBackground from './ParticleBackground';
+import NeuralGrid from './NeuralGrid';
+import ImmersiveChat from './ImmersiveChat';
 
 interface LayoutProps {
   children: ReactNode;
@@ -23,18 +27,6 @@ interface LayoutProps {
   unreadAlertsCount?: number;
 }
 
-// Helper to parse simple markdown bold syntax (**text**)
-const formatMessageText = (text: string) => {
-  // Split by **text** pattern
-  const parts = text.split(/(\*\*.*?\*\*)/g);
-  return parts.map((part, index) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={index} className="font-bold text-emerald-600 dark:text-emerald-400">{part.slice(2, -2)}</strong>;
-    }
-    return part;
-  });
-};
-
 const Layout: React.FC<LayoutProps> = ({
   children,
   activeTab,
@@ -54,15 +46,8 @@ const Layout: React.FC<LayoutProps> = ({
   onToggleNotifications,
   unreadAlertsCount = 0
 }) => {
-  const [inputText, setInputText] = React.useState('');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [hoveredTab, setHoveredTab] = React.useState<string | null>(null);
   const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-  const chatEndRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
 
   // Cleanup hover timeout on unmount
   React.useEffect(() => {
@@ -72,14 +57,6 @@ const Layout: React.FC<LayoutProps> = ({
       }
     };
   }, []);
-
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (inputText.trim()) {
-      onSendMessage(inputText);
-      setInputText('');
-    }
-  };
 
   // Filter alerts for header (Overspend, Turbo, Frequent Habits, and Large Expenses)
   const headerAlerts = alerts.filter(a => 
@@ -92,12 +69,18 @@ const Layout: React.FC<LayoutProps> = ({
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans relative overflow-hidden flex flex-row selection:bg-emerald-500 selection:text-white">
       
-      {/* Background Graphic Elements */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-[-10%] left-[-5%] w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[100px]"></div>
-          <div className="absolute top-[20%] right-[-10%] w-[600px] h-[600px] bg-zinc-300/10 rounded-full blur-[120px]"></div>
-          <div className="absolute bottom-[-10%] left-[20%] w-[400px] h-[400px] bg-emerald-400/5 rounded-full blur-[80px]"></div>
-      </div>
+      {/* Enhanced Background Visual Effects */}
+      <NeuralGrid variant="sparse" animated={true} />
+      <FloatingOrbs variant="default" />
+      <ParticleBackground 
+        particleCount={45} 
+        colors={['#10b981', '#3b82f6', '#8b5cf6', '#06b6d4']} 
+        connectionDistance={180}
+        mouseInfluence={250}
+        speed={0.25}
+        chatActive={isChatOpen}
+        isProcessing={isChatLoading}
+      />
 
       {/* Main Content Area */}
       <main className={`flex-1 flex flex-col h-screen overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${isChatOpen ? 'mr-0 md:mr-[400px]' : ''} relative z-10`}>
@@ -106,8 +89,10 @@ const Layout: React.FC<LayoutProps> = ({
           {/* Sticky Header - Mobile Optimized */}
           <header className="sticky top-0 z-30 bg-zinc-50/95 backdrop-blur-md border-b border-zinc-200/50 px-4 py-3 md:px-10 md:py-4 flex items-center justify-between transition-all">
                <div className="flex items-center gap-2 md:gap-3">
-                 <div className="w-8 h-8 md:w-10 md:h-10 bg-zinc-900 rounded-lg md:rounded-xl flex items-center justify-center shadow-lg shadow-zinc-900/20 active:scale-95 transition-transform duration-300">
-                    <div className="w-3 h-3 md:w-4 md:h-4 bg-emerald-500 rounded-full"></div>
+                 <div className="w-8 h-8 md:w-10 md:h-10 bg-zinc-900 rounded-lg md:rounded-xl flex items-center justify-center shadow-lg shadow-zinc-900/20 active:scale-95 transition-transform duration-300 relative group">
+                    <div className="w-3 h-3 md:w-4 md:h-4 bg-emerald-500 rounded-full animate-breathing-glow"></div>
+                    {/* Glow ring effect on hover */}
+                    <div className="absolute inset-0 rounded-lg md:rounded-xl bg-emerald-500/20 opacity-0 group-hover:opacity-100 group-hover:animate-glow-ring pointer-events-none"></div>
                  </div>
                  <div>
                    <span className="font-bold text-lg md:text-xl tracking-tight text-zinc-900 block leading-none">FinAI</span>
@@ -420,110 +405,16 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
       </main>
 
-      {/* Chat Sidebar (Right Drawer) - Mobile Optimized */}
-      <aside 
-        className={`fixed inset-y-0 right-0 w-full md:w-[400px] bg-white/95 md:bg-white/80 backdrop-blur-xl border-l border-white/50 shadow-2xl z-50 transform transition-transform duration-500 cubic-bezier(0.32,0.72,0,1) ${isChatOpen ? 'translate-x-0' : 'translate-x-full'}`}
-      >
-        <div className="flex flex-col h-full bg-white/50">
-          <div className="p-4 md:p-6 border-b border-zinc-100 flex justify-between items-center bg-white/80 backdrop-blur-md safe-area-top">
-             <div>
-               <h3 className="font-bold text-zinc-900 text-base md:text-lg">FinAI Chat</h3>
-               <p className="text-[10px] md:text-xs text-zinc-500">Seu consultor financeiro pessoal</p>
-             </div>
-             <button onClick={onToggleChat} className="p-2.5 active:bg-zinc-200 md:hover:bg-zinc-100 rounded-full transition-colors text-zinc-400 active:text-zinc-900 md:hover:text-zinc-900">
-               <X size={22} />
-             </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6 bg-transparent">
-             {chatMessages.length === 0 && (
-                <div className="text-center mt-20 opacity-0 animate-fadeIn" style={{animationDelay: '0.1s', animationFillMode: 'forwards'}}>
-                   <div className="w-16 h-16 bg-gradient-to-tr from-emerald-100 to-zinc-100 rounded-2xl mx-auto flex items-center justify-center mb-4 text-emerald-600 shadow-sm animate-pulse">
-                      <Sparkles size={32} />
-                   </div>
-                   <h4 className="font-bold text-zinc-800 mb-2">Como posso ajudar?</h4>
-                   <p className="text-sm text-zinc-500 px-6 leading-relaxed">
-                     Analiso seus gastos, dou dicas de economia e respondo dúvidas sobre seu dinheiro.
-                   </p>
-                </div>
-             )}
-             {chatMessages.map(msg => (
-               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-slideUp`}>
-                  <div className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm whitespace-pre-wrap ${
-                    msg.role === 'user' 
-                    ? 'bg-zinc-900 text-white rounded-br-sm' 
-                    : 'bg-white border border-zinc-100 text-zinc-700 rounded-bl-sm'
-                  }`}>
-                    {msg.role === 'assistant' ? formatMessageText(msg.text) : msg.text}
-                    {msg.role === 'assistant' && msg.uiActions && (
-                      <div className="flex gap-2 mt-3">
-                        {msg.uiActions.map(action => {
-                          const loading = chatActionLoadingId === `${msg.id}:${action.id}`;
-                          const disabled = !!msg.ctaStatus || loading || isChatLoading;
-                          return (
-                            <button
-                              key={action.id}
-                              disabled={disabled}
-                              onClick={() => onChatAction && onChatAction(msg, action.id)}
-                              className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all ${action.action === 'approve_cta' ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-500' : 'bg-zinc-100 text-zinc-600 border-zinc-200 hover:bg-zinc-200'} ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
-                            >
-                              {loading ? 'Processando...' : action.label}
-                            </button>
-                          );
-                        })}
-                        {msg.ctaStatus === 'approved' && (
-                          <span className="text-[11px] text-emerald-700 font-bold">Adicionado via chat</span>
-                        )}
-                        {msg.ctaStatus === 'rejected' && (
-                          <span className="text-[11px] text-zinc-500 font-bold">A��o descartada</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-               </div>
-             ))}
-             {isChatLoading && (
-               <div className="flex justify-start animate-pulse">
-                 <div className="bg-white border border-zinc-100 px-5 py-4 rounded-2xl rounded-bl-sm shadow-sm">
-                   <div className="flex gap-1.5">
-                     <div className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce"></div>
-                     <div className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce delay-75"></div>
-                     <div className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce delay-150"></div>
-                   </div>
-                 </div>
-               </div>
-             )}
-             <div ref={chatEndRef} />
-          </div>
-
-          <div className="p-3 md:p-4 bg-white/80 backdrop-blur-md border-t border-zinc-100 safe-area-bottom">
-            <form onSubmit={handleSend} className="relative">
-              <input 
-                type="text" 
-                placeholder="Ex: Quanto gastei em Uber?" 
-                className="w-full pl-4 pr-12 py-3 md:py-4 bg-zinc-50 border border-zinc-200 rounded-xl md:rounded-2xl focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-300 focus:bg-white transition-all text-sm font-medium outline-none text-zinc-800 placeholder-zinc-400"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-              />
-              <button 
-                type="submit" 
-                disabled={!inputText.trim() || isChatLoading}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-zinc-900 text-white rounded-lg md:rounded-xl disabled:opacity-50 active:bg-zinc-700 active:scale-95 transition-all shadow-md shadow-zinc-900/10"
-              >
-                 <MessageSquareText size={16} className="md:w-[18px] md:h-[18px]" />
-              </button>
-            </form>
-          </div>
-        </div>
-      </aside>
-
-      {/* Backdrop for mobile when chat is open */}
-      {isChatOpen && (
-        <div 
-          className="fixed inset-0 bg-zinc-900/20 backdrop-blur-sm z-40 md:hidden"
-          onClick={onToggleChat}
-        />
-      )}
+      {/* Immersive Chat Experience */}
+      <ImmersiveChat
+        isOpen={isChatOpen}
+        onClose={onToggleChat}
+        messages={chatMessages}
+        onSendMessage={onSendMessage}
+        isLoading={isChatLoading}
+        onChatAction={onChatAction}
+        chatActionLoadingId={chatActionLoadingId}
+      />
 
       {/* Extra Panel (e.g. Review Panel) */}
       {extraPanel}

@@ -659,8 +659,27 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
                     <tfoot>
                         <tr className="bg-zinc-50 border-t-2 border-zinc-200">
                             <td colSpan={3} className="p-4 font-bold text-zinc-800 text-right">Subtotal</td>
-                            <td className="p-4 font-bold text-rose-600 text-lg">
-                                R$ {expenses.reduce((sum, item) => sum + item.amount, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            <td className="p-4">
+                                <div className="flex flex-col gap-1">
+                                    <span className="font-bold text-rose-600 text-lg">
+                                        R$ {expenses.reduce((sum, item) => sum + item.amount, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </span>
+                                    {(() => {
+                                        const pending = expenses.filter(e => e.status === 'pending' || e.status === 'overdue');
+                                        const pendingAmount = pending.reduce((sum, item) => sum + item.amount, 0);
+                                        const totalAmount = expenses.reduce((sum, item) => sum + item.amount, 0);
+                                        const percentage = totalAmount > 0 ? ((pendingAmount / totalAmount) * 100).toFixed(0) : 0;
+                                        
+                                        if (pendingAmount > 0) {
+                                            return (
+                                                <span className="text-xs text-zinc-500 font-medium">
+                                                    R$ {pendingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} restante ({percentage}%)
+                                                </span>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
+                                </div>
                             </td>
                             <td colSpan={2}></td>
                         </tr>
@@ -735,11 +754,30 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
                             );
                         })}
                         {/* Mobile Subtotal */}
-                        <div className="bg-zinc-50 rounded-xl p-3 flex justify-between items-center border border-zinc-200">
-                            <span className="text-xs font-bold text-zinc-600">Subtotal</span>
-                            <span className="font-bold text-rose-600">
-                                R$ {expenses.reduce((sum, item) => sum + item.amount, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </span>
+                        <div className="bg-zinc-50 rounded-xl p-3 border border-zinc-200">
+                            <div className="flex justify-between items-start">
+                                <span className="text-xs font-bold text-zinc-600">Subtotal</span>
+                                <div className="flex flex-col items-end gap-0.5">
+                                    <span className="font-bold text-rose-600">
+                                        R$ {expenses.reduce((sum, item) => sum + item.amount, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </span>
+                                    {(() => {
+                                        const pending = expenses.filter(e => e.status === 'pending' || e.status === 'overdue');
+                                        const pendingAmount = pending.reduce((sum, item) => sum + item.amount, 0);
+                                        const totalAmount = expenses.reduce((sum, item) => sum + item.amount, 0);
+                                        const percentage = totalAmount > 0 ? ((pendingAmount / totalAmount) * 100).toFixed(0) : 0;
+                                        
+                                        if (pendingAmount > 0) {
+                                            return (
+                                                <span className="text-[10px] text-zinc-500 font-medium">
+                                                    R$ {pendingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} restante ({percentage}%)
+                                                </span>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
+                                </div>
+                            </div>
                         </div>
                     </>
                 )}
@@ -837,8 +875,27 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
                     <tfoot>
                         <tr className="bg-emerald-50 border-t-2 border-emerald-200">
                             <td colSpan={3} className="p-4 font-bold text-zinc-800 text-right">Subtotal</td>
-                            <td className="p-4 font-bold text-emerald-600 text-lg">
-                                R$ {income.reduce((sum, item) => sum + item.amount, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            <td className="p-4">
+                                <div className="flex flex-col gap-1">
+                                    <span className="font-bold text-emerald-600 text-lg">
+                                        R$ {income.reduce((sum, item) => sum + item.amount, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </span>
+                                    {(() => {
+                                        const pending = income.filter(e => e.status === 'pending' || e.status === 'overdue');
+                                        const pendingAmount = pending.reduce((sum, item) => sum + item.amount, 0);
+                                        const totalAmount = income.reduce((sum, item) => sum + item.amount, 0);
+                                        const percentage = totalAmount > 0 ? ((pendingAmount / totalAmount) * 100).toFixed(0) : 0;
+                                        
+                                        if (pendingAmount > 0) {
+                                            return (
+                                                <span className="text-xs text-zinc-500 font-medium">
+                                                    R$ {pendingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} a receber ({percentage}%)
+                                                </span>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
+                                </div>
                             </td>
                             <td colSpan={2}></td>
                         </tr>
@@ -900,11 +957,30 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
                             );
                         })}
                         {/* Mobile Subtotal */}
-                        <div className="bg-emerald-50 rounded-xl p-3 flex justify-between items-center border border-emerald-200">
-                            <span className="text-xs font-bold text-zinc-600">Subtotal</span>
-                            <span className="font-bold text-emerald-600">
-                                R$ {income.reduce((sum, item) => sum + item.amount, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </span>
+                        <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-200">
+                            <div className="flex justify-between items-start">
+                                <span className="text-xs font-bold text-zinc-600">Subtotal</span>
+                                <div className="flex flex-col items-end gap-0.5">
+                                    <span className="font-bold text-emerald-600">
+                                        R$ {income.reduce((sum, item) => sum + item.amount, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </span>
+                                    {(() => {
+                                        const pending = income.filter(e => e.status === 'pending' || e.status === 'overdue');
+                                        const pendingAmount = pending.reduce((sum, item) => sum + item.amount, 0);
+                                        const totalAmount = income.reduce((sum, item) => sum + item.amount, 0);
+                                        const percentage = totalAmount > 0 ? ((pendingAmount / totalAmount) * 100).toFixed(0) : 0;
+                                        
+                                        if (pendingAmount > 0) {
+                                            return (
+                                                <span className="text-[10px] text-zinc-500 font-medium">
+                                                    R$ {pendingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} a receber ({percentage}%)
+                                                </span>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
+                                </div>
+                            </div>
                         </div>
                     </>
                 )}
