@@ -93,72 +93,67 @@ export default function DebtorDashboard({ transactions }: DebtorDashboardProps) 
 
   if (debtorSummaries.length === 0) {
     return (
-      <div className="fixed inset-0 bg-zinc-950 overflow-y-auto">
-        <div className="min-h-screen px-4 py-6">
-          <div className="max-w-2xl mx-auto">
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-white mb-2">📊 Dashboard de Cobrança</h1>
-              <p className="text-sm text-zinc-400">Acompanhe suas pendências por pessoa</p>
-            </div>
+      <div className="animate-fadeIn pb-20">
+        <div className="mb-6">
+          <h2 className="text-3xl font-light text-zinc-800 mb-2">📊 Dashboard de Cobrança</h2>
+          <p className="text-zinc-500 text-sm">Acompanhe suas pendências por pessoa</p>
+        </div>
 
-            <div className="bg-zinc-900 rounded-xl p-8 text-center border border-zinc-800">
-              <Users className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-              <p className="text-zinc-400 mb-2">Nenhuma pendência cadastrada</p>
-              <p className="text-sm text-zinc-500">
-                Adicione receitas com devedor para começar a acompanhar suas cobranças
-              </p>
-            </div>
-          </div>
+        <div className="bg-zinc-100 rounded-3xl p-8 text-center border border-zinc-200">
+          <Users className="w-12 h-12 text-zinc-400 mx-auto mb-4" />
+          <p className="text-zinc-600 mb-2 font-semibold">Nenhuma pendência cadastrada</p>
+          <p className="text-sm text-zinc-500">
+            Adicione receitas com devedor para começar a acompanhar suas cobranças
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-zinc-950 overflow-y-auto">
-      <div className="min-h-screen px-4 py-6">
-        <div className="max-w-2xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-white mb-2">📊 Dashboard de Cobrança</h1>
-          <p className="text-sm text-zinc-400">Acompanhe suas pendências por pessoa</p>
-        </div>
+    <div className="animate-fadeIn pb-20">
+      <div className="mb-6">
+        <h2 className="text-3xl font-light text-zinc-800 mb-2">📊 Dashboard de Cobrança</h2>
+        <p className="text-zinc-500 text-sm">Acompanhe suas pendências por pessoa</p>
+      </div>
 
+      <div className="max-w-2xl mx-auto space-y-6">
         {/* Total Summary Card */}
-        <div className="bg-gradient-to-br from-emerald-900/40 to-emerald-950/40 rounded-xl p-6 mb-6 border border-emerald-800/30">
+        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-3xl p-6 border border-emerald-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-emerald-300 mb-1">Total Pendente</p>
-              <p className="text-3xl font-bold text-white">{formatCurrency(totalPendingAll)}</p>
-              <p className="text-xs text-emerald-400 mt-1">
+              <p className="text-sm text-emerald-700 font-semibold mb-1">Total Pendente</p>
+              <p className="text-3xl font-bold text-emerald-900">{formatCurrency(totalPendingAll)}</p>
+              <p className="text-xs text-emerald-600 mt-1">
                 {debtorSummaries.filter(d => d.totalPending > 0).length} pessoa(s) com pendências
               </p>
             </div>
-            <DollarSign className="w-12 h-12 text-emerald-400/30" />
+            <DollarSign className="w-12 h-12 text-emerald-600/30" />
           </div>
         </div>
 
         {/* Debtor List */}
         <div className="space-y-3">
-          <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-wider px-2">
+          <h2 className="text-sm font-bold text-zinc-500 uppercase tracking-wider px-2">
             Pendências por Pessoa
           </h2>
 
           {debtorSummaries.map((debtor) => (
             <div
               key={debtor.name}
-              className="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden"
+              className="bg-white rounded-3xl border border-zinc-200 overflow-hidden shadow-sm"
             >
               {/* Debtor Header */}
               <button
                 onClick={() => toggleDebtor(debtor.name)}
-                className="w-full px-6 py-4 flex items-center justify-between hover:bg-zinc-800/50 transition-colors"
+                className="w-full px-6 py-4 flex items-center justify-between hover:bg-zinc-50 transition-colors"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
                     {debtor.name.charAt(0).toUpperCase()}
                   </div>
                   <div className="text-left">
-                    <p className="font-semibold text-white">{debtor.name}</p>
+                    <p className="font-bold text-zinc-800">{debtor.name}</p>
                     <p className="text-xs text-zinc-500">
                       {debtor.transactions.length} transação(ões)
                     </p>
@@ -168,12 +163,12 @@ export default function DebtorDashboard({ transactions }: DebtorDashboardProps) 
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <p className={`text-lg font-bold ${
-                      debtor.totalPending > 0 ? 'text-emerald-400' : 'text-zinc-500'
+                      debtor.totalPending > 0 ? 'text-emerald-600' : 'text-zinc-400'
                     }`}>
                       {formatCurrency(debtor.totalPending)}
                     </p>
                     {debtor.totalPending === 0 && (
-                      <div className="flex items-center gap-1 text-emerald-500 text-xs mt-1">
+                      <div className="flex items-center gap-1 text-emerald-600 text-xs mt-1">
                         <CheckCircle className="w-3 h-3" />
                         <span>Quitado</span>
                       </div>
@@ -189,7 +184,7 @@ export default function DebtorDashboard({ transactions }: DebtorDashboardProps) 
 
               {/* Expanded Details */}
               {expandedDebtor === debtor.name && (
-                <div className="border-t border-zinc-800 bg-zinc-900/50">
+                <div className="border-t border-zinc-100 bg-zinc-50/50">
                   <div className="px-6 py-4 space-y-3">
                     {debtor.transactions
                       .sort((a, b) => {
@@ -216,13 +211,13 @@ export default function DebtorDashboard({ transactions }: DebtorDashboardProps) 
                         return (
                           <div
                             key={transaction.id}
-                            className={`flex items-center justify-between p-3 rounded-lg ${
-                              isPending ? 'bg-zinc-800/50' : 'bg-zinc-800/20'
+                            className={`flex items-center justify-between p-3 rounded-xl ${
+                              isPending ? 'bg-white border border-zinc-200' : 'bg-zinc-100 border border-zinc-200'
                             }`}
                           >
                             <div className="flex-1">
-                              <p className={`text-sm font-medium ${
-                                isPending ? 'text-white' : 'text-zinc-400'
+                              <p className={`text-sm font-semibold ${
+                                isPending ? 'text-zinc-800' : 'text-zinc-500'
                               }`}>
                                 {transaction.description}
                               </p>
@@ -234,7 +229,7 @@ export default function DebtorDashboard({ transactions }: DebtorDashboardProps) 
                                   {transaction.tags.map((tag, idx) => (
                                     <span
                                       key={idx}
-                                      className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                                      className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200"
                                     >
                                       #{tag}
                                     </span>
@@ -244,7 +239,7 @@ export default function DebtorDashboard({ transactions }: DebtorDashboardProps) 
                             </div>
                             <div className="text-right ml-4">
                               <p className={`text-sm font-bold ${
-                                isPending ? 'text-emerald-400' : 'text-zinc-500'
+                                isPending ? 'text-emerald-600' : 'text-zinc-400'
                               }`}>
                                 {formatCurrency(transaction.amount)}
                               </p>
@@ -259,10 +254,10 @@ export default function DebtorDashboard({ transactions }: DebtorDashboardProps) 
 
                   {/* Summary in expanded view */}
                   {debtor.totalPaid > 0 && (
-                    <div className="border-t border-zinc-800 px-6 py-3 bg-zinc-800/30">
+                    <div className="border-t border-zinc-200 px-6 py-3 bg-zinc-100">
                       <div className="flex justify-between text-xs">
-                        <span className="text-zinc-400">Total Pago:</span>
-                        <span className="text-zinc-500 font-semibold">
+                        <span className="text-zinc-600">Total Pago:</span>
+                        <span className="text-zinc-700 font-bold">
                           {formatCurrency(debtor.totalPaid)}
                         </span>
                       </div>
@@ -275,12 +270,11 @@ export default function DebtorDashboard({ transactions }: DebtorDashboardProps) 
         </div>
 
         {/* Help Text */}
-        <div className="mt-8 p-4 bg-blue-950/30 border border-blue-900/30 rounded-lg">
-          <p className="text-sm text-blue-300">
+        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+          <p className="text-sm text-blue-700">
             💡 <strong>Dica:</strong> As receitas com devedor aparecem aqui e também na sua agenda de recebimentos.
             Use tags como #reembolso para organizar melhor suas cobranças.
           </p>
-        </div>
         </div>
       </div>
     </div>
