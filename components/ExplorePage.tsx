@@ -27,10 +27,11 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string[]>([]);
 
-  // View mode (itemized vs grouped by invoices)
-  const [viewMode, setViewMode] = useState<'itemized' | 'invoices'>('itemized');
+  // View mode (itemized vs grouped by invoices/tags)
+  const [viewMode, setViewMode] = useState<'itemized' | 'invoices' | 'tags'>('itemized');
   const [expandedIssuers, setExpandedIssuers] = useState<Set<string>>(new Set());
   const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set());
+  const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set());
 
   // Saved filters
   const [savedFilters, setSavedFilters] = useState<AdvancedFilter[]>(() => {
@@ -361,6 +362,70 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
     return groups.sort((a, b) => b.totalAmount - a.totalAmount || b.itemCount - a.itemCount);
   }, [filteredTransactions]);
 
+  // Group transactions by tags
+  interface TagGroup {
+    tag: string;
+    transactions: Transaction[];
+    totalIncome: number;
+    totalExpense: number;
+    itemCount: number;
+  }
+
+  const tagGroups = useMemo(() => {
+    const tagMap = new Map<string, Transaction[]>();
+
+    // Include transactions with no tags as "Sem Tag"
+    filteredTransactions.forEach((t) => {
+      if (!t.tags || t.tags.length === 0) {
+        if (!tagMap.has('Sem Tag')) {
+          tagMap.set('Sem Tag', []);
+        }
+        tagMap.get('Sem Tag')!.push(t);
+      } else {
+        // A transaction can have multiple tags
+        t.tags.forEach((tag) => {
+          if (!tagMap.has(tag)) {
+            tagMap.set(tag, []);
+          }
+          tagMap.get(tag)!.push(t);
+        });
+      }
+    });
+
+    const groups: TagGroup[] = Array.from(tagMap.entries()).map(([tag, txs]) => {
+      const sortedTransactions = [...txs].sort((a, b) => new Date(b.paymentDate || b.date).getTime() - new Date(a.paymentDate || a.date).getTime());
+      const totalIncome = sortedTransactions.filter(t => t.type === TransactionType.INCOME).reduce((sum, t) => sum + t.amount, 0);
+      const totalExpense = sortedTransactions.filter(t => t.type === TransactionType.EXPENSE).reduce((sum, t) => sum + t.amount, 0);
+
+      return {
+        tag,
+        transactions: sortedTransactions,
+        totalIncome,
+        totalExpense,
+        itemCount: sortedTransactions.length
+      };
+    });
+
+    // Sort by total amount (income + expense)
+    return groups.sort((a, b) => {
+      const totalA = a.totalIncome + a.totalExpense;
+      const totalB = b.totalIncome + b.totalExpense;
+      return totalB - totalA;
+    });
+  }, [filteredTransactions]);
+
+  const toggleTag = (tag: string) => {
+    setExpandedTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) {
+        next.delete(tag);
+      } else {
+        next.add(tag);
+      }
+      return next;
+    });
+  };
+
   return (
     <div className="animate-fadeIn pb-20">
       <div className="mb-6">
@@ -678,6 +743,17 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
             >
               Por Faturas
             </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('tags')}
+              className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all ${
+                viewMode === 'tags'
+                  ? 'bg-white text-zinc-900 shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-800'
+              }`}
+            >
+              Por Tags
+            </button>
           </div>
         </div>
 
@@ -754,7 +830,7 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
                 </div>
               );
             })
-          ) : (
+          ) : viewMode === 'invoices' ? (
             // Invoice/Grouped View
             issuerGroups.length === 0 ? (
               <div className="p-10 text-center text-zinc-400">
@@ -888,6 +964,128 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
                                   })}
                                 </div>
                               )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )
+          ) : (
+            // Tags/Grouped View
+            tagGroups.length === 0 ? (
+              <div className="p-10 text-center text-zinc-400">
+                Nenhuma tag encontrada
+              </div>
+            ) : (
+              tagGroups.map((group) => {
+                const isTagOpen = expandedTags.has(group.tag);
+                const netAmount = group.totalIncome - group.totalExpense;
+                return (
+                  <div key={group.tag} className="bg-white">
+                    <button
+                      type="button"
+                      onClick={() => toggleTag(group.tag)}
+                      className="w-full p-6 flex items-center justify-between hover:bg-zinc-50 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center">
+                          <Tag className="text-blue-600" size={22} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-zinc-900">#{group.tag}</p>
+                          <p className="text-xs text-zinc-500 mt-1">
+                            {group.itemCount} {group.itemCount === 1 ? 'transação' : 'transações'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          {group.totalIncome > 0 && (
+                            <p className="text-sm text-emerald-600 font-semibold">
+                              + R$ {group.totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </p>
+                          )}
+                          {group.totalExpense > 0 && (
+                            <p className="text-sm text-rose-600 font-semibold">
+                              - R$ {group.totalExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </p>
+                          )}
+                          <p className={`font-bold text-xl mt-1 ${
+                            netAmount >= 0 ? 'text-emerald-700' : 'text-rose-700'
+                          }`}>
+                            {netAmount >= 0 ? '+' : ''} R$ {Math.abs(netAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                        {isTagOpen ? (
+                          <ChevronDown className="text-zinc-400" size={20} />
+                        ) : (
+                          <ChevronRight className="text-zinc-400" size={20} />
+                        )}
+                      </div>
+                    </button>
+
+                    {isTagOpen && (
+                      <div className="bg-zinc-50/50 divide-y divide-zinc-100">
+                        {group.transactions.map((t) => {
+                          const iconConfig = getIconForTransaction(t.description, t.category);
+                          const IconComponent = iconConfig.icon;
+                          const baseDateValue = dateFieldMode === 'payment' ? (t.paymentDate || t.date) : t.date;
+                          const dateLabel = dateFieldMode === 'payment' ? 'Vencimento' : 'Compra';
+
+                          return (
+                            <div key={t.id} className="p-6 pl-20 hover:bg-white transition-colors group">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4 flex-1">
+                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                                    t.type === TransactionType.INCOME ? 'bg-emerald-100' : iconConfig.bgColor
+                                  }`}>
+                                    <IconComponent size={20} className={
+                                      t.type === TransactionType.INCOME ? 'text-emerald-600' : iconConfig.iconColor
+                                    } />
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="font-bold text-zinc-800 text-sm">{t.description}</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <span className="bg-zinc-100 px-2 py-0.5 rounded text-[10px] text-zinc-500 font-medium uppercase">
+                                        {t.category}
+                                      </span>
+                                      <span className="text-xs text-zinc-400">{dateLabel}: {formatDate(baseDateValue)}</span>
+                                      {t.type === TransactionType.INCOME && t.debtor && (
+                                        <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold">
+                                          👤 {t.debtor}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-6">
+                                  <span className={`font-bold text-lg ${
+                                    t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-zinc-900'
+                                  }`}>
+                                    {t.type === TransactionType.INCOME ? '+' : '-'} R${' '}
+                                    {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  </span>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => openTagDialog(t)}
+                                      className="p-2 text-zinc-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                      title="Gerenciar Tags"
+                                    >
+                                      <Tag size={16} />
+                                    </button>
+                                    <button
+                                      onClick={() => onDelete(t.id)}
+                                      className="p-2 text-zinc-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                      title="Excluir"
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           );
                         })}

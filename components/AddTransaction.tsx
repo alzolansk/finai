@@ -895,6 +895,64 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                     </div>
                 </div>
 
+                {/* STEP 5A: DEVEDOR E TAGS (só para receitas) */}
+                {formData.type === TransactionType.INCOME && (
+                    <div className="border-t border-zinc-100 pt-4 space-y-4">
+                        {/* Campo Devedor */}
+                        <div>
+                            <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-2">
+                                Devedor (Opcional)
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.debtor || ''}
+                                onChange={(e) => setFormData({...formData, debtor: e.target.value})}
+                                className="w-full p-4 bg-zinc-50 border-none rounded-2xl focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-zinc-800 font-medium"
+                                placeholder="Ex: Andressa, Lanna, Patrick..."
+                            />
+                            <p className="text-xs text-zinc-500 mt-2">
+                                💡 Quem deve te pagar? Essa receita aparecerá no Dashboard de Cobrança
+                            </p>
+                        </div>
+
+                        {/* Campo Tags */}
+                        <div>
+                            <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-2">
+                                Tags (Opcional)
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.tags?.join(', ') || ''}
+                                onChange={(e) => {
+                                    const tagsString = e.target.value;
+                                    const tagsArray = tagsString
+                                        .split(',')
+                                        .map(tag => tag.trim().replace(/^#/, ''))
+                                        .filter(tag => tag.length > 0);
+                                    setFormData({...formData, tags: tagsArray.length > 0 ? tagsArray : undefined});
+                                }}
+                                className="w-full p-4 bg-zinc-50 border-none rounded-2xl focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-zinc-800 font-medium"
+                                placeholder="Ex: reembolso, viagem, trabalho..."
+                            />
+                            <p className="text-xs text-zinc-500 mt-2">
+                                🏷️ Separe as tags por vírgula. Útil para filtrar e agrupar receitas
+                            </p>
+                            {formData.tags && formData.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-3">
+                                    {formData.tags.map((tag, idx) => (
+                                        <span
+                                            key={idx}
+                                            className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium border border-emerald-200"
+                                        >
+                                            #{tag}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {/* STEP 5: FORMA DE PAGAMENTO (só para despesas) */}
                 {formData.type === TransactionType.EXPENSE && (
                     <>

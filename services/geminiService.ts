@@ -40,16 +40,20 @@ export const parseTransactionFromText = async (text: string): Promise<Partial<Tr
     const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: `Analyze this text: "${text}". 
+      contents: `Analyze this text: "${text}".
       Current Date: ${new Date().toISOString()}.
-      
+
       Tasks:
       1. Extract transaction details.
       2. **SANITIZE THE DESCRIPTION**: Convert names like "Gastei no lol", "Pgto * Uber * Sao Paulo" to clean names like "Riot Games", "Uber". Generalize if specific store is unknown but category is clear (e.g. "Gastei no bar" -> "Bar/Restaurante").
       3. Map category to: ${Object.values(Category).join(', ')}.
       4. If user mentions "parcelado", "x vezes", extract installments count (default 1).
       5. Identify 'paymentDate' if explicitly mentioned (e.g. "vence dia 10", "pagar mes que vem"). Otherwise leave null.
-      
+      6. **DEBTOR DETECTION**: If text mentions someone owing money (e.g. "Andressa me deve", "Patrick gastou no meu cartão", "Lanna precisa pagar"), treat as INCOME and extract:
+         - debtor: person's name
+         - description: what the money is for (e.g. "Almoço", "Compras", "Reembolso")
+      7. **TAGS EXTRACTION**: Extract relevant tags from context (e.g. "reembolso", "viagem", "trabalho"). Return as array of strings.
+
       Return JSON.`,
       config: {
         responseMimeType: "application/json",
@@ -63,7 +67,9 @@ export const parseTransactionFromText = async (text: string): Promise<Partial<Tr
             paymentDate: { type: Type.STRING, description: "ISO 8601 date string (Date of payment/due date)" },
             type: { type: Type.STRING, enum: ["INCOME", "EXPENSE"] },
             isRecurring: { type: Type.BOOLEAN },
-            installments: { type: Type.INTEGER }
+            installments: { type: Type.INTEGER },
+            debtor: { type: Type.STRING, description: "Name of person who owes money (for INCOME only)" },
+            tags: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Relevant tags for categorization" }
           },
           required: ["description", "amount", "type", "category"]
         }
@@ -268,6 +274,16 @@ export const parseImportFile = async (
                 - Capture the person's name in 'reimbursedBy' when present.
                 - Keep as EXPENSE, set paymentDate as usual (invoice due date if available).
 
+            12. **DETECT DEBTOR-TYPE INCOME** (For INCOME transactions):
+                - If the description mentions someone owing money (e.g., "Andressa deve", "Patrick usou cartão", "Lanna pagar"), extract:
+                  * debtor: person's name
+                  * description: what the money is for (clean description)
+                - Common patterns: "deve", "pagar", "reembolso de", "usou meu", etc.
+
+            13. **EXTRACT TAGS**:
+                - Extract relevant tags from descriptions (e.g., "reembolso", "viagem", "trabalho", "presente")
+                - Return as array of lowercase strings without # symbol
+
             Return a JSON object with:
             - documentType: 'invoice' or 'bank_statement'
             - issuer: the bank/card issuer name (clean, capitalized)
@@ -301,7 +317,9 @@ export const parseImportFile = async (
                   shouldIgnore: { type: Type.BOOLEAN, description: "Should this transaction be ignored?" },
                   ignoreReason: { type: Type.STRING, enum: ["internal_transfer", "invoice_payment", "balance_info", null], description: "Reason to ignore this transaction" },
                   isReimbursable: { type: Type.BOOLEAN, description: "True if someone else will reimburse the user" },
-                  reimbursedBy: { type: Type.STRING, description: "Name of the person who will reimburse, if available" }
+                  reimbursedBy: { type: Type.STRING, description: "Name of the person who will reimburse, if available" },
+                  debtor: { type: Type.STRING, description: "Name of person who owes money (for INCOME only)" },
+                  tags: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Relevant tags for categorization" }
                 }
               }
             }
@@ -381,7 +399,9 @@ export const parseImportFile = async (
                 issuer: issuer,
                 isAiGenerated: true,
                 isReimbursable: !!t.isReimbursable,
-                reimbursedBy: t.reimbursedBy
+                reimbursedBy: t.reimbursedBy,
+                debtor: t.debtor,
+                tags: t.tags
               });
             }
 
@@ -398,7 +418,9 @@ export const parseImportFile = async (
               issuer: issuer,
               isAiGenerated: true,
               isReimbursable: !!t.isReimbursable,
-              reimbursedBy: t.reimbursedBy
+              reimbursedBy: t.reimbursedBy,
+              debtor: t.debtor,
+              tags: t.tags
             });
 
             // Create future installments
@@ -418,7 +440,9 @@ export const parseImportFile = async (
                 issuer: issuer,
                 isAiGenerated: true,
                 isReimbursable: !!t.isReimbursable,
-                reimbursedBy: t.reimbursedBy
+                reimbursedBy: t.reimbursedBy,
+                debtor: t.debtor,
+                tags: t.tags
               });
             }
 
@@ -437,7 +461,9 @@ export const parseImportFile = async (
               issuer: issuer,
               isAiGenerated: true,
               isReimbursable: !!t.isReimbursable,
-              reimbursedBy: t.reimbursedBy
+              reimbursedBy: t.reimbursedBy,
+              debtor: t.debtor,
+              tags: t.tags
             }];
           }
         });

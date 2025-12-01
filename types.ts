@@ -41,6 +41,7 @@ export interface Transaction {
   duplicateOf?: string; // Reference to original transaction ID
   isReimbursable?: boolean; // Flag for expenses paid by others (friends using your card)
   reimbursedBy?: string; // Name of person who will reimburse
+  debtor?: string; // Name of person who owes money (for INCOME transactions)
   incomeClassification?: IncomeClassification; // For income transactions: fixed vs variable
 }
 
@@ -106,6 +107,8 @@ export interface TransacaoNormalizada {
   issuer?: string;
   isReimbursable?: boolean;
   reimbursedBy?: string;
+  debtor?: string;
+  tags?: string[];
 }
 
 export enum WishlistItemType {

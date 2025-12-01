@@ -12,6 +12,7 @@ import ReportsPage from './components/ReportsPage';
 import DuplicatesPage from './components/DuplicatesPage';
 import BudgetsPage from './components/BudgetsPage';
 import NotificationsPanel from './components/NotificationsPanel';
+import DebtorDashboard from './components/DebtorDashboard';
 import { Transaction, UserSettings, ChatMessage, TransactionType, Category, TimePeriod, WishlistItem, WishlistPriority, WishlistItemType, BudgetAlert } from './types';
 import { generateSmartAlerts } from './services/forecastService';
 import { getTransactions, saveTransaction, getUserSettings, saveUserSettings, deleteTransaction, updateTransaction, getSavingsReviews, saveSavingsReview, SavingsReview, getAgendaChecklist, toggleAgendaChecklist, AgendaChecklistEntry, getWishlistItems, saveWishlistItem, deleteWishlistItem, getImportedInvoices } from './services/storageService';
@@ -617,6 +618,12 @@ const App: React.FC = () => {
         <BudgetsPage
           transactions={transactions}
           settings={settings}
+        />
+      )}
+
+      {activeTab === 'debtor-dashboard' && (
+        <DebtorDashboard
+          transactions={transactions}
         />
       )}
     </Layout>

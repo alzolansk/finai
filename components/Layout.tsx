@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { Home, Plus, PieChart, MessageSquareText, X, Sparkles, Zap, AlertTriangle, Settings, Trash2, Activity, ChevronDown, ChevronUp, Calendar, Repeat, TrendingUp, FileText, Heart, Search, BarChart3, DollarSign, Bell } from 'lucide-react';
+import { Home, Plus, PieChart, MessageSquareText, X, Sparkles, Zap, AlertTriangle, Settings, Trash2, Activity, ChevronDown, ChevronUp, Calendar, Repeat, TrendingUp, FileText, Heart, Search, BarChart3, DollarSign, Bell, Users } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { SmartAlert } from '../services/forecastService';
 import { clearAllData, getApiLogs, ApiLog } from '../services/storageService';
@@ -440,6 +440,16 @@ const Layout: React.FC<LayoutProps> = ({
                 <div>
                     <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Dados</h4>
                     <div className="space-y-2">
+                        <button
+                            onClick={() => {
+                                setIsSettingsOpen(false);
+                                onTabChange('debtor-dashboard');
+                            }}
+                            className="w-full py-3 bg-gradient-to-r from-emerald-50 to-blue-50 border border-emerald-200 text-emerald-700 font-bold rounded-xl hover:from-emerald-100 hover:to-blue-100 hover:border-emerald-300 transition-all flex items-center justify-center gap-2 text-sm shadow-sm"
+                        >
+                            <Users size={16} />
+                            Dashboard de Cobrança
+                        </button>
                         <button
                             onClick={() => {
                                 setIsSettingsOpen(false);
