@@ -2,8 +2,15 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FinAI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="description" content="Assistente financeiro pessoal com inteligência artificial" />
+    <meta name="theme-color" content="#10b981" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="FinAI" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <title>FinAI - Controle Financeiro Inteligente</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -70,7 +77,31 @@
 }
 </script>
 <style>
-  body { font-family: 'Inter', sans-serif; background-color: #f4f4f5; }
+  body { 
+    font-family: 'Inter', sans-serif; 
+    background-color: #f4f4f5;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    overscroll-behavior: none;
+  }
+  
+  /* Prevent horizontal scroll */
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+  
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+  
   /* Custom Scrollbar for Chat */
   .scrollbar-hide::-webkit-scrollbar {
       display: none;
@@ -79,11 +110,55 @@
       -ms-overflow-style: none;
       scrollbar-width: none;
   }
+  
+  /* Safe area padding for notch devices */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  /* Smooth touch scrolling */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Prevent text selection on buttons */
+  button {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  /* Mobile-friendly inputs */
+  input, textarea, select {
+    font-size: 16px !important; /* Prevents zoom on iOS */
+  }
+  
+  /* Active states for mobile (replace hover) */
+  @media (hover: none) {
+    .hover\:bg-zinc-100:active {
+      background-color: #f4f4f5;
+    }
+    .hover\:scale-110:active {
+      transform: scale(0.95);
+    }
+  }
 </style>
 <link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-zinc-100 text-zinc-900 antialiased selection:bg-brand-900 selection:text-white">
     <div id="root"></div>
-  <script type="module" src="/index.tsx"></script>
+    <script type="module" src="/index.tsx"></script>
+    <script>
+      // Service Worker desativado temporariamente para evitar conflitos com Firebase
+      // if ('serviceWorker' in navigator) {
+      //   window.addEventListener('load', () => {
+      //     navigator.serviceWorker.register('/sw.js')
+      //       .then(reg => console.log('✅ PWA: Service Worker registrado'))
+      //       .catch(err => console.log('❌ PWA: Erro ao registrar SW', err));
+      //   });
+      // }
+    </script>
 </body>
 </html>

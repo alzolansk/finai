@@ -414,7 +414,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
   };
 
   return (
-    <div className="flex flex-col md:flex-row gap-8 h-[calc(100vh-140px)]">
+    <div className="flex flex-col md:flex-row gap-4 md:gap-8 min-h-[calc(100vh-180px)] md:h-[calc(100vh-140px)]">
       {/* Left Panel - Visual/Context */}
       <div className="hidden md:flex flex-1 bg-zinc-900 rounded-3xl p-10 flex-col justify-between text-white relative overflow-hidden shadow-xl hover:scale-[1.01] transition-transform duration-500">
         <div className="relative z-10">
@@ -454,36 +454,65 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
       </div>
 
       {/* Right Panel - Form */}
-      <div className="flex-1 bg-white rounded-3xl p-6 md:p-10 shadow-sm border border-zinc-100 flex flex-col overflow-y-auto hover:shadow-lg transition-shadow duration-300">
+      <div className="flex-1 bg-white rounded-2xl md:rounded-3xl p-4 md:p-10 shadow-sm border border-zinc-100 flex flex-col overflow-y-auto relative">
         
-        {/* Toggle */}
-        <div className="flex bg-zinc-100 p-1 rounded-xl mb-8 w-fit mx-auto md:mx-0">
-             <button
-                onClick={() => setMode('ai')}
-                className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${mode === 'ai' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-400 hover:text-zinc-600'}`}
-             >
-                IA
-             </button>
-             <button
-                onClick={() => setMode('manual')}
-                className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${mode === 'manual' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-400 hover:text-zinc-600'}`}
-             >
-                Manual
-             </button>
+        {/* Toggle + Import - Desktop Version */}
+        <div className="hidden md:flex items-center justify-between mb-8">
+          <div className="flex bg-zinc-100 p-1 rounded-xl">
+               <button
+                  onClick={() => setMode('ai')}
+                  className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${mode === 'ai' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-400 hover:text-zinc-600'}`}
+               >
+                  Assistente IA
+               </button>
+               <button
+                  onClick={() => setMode('manual')}
+                  className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${mode === 'manual' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-400 hover:text-zinc-600'}`}
+               >
+                  Manual
+               </button>
+          </div>
+          
+          {mode !== 'import' && (
+              <button 
+                  onClick={() => setMode('import')}
+                  className="flex items-center gap-1.5 text-xs font-bold text-zinc-500 hover:text-zinc-800 transition-colors bg-zinc-100 px-3 py-2 rounded-lg"
+                  title="Importar"
+              >
+                  <Upload size={14} />
+                  <span>Importar</span>
+              </button>
+          )}
         </div>
         
-        {/* Import Button */}
-        {mode !== 'import' && (
-            <div className="absolute top-10 right-10">
-                <button 
-                    onClick={() => setMode('import')}
-                    className="flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-zinc-800 transition-colors bg-zinc-50 px-3 py-2 rounded-lg"
-                    title="Importar Arquivo (CSV/PDF/IMG)"
-                >
-                    <Upload size={14} /> Importar
-                </button>
-            </div>
-        )}
+        {/* Toggle + Import - Mobile Version */}
+        <div className="flex md:hidden items-center justify-between gap-2 mb-4">
+          <div className="flex bg-zinc-100 p-0.5 rounded-lg shrink-0">
+               <button
+                  onClick={() => setMode('ai')}
+                  className={`px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-all ${mode === 'ai' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-400 active:text-zinc-600'}`}
+               >
+                  IA
+               </button>
+               <button
+                  onClick={() => setMode('manual')}
+                  className={`px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-all ${mode === 'manual' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-400 active:text-zinc-600'}`}
+               >
+                  Manual
+               </button>
+          </div>
+          
+          {mode !== 'import' && (
+              <button 
+                  onClick={() => setMode('import')}
+                  className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-500 active:text-zinc-800 transition-colors bg-zinc-100 px-2.5 py-1.5 rounded-lg shrink-0"
+                  title="Importar"
+              >
+                  <Upload size={14} />
+                  <span>Importar</span>
+              </button>
+          )}
+        </div>
 
         {mode === 'import' ? (
              <div className="flex-1 flex flex-col items-center justify-center animate-fadeIn text-center relative">
@@ -1080,20 +1109,20 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                     <label className="text-xs font-bold text-emerald-800 uppercase tracking-wider block">
                                         Parcelar?
                                     </label>
-                                    <div className="flex gap-2">
+                                    <div className="grid grid-cols-4 md:flex gap-1.5 md:gap-2">
                                         <button
                                             type="button"
                                             onClick={() => {
                                                 setDetectedInstallments(1);
                                                 setShowCustomInstallment(false);
                                             }}
-                                            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                                            className={`py-2 px-2 md:px-3 rounded-lg text-xs md:text-sm font-medium transition-all ${
                                                 detectedInstallments === 1 && !showCustomInstallment
                                                     ? 'bg-white text-emerald-900 shadow-sm border-2 border-emerald-400'
-                                                    : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-2 border-transparent'
+                                                    : 'bg-emerald-100 text-emerald-700 active:bg-emerald-200 border-2 border-transparent'
                                             }`}
                                         >
-                                            À vista
+                                            1x
                                         </button>
                                         {[2, 3, 6, 12].map(n => (
                                             <button
@@ -1103,10 +1132,10 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                                     setDetectedInstallments(n);
                                                     setShowCustomInstallment(false);
                                                 }}
-                                                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                                                className={`py-2 px-2 md:px-3 rounded-lg text-xs md:text-sm font-medium transition-all ${
                                                     detectedInstallments === n && !showCustomInstallment
                                                         ? 'bg-white text-emerald-900 shadow-sm border-2 border-emerald-400'
-                                                        : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-2 border-transparent'
+                                                        : 'bg-emerald-100 text-emerald-700 active:bg-emerald-200 border-2 border-transparent'
                                                 }`}
                                             >
                                                 {n}x
@@ -1119,7 +1148,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                                     setShowCustomInstallment(true);
                                                     setCustomInstallmentValue('');
                                                 }}
-                                                className="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-2 border-transparent"
+                                                className="col-span-2 md:col-span-1 py-2 px-2 md:px-3 rounded-lg text-xs md:text-sm font-medium transition-all bg-emerald-100 text-emerald-700 active:bg-emerald-200 border-2 border-transparent"
                                             >
                                                 Outros
                                             </button>
@@ -1128,7 +1157,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                                 type="number"
                                                 min="1"
                                                 max="99"
-                                                placeholder="Ex: 10"
+                                                placeholder="Nº"
                                                 value={customInstallmentValue}
                                                 onChange={(e) => {
                                                     const value = e.target.value;
@@ -1145,7 +1174,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                                                     }
                                                 }}
                                                 autoFocus
-                                                className="flex-1 py-2 px-3 rounded-lg text-sm font-medium bg-white text-emerald-900 shadow-sm border-2 border-emerald-400 focus:ring-2 focus:ring-emerald-500 outline-none"
+                                                className="col-span-2 md:col-span-1 py-2 px-2 md:px-3 rounded-lg text-xs md:text-sm font-medium bg-white text-emerald-900 shadow-sm border-2 border-emerald-400 focus:ring-2 focus:ring-emerald-500 outline-none w-full"
                                             />
                                         )}
                                     </div>

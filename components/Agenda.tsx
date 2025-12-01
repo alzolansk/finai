@@ -375,7 +375,8 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
 
   return (
     <div className="space-y-8 pb-24 animate-fadeIn">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      {/* Header - Desktop Version */}
+      <div className="hidden md:flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-3xl font-light text-zinc-800">Agenda</h2>
           <p className="text-zinc-500 text-sm mt-1">Controle de pagamentos e recebimentos do mês.</p>
@@ -419,9 +420,55 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
           </div>
         </div>
       </div>
+      
+      {/* Header - Mobile Version */}
+      <div className="md:hidden flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-light text-zinc-800">Agenda</h2>
+            <p className="text-zinc-500 text-[10px] mt-0.5">Pagamentos e recebimentos</p>
+          </div>
+          
+          <div className="flex items-center bg-white p-1 rounded-xl shadow-sm border border-zinc-100">
+            <button onClick={handlePrevMonth} className="p-1.5 active:bg-zinc-100 rounded-lg transition-colors text-zinc-600">
+              <ChevronLeft size={18} />
+            </button>
+            <div className="flex items-center gap-1.5 px-1 min-w-[90px] justify-center">
+              <Calendar size={14} className="text-emerald-600" />
+              <span className="font-bold text-zinc-800 capitalize text-xs">
+                {getMonthName(currentDate)}
+              </span>
+            </div>
+            <button onClick={handleNextMonth} className="p-1.5 active:bg-zinc-100 rounded-lg transition-colors text-zinc-600">
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-4 px-4">
+          <button 
+              onClick={() => setFilter('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0 ${filter === 'all' ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-500 active:bg-zinc-50'}`}
+          >
+              Todos
+          </button>
+          <button 
+              onClick={() => setFilter('pending')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0 ${filter === 'pending' ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-500 active:bg-zinc-50'}`}
+          >
+              Pendentes
+          </button>
+          <button 
+              onClick={() => setFilter('paid')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0 ${filter === 'paid' ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-500 active:bg-zinc-50'}`}
+          >
+              Pagos
+          </button>
+        </div>
+      </div>
 
-      {/* Progress Bars */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Progress Bars - Desktop Version */}
+      <div className="hidden md:grid grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-3xl border border-zinc-100 shadow-sm">
             <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center gap-3">
@@ -458,16 +505,63 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
             </div>
         </div>
       </div>
+      
+      {/* Progress Bars - Mobile Version */}
+      <div className="md:hidden grid grid-cols-2 gap-2">
+        <div className="bg-white p-3 rounded-xl border border-zinc-100 shadow-sm">
+            <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-rose-100 text-rose-600 rounded-md">
+                        <ArrowDownCircle size={16} />
+                    </div>
+                    <h3 className="font-bold text-zinc-800 text-xs">A Pagar</h3>
+                </div>
+                <span className="text-[10px] font-bold text-zinc-500">{paidExpenses}/{totalExpenses}</span>
+            </div>
+            <div className="w-full bg-zinc-100 rounded-full h-1.5 overflow-hidden">
+                <div 
+                    className="bg-rose-500 h-full rounded-full transition-all duration-1000" 
+                    style={{ width: `${totalExpenses ? (paidExpenses / totalExpenses) * 100 : 0}%` }}
+                ></div>
+            </div>
+        </div>
+
+        <div className="bg-white p-3 rounded-xl border border-zinc-100 shadow-sm">
+            <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-emerald-100 text-emerald-600 rounded-md">
+                        <ArrowUpCircle size={16} />
+                    </div>
+                    <h3 className="font-bold text-zinc-800 text-xs">A Receber</h3>
+                </div>
+                <span className="text-[10px] font-bold text-zinc-500">{receivedIncome}/{totalIncome}</span>
+            </div>
+            <div className="w-full bg-zinc-100 rounded-full h-1.5 overflow-hidden">
+                <div 
+                    className="bg-emerald-500 h-full rounded-full transition-all duration-1000" 
+                    style={{ width: `${totalIncome ? (receivedIncome / totalIncome) * 100 : 0}%` }}
+                ></div>
+            </div>
+        </div>
+      </div>
 
       {/* Tables */}
       <div className="space-y-8">
-        {/* Expenses Table */}
+        {/* Expenses Section */}
         <section>
-            <h3 className="text-lg font-bold text-zinc-800 mb-4 flex items-center gap-2">
+            {/* Desktop Title */}
+            <h3 className="hidden md:flex text-lg font-bold text-zinc-800 mb-4 items-center gap-2">
                 <span className="w-2 h-2 bg-rose-500 rounded-full"></span>
                 Gastos Fixos & Faturas
             </h3>
-            <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden shadow-sm">
+            {/* Mobile Title */}
+            <h3 className="md:hidden text-sm font-bold text-zinc-800 mb-3 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-rose-500 rounded-full"></span>
+                Gastos Fixos & Faturas
+            </h3>
+            
+            {/* Desktop Table */}
+            <div className="hidden md:block bg-white rounded-3xl border border-zinc-100 overflow-hidden shadow-sm">
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-zinc-50/50 text-xs uppercase tracking-wider text-zinc-400 border-b border-zinc-100">
@@ -573,15 +667,100 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
                     </tfoot>
                 </table>
             </div>
+            
+            {/* Mobile Card View for Expenses */}
+            <div className="md:hidden space-y-2">
+                {expenses.length === 0 ? (
+                    <div className="bg-white rounded-xl p-6 text-center text-zinc-400 text-sm border border-zinc-100">
+                        Nenhum gasto fixo encontrado.
+                    </div>
+                ) : (
+                    <>
+                        {expenses.map(item => {
+                            const iconConfig = getIconForTransaction(item.title, item.category);
+                            const IconComponent = iconConfig.icon;
+                            
+                            return (
+                                <div key={item.id} className="bg-white rounded-xl p-3 border border-zinc-100 shadow-sm">
+                                    <div className="flex items-start gap-3">
+                                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${item.isInvoice ? 'bg-zinc-900' : iconConfig.bgColor}`}>
+                                            {item.isInvoice ? (
+                                                <CreditCard size={16} className="text-white" />
+                                            ) : (
+                                                <IconComponent size={14} className={iconConfig.iconColor} />
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="min-w-0">
+                                                    <p className="font-bold text-zinc-800 text-sm truncate">{item.title}</p>
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        <span className="text-[10px] text-zinc-400">{item.category}</span>
+                                                        <span className="text-zinc-300">•</span>
+                                                        <span className="text-[10px] text-zinc-500 font-mono">
+                                                            {new Date(item.dueDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <span className="font-bold text-zinc-800 text-sm shrink-0">
+                                                    R$ {item.amount.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-between mt-2">
+                                                {item.isInvoice && (
+                                                    <button 
+                                                        onClick={() => setSelectedInvoice(item)}
+                                                        className="text-[10px] font-bold text-emerald-600 flex items-center gap-1"
+                                                    >
+                                                        <Receipt size={10} /> Ver fatura
+                                                    </button>
+                                                )}
+                                                {!item.isInvoice && <div />}
+                                                <button
+                                                    onClick={() => onMarkAsPaid(item)}
+                                                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold transition-all ${
+                                                        item.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
+                                                        item.status === 'overdue' ? 'bg-rose-100 text-rose-700' :
+                                                        'bg-amber-100 text-amber-700'
+                                                    }`}
+                                                >
+                                                    {item.status === 'paid' ? <CheckCircle2 size={10} /> : 
+                                                     item.status === 'overdue' ? <AlertCircle size={10} /> : <Circle size={10} />}
+                                                    {item.status === 'paid' ? 'Pago' : item.status === 'overdue' ? 'Atrasado' : 'Pendente'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {/* Mobile Subtotal */}
+                        <div className="bg-zinc-50 rounded-xl p-3 flex justify-between items-center border border-zinc-200">
+                            <span className="text-xs font-bold text-zinc-600">Subtotal</span>
+                            <span className="font-bold text-rose-600">
+                                R$ {expenses.reduce((sum, item) => sum + item.amount, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                        </div>
+                    </>
+                )}
+            </div>
         </section>
 
-        {/* Income Table */}
+        {/* Income Section */}
         <section>
-            <h3 className="text-lg font-bold text-zinc-800 mb-4 flex items-center gap-2">
+            {/* Desktop Title */}
+            <h3 className="hidden md:flex text-lg font-bold text-zinc-800 mb-4 items-center gap-2">
                 <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
                 Recebimentos Fixos
             </h3>
-            <div className="bg-white rounded-3xl border border-zinc-100 overflow-hidden shadow-sm">
+            {/* Mobile Title */}
+            <h3 className="md:hidden text-sm font-bold text-zinc-800 mb-3 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                Recebimentos Fixos
+            </h3>
+            
+            {/* Desktop Table */}
+            <div className="hidden md:block bg-white rounded-3xl border border-zinc-100 overflow-hidden shadow-sm">
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-zinc-50/50 text-xs uppercase tracking-wider text-zinc-400 border-b border-zinc-100">
@@ -665,6 +844,70 @@ const Agenda: React.FC<AgendaProps> = ({ transactions, onMarkAsPaid, checklist, 
                         </tr>
                     </tfoot>
                 </table>
+            </div>
+            
+            {/* Mobile Card View for Income */}
+            <div className="md:hidden space-y-2">
+                {income.length === 0 ? (
+                    <div className="bg-white rounded-xl p-6 text-center text-zinc-400 text-sm border border-zinc-100">
+                        Nenhum recebimento fixo encontrado.
+                    </div>
+                ) : (
+                    <>
+                        {income.map(item => {
+                            const iconConfig = getIconForTransaction(item.title, item.category);
+                            const IconComponent = iconConfig.icon;
+                            
+                            return (
+                                <div key={item.id} className="bg-white rounded-xl p-3 border border-zinc-100 shadow-sm">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                                            <IconComponent size={14} className="text-emerald-600" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="min-w-0">
+                                                    <p className="font-bold text-zinc-800 text-sm truncate">{item.title}</p>
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        <span className="text-[10px] text-zinc-400">{item.category}</span>
+                                                        <span className="text-zinc-300">•</span>
+                                                        <span className="text-[10px] text-zinc-500 font-mono">
+                                                            {new Date(item.dueDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <span className="font-bold text-emerald-600 text-sm shrink-0">
+                                                    R$ {item.amount.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-end mt-2">
+                                                <button
+                                                    onClick={() => onMarkAsPaid(item)}
+                                                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold transition-all ${
+                                                        item.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
+                                                        item.status === 'overdue' ? 'bg-rose-100 text-rose-700' :
+                                                        'bg-amber-100 text-amber-700'
+                                                    }`}
+                                                >
+                                                    {item.status === 'paid' ? <CheckCircle2 size={10} /> : 
+                                                     item.status === 'overdue' ? <AlertCircle size={10} /> : <Circle size={10} />}
+                                                    {item.status === 'paid' ? 'Recebido' : item.status === 'overdue' ? 'Atrasado' : 'Pendente'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {/* Mobile Subtotal */}
+                        <div className="bg-emerald-50 rounded-xl p-3 flex justify-between items-center border border-emerald-200">
+                            <span className="text-xs font-bold text-zinc-600">Subtotal</span>
+                            <span className="font-bold text-emerald-600">
+                                R$ {income.reduce((sum, item) => sum + item.amount, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                        </div>
+                    </>
+                )}
             </div>
         </section>
       </div>

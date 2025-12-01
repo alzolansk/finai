@@ -22,6 +22,7 @@ import { generateReimbursementIncomes, cleanupOrphanedReimbursements } from './s
 import { processAndSaveAlerts, getUnreadAlerts } from './services/alertService';
 import ReviewRecommendationPanel from './components/ReviewRecommendationPanel';
 import Agenda, { AgendaItem } from './components/Agenda';
+import { useFirebaseSync } from './hooks/useFirebaseSync';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -54,6 +55,36 @@ const App: React.FC = () => {
 
   // Derived State
   const alerts = React.useMemo(() => generateSmartAlerts(transactions, settings, isTurboMode), [transactions, settings, isTurboMode]);
+
+  // Firebase Sync - Use useCallback to prevent recreating functions
+  const handleTransactionsUpdate = React.useCallback((cloudTransactions: Transaction[]) => {
+    localStorage.setItem('finai_transactions', JSON.stringify(cloudTransactions));
+    setTransactions(cloudTransactions);
+  }, []);
+
+  const handleSettingsUpdate = React.useCallback((cloudSettings: UserSettings | null) => {
+    if (cloudSettings) {
+      localStorage.setItem('finai_settings', JSON.stringify(cloudSettings));
+      setSettings(cloudSettings);
+    }
+  }, []);
+
+  const handleWishlistUpdate = React.useCallback((cloudWishlist: WishlistItem[]) => {
+    localStorage.setItem('finai_wishlist', JSON.stringify(cloudWishlist));
+    setWishlistItems(cloudWishlist);
+  }, []);
+
+  const {
+    syncTransaction,
+    removeTransaction,
+    syncUserSettings,
+    syncWishlistItem,
+    removeWishlistItem
+  } = useFirebaseSync({
+    onTransactionsUpdate: handleTransactionsUpdate,
+    onSettingsUpdate: handleSettingsUpdate,
+    onWishlistUpdate: handleWishlistUpdate
+  });
 
   // Initial Load
   useEffect(() => {
@@ -115,6 +146,7 @@ const App: React.FC = () => {
     // Process all transactions
     newTransactions.forEach(t => {
         updated = saveTransaction(t);
+        syncTransaction(t); // Sync to cloud
     });
     setTransactions(updated);
     setActiveTab('dashboard');
@@ -123,17 +155,20 @@ const App: React.FC = () => {
   const handleDeleteTransaction = (id: string) => {
       const updated = deleteTransaction(id);
       setTransactions(updated);
+      removeTransaction(id); // Sync to cloud
   };
 
   const handleUpdateTransaction = (transaction: Transaction) => {
       const updated = updateTransaction(transaction);
       setTransactions(updated);
+      syncTransaction(transaction); // Sync to cloud
   };
 
   const handleOnboardingComplete = (newSettings: UserSettings) => {
     // 1. Save Settings
     saveUserSettings(newSettings);
     setSettings(newSettings);
+    syncUserSettings(newSettings); // Sync to cloud
     const dateNow = new Date().toISOString();
 
     // 2. Add Monthly Income as a Transaction (Revenue) automatically
@@ -347,16 +382,19 @@ const App: React.FC = () => {
   const handleAddWishlistItem = (item: WishlistItem) => {
     const updated = saveWishlistItem(item);
     setWishlistItems(updated);
+    syncWishlistItem(item); // Sync to cloud
   };
 
   const handleUpdateWishlistItem = (item: WishlistItem) => {
     const updated = saveWishlistItem(item);
     setWishlistItems(updated);
+    syncWishlistItem(item); // Sync to cloud
   };
 
   const handleDeleteWishlistItem = (id: string) => {
     const updated = deleteWishlistItem(id);
     setWishlistItems(updated);
+    removeWishlistItem(id); // Sync to cloud
   };
 
   const handleMarkAsDuplicate = (transactionId: string, originalId: string) => {

@@ -162,10 +162,11 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions, onUpdate, o
 
   return (
     <div className="space-y-8 pb-20">
-      <div className="flex justify-between items-center">
+      {/* Header - Desktop */}
+      <div className="hidden md:flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-light text-zinc-800">Insights</h2>
-          <p className="text-zinc-500 text-sm mt-1">Análise inteligente dos seus hábitos.</p>
+          <p className="text-zinc-500 text-sm mt-1">Análise inteligente dos seus hábitos financeiros</p>
         </div>
         <button 
           onClick={() => fetchInsights(true)} 
@@ -174,6 +175,22 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions, onUpdate, o
           title="Recalcular Insights"
         >
           <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
+      
+      {/* Header - Mobile */}
+      <div className="md:hidden flex justify-between items-center">
+        <div>
+          <h2 className="text-xl font-light text-zinc-800">Insights</h2>
+          <p className="text-zinc-500 text-[10px] mt-0.5">Análise dos seus hábitos</p>
+        </div>
+        <button 
+          onClick={() => fetchInsights(true)} 
+          disabled={loading}
+          className="bg-zinc-900 text-white p-2 rounded-lg active:bg-zinc-800 transition-colors shadow-lg"
+          title="Recalcular Insights"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
@@ -194,29 +211,31 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions, onUpdate, o
           <p className="text-zinc-500 max-w-sm mx-auto">Preciso de mais alguns dados para gerar relatórios precisos. Continue registrando seus gastos!</p>
         </div>
       ) : (
-        // Horizontal Scroll Container
-        <div className="flex overflow-x-auto gap-6 pb-6 snap-x scrollbar-hide">
+        <>
+        {/* Desktop Inline View with Vertical Scroll */}
+        <div className="hidden md:block">
+          <div className="flex overflow-x-auto gap-4 pb-4 scrollbar-thin scrollbar-thumb-zinc-200 scrollbar-track-transparent hover:scrollbar-thumb-zinc-300">
             {insights.map(insight => (
                 <div 
                 key={insight.id} 
-                className={`min-w-[300px] md:min-w-[350px] p-6 rounded-3xl border bg-white hover:shadow-md transition-all flex flex-col justify-between snap-center ${
+                className={`min-w-[320px] max-w-[320px] p-6 rounded-2xl border bg-white flex flex-col justify-between ${
                     insight.type === 'warning' ? 'border-l-4 border-l-rose-500' : 
                     insight.type === 'success' ? 'border-l-4 border-l-emerald-500' : 'border-l-4 border-l-blue-500'
                 }`}
                 >
                 <div>
                     <div className="flex items-center gap-3 mb-4">
-                        {insight.type === 'warning' ? <AlertCircle className="text-rose-500" /> : 
-                        insight.type === 'success' ? <CheckCircle2 className="text-emerald-500" /> : <Lightbulb className="text-blue-500" />}
-                        <h3 className="font-bold text-zinc-800">{insight.title}</h3>
+                        {insight.type === 'warning' ? <AlertCircle size={24} className="text-rose-500 shrink-0" /> : 
+                        insight.type === 'success' ? <CheckCircle2 size={24} className="text-emerald-500 shrink-0" /> : <Lightbulb size={24} className="text-blue-500 shrink-0" />}
+                        <h3 className="font-bold text-base text-zinc-800">{insight.title}</h3>
                     </div>
-                    <p className="text-zinc-600 text-sm leading-relaxed mb-6">{insight.description}</p>
+                    <p className="text-zinc-600 text-sm leading-relaxed mb-4">{insight.description}</p>
                 </div>
                 
                 {insight.savingsPotential && insight.savingsPotential > 0 && (
-                    <div className="bg-emerald-50 p-3 rounded-xl flex items-center gap-3 text-emerald-800 text-sm font-bold mt-auto">
+                    <div className="bg-emerald-50 p-3 rounded-xl flex items-center gap-2 text-emerald-800 text-sm font-bold">
                         <BadgePercent size={18} />
-                        Economia: R$ {insight.savingsPotential.toLocaleString('pt-BR')}
+                        Economia potencial: R$ {insight.savingsPotential.toLocaleString('pt-BR')}
                     </div>
                 )}
 
@@ -233,76 +252,176 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions, onUpdate, o
                                 setIsModalOpen(true);
                             }
                         }}
-                        className="mt-3 w-full py-2.5 border border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:border-zinc-900 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
+                        className="mt-3 w-full py-3 border border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:border-zinc-900 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
                     >
-                        <Edit2 size={14} />
-                        {insight.suggestedAmount ? `Ajustar para R$ ${insight.suggestedAmount}` : 'Editar Gasto'}
+                        <Edit2 size={16} />
+                        Ajustar valor
                     </button>
                 )}
                 </div>
             ))}
              {insights.length === 0 && !loading && (
-                <div className="p-10 w-full text-center text-zinc-400">
-                    Nenhum insight gerado no momento.
+                <div className="p-10 text-center text-zinc-400 text-sm w-full">
+                    Nenhum insight gerado. Clique em atualizar para gerar novos insights.
+                </div>
+             )}
+          </div>
+        </div>
+        
+        {/* Mobile Horizontal Scroll */}
+        <div className="md:hidden flex overflow-x-auto gap-3 pb-4 snap-x scrollbar-hide -mx-4 px-4">
+            {insights.slice(0, 5).map(insight => (
+                <div 
+                key={insight.id} 
+                className={`min-w-[220px] p-3 rounded-xl border bg-white flex flex-col justify-between snap-center ${
+                    insight.type === 'warning' ? 'border-l-4 border-l-rose-500' : 
+                    insight.type === 'success' ? 'border-l-4 border-l-emerald-500' : 'border-l-4 border-l-blue-500'
+                }`}
+                >
+                <div>
+                    <div className="flex items-center gap-2 mb-2">
+                        {insight.type === 'warning' ? <AlertCircle size={16} className="text-rose-500 shrink-0" /> : 
+                        insight.type === 'success' ? <CheckCircle2 size={16} className="text-emerald-500 shrink-0" /> : <Lightbulb size={16} className="text-blue-500 shrink-0" />}
+                        <h3 className="font-bold text-xs text-zinc-800 line-clamp-1">{insight.title}</h3>
+                    </div>
+                    <p className="text-zinc-600 text-[10px] leading-relaxed line-clamp-3 mb-3">{insight.description}</p>
+                </div>
+                
+                {insight.savingsPotential && insight.savingsPotential > 0 && (
+                    <div className="bg-emerald-50 p-2 rounded-lg flex items-center gap-2 text-emerald-800 text-[10px] font-bold">
+                        <BadgePercent size={12} />
+                        R$ {insight.savingsPotential.toLocaleString('pt-BR')}
+                    </div>
+                )}
+
+                {insight.relatedTransactionId && (
+                    <button 
+                        onClick={() => {
+                            const t = transactions.find(tr => tr.id === insight.relatedTransactionId);
+                            if (t) {
+                                setEditingTransaction(t);
+                                setFormData({
+                                    ...t,
+                                    amount: insight.suggestedAmount || t.amount
+                                });
+                                setIsModalOpen(true);
+                            }
+                        }}
+                        className="mt-2 w-full py-2 border border-zinc-200 text-zinc-600 active:text-zinc-900 active:border-zinc-900 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1.5"
+                    >
+                        <Edit2 size={10} />
+                        Ajustar
+                    </button>
+                )}
+                </div>
+            ))}
+             {insights.length === 0 && !loading && (
+                <div className="p-6 w-full text-center text-zinc-400 text-xs">
+                    Nenhum insight gerado.
                 </div>
              )}
         </div>
+        </>
       )}
 
       {/* Subscription List */}
       <div>
-         <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-bold text-zinc-800">Assinaturas Detectadas</h3>
+         {/* Header - Desktop */}
+         <div className="hidden md:flex justify-between items-center mb-6">
+            <h3 className="text-lg font-bold text-zinc-800">Suas Assinaturas e Gastos Recorrentes</h3>
             <button 
                 onClick={handleAddClick}
                 className="flex items-center gap-2 text-sm font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-4 py-2 rounded-xl transition-colors"
             >
-                <Plus size={16} /> Adicionar
+                <Plus size={16} /> Adicionar Assinatura
             </button>
          </div>
          
-         <div className="space-y-3">
+         {/* Header - Mobile */}
+         <div className="md:hidden flex justify-between items-center mb-4">
+            <h3 className="text-sm font-bold text-zinc-800">Assinaturas</h3>
+            <button 
+                onClick={handleAddClick}
+                className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 active:text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors"
+            >
+                <Plus size={14} />
+            </button>
+         </div>
+         
+         {/* Desktop List */}
+         <div className="hidden md:block space-y-3">
             {transactions.filter(t => t.isRecurring).map(t => {
                 const iconConfig = getIconForTransaction(t.description, t.category);
                 const IconComponent = iconConfig.icon;
                 
                 return (
-                <div key={t.id} className={`flex items-center justify-between bg-white p-4 rounded-2xl border transition-all group ${t.isAiGenerated ? 'border-emerald-200' : 'border-zinc-100'}`}>
-                    <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${t.isAiGenerated ? 'bg-emerald-100' : iconConfig.bgColor}`}>
-                            {t.isAiGenerated ? (
-                                <Wand2 size={16} className="text-emerald-600" />
-                            ) : (
-                                <IconComponent size={18} className={iconConfig.iconColor} />
-                            )}
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <p className="font-bold text-zinc-800">{t.description}</p>
-                                {t.isAiGenerated && (
-                                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full">IA</span>
-                                )}
-                                {t.linkedToInvoice && t.creditCardIssuer && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-[9px] font-bold rounded-full" title={`Vinculado à fatura ${t.creditCardIssuer}`}>
-                                        <Link2 size={9} /> {t.creditCardIssuer}
-                                    </span>
-                                )}
-                            </div>
-                            <p className="text-xs text-zinc-400">Recorrente • {new Date(t.date).toLocaleDateString('pt-BR')}</p>
-                        </div>
+                <div key={t.id} className={`flex items-center gap-4 bg-white p-5 rounded-2xl border transition-all group hover:shadow-md ${t.isAiGenerated ? 'border-emerald-200' : 'border-zinc-100'}`}>
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${t.isAiGenerated ? 'bg-emerald-100' : iconConfig.bgColor}`}>
+                        {t.isAiGenerated ? (
+                            <Wand2 size={20} className="text-emerald-600" />
+                        ) : (
+                            <IconComponent size={22} className={iconConfig.iconColor} />
+                        )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="font-bold text-base text-zinc-800">{t.description}</p>
+                        <p className="text-sm text-zinc-400">
+                            {t.linkedToInvoice && t.creditCardIssuer ? `Vinculado ao ${t.creditCardIssuer}` : 'Gasto recorrente mensal'}
+                        </p>
                     </div>
                     
-                    <div className="flex items-center gap-4">
-                        <span className="font-bold text-zinc-900">R$ {t.amount.toLocaleString('pt-BR')}</span>
+                    <div className="flex items-center gap-6 shrink-0">
+                        <span className="font-bold text-lg text-zinc-900">R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={() => handleEditClick(t)} className="p-2 text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 rounded-lg transition-colors">
-                                <Edit2 size={16} />
+                                <Edit2 size={18} />
                             </button>
                             <button 
                                 onClick={() => handleDeleteClick(t.id)} 
-                                className={`p-2 rounded-lg transition-all flex items-center gap-2 ${deleteConfirmationId === t.id ? 'bg-rose-100 text-rose-600 px-3' : 'text-zinc-400 hover:text-rose-600 hover:bg-rose-50'}`}
+                                className={`p-2 rounded-lg transition-all ${deleteConfirmationId === t.id ? 'bg-rose-100 text-rose-600' : 'text-zinc-400 hover:text-rose-600 hover:bg-rose-50'}`}
                             >
-                                {deleteConfirmationId === t.id ? <span className="text-xs font-bold">Confirmar?</span> : <Trash2 size={16} />}
+                                <Trash2 size={18} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                );
+            })}
+         </div>
+         
+         {/* Mobile List */}
+         <div className="md:hidden space-y-2">
+            {transactions.filter(t => t.isRecurring).map(t => {
+                const iconConfig = getIconForTransaction(t.description, t.category);
+                const IconComponent = iconConfig.icon;
+                
+                return (
+                <div key={t.id} className={`flex items-center gap-2 bg-white p-3 rounded-xl border transition-all group ${t.isAiGenerated ? 'border-emerald-200' : 'border-zinc-100'}`}>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${t.isAiGenerated ? 'bg-emerald-100' : iconConfig.bgColor}`}>
+                        {t.isAiGenerated ? (
+                            <Wand2 size={14} className="text-emerald-600" />
+                        ) : (
+                            <IconComponent size={14} className={iconConfig.iconColor} />
+                        )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="font-bold text-xs text-zinc-800 truncate">{t.description}</p>
+                        <p className="text-[10px] text-zinc-400 truncate">
+                            {t.linkedToInvoice && t.creditCardIssuer ? t.creditCardIssuer : 'Recorrente'}
+                        </p>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-bold text-xs text-zinc-900">R$ {t.amount.toLocaleString('pt-BR')}</span>
+                        <div className="flex gap-1">
+                            <button onClick={() => handleEditClick(t)} className="p-1.5 text-zinc-400 active:text-zinc-800 active:bg-zinc-100 rounded-md transition-colors">
+                                <Edit2 size={14} />
+                            </button>
+                            <button 
+                                onClick={() => handleDeleteClick(t.id)} 
+                                className={`p-1.5 rounded-md transition-all ${deleteConfirmationId === t.id ? 'bg-rose-100 text-rose-600' : 'text-zinc-400 active:text-rose-600 active:bg-rose-50'}`}
+                            >
+                                <Trash2 size={14} />
                             </button>
                         </div>
                     </div>
@@ -310,10 +429,18 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions, onUpdate, o
                 );
             })}
             {transactions.filter(t => t.isRecurring).length === 0 && (
-                <div className="text-center py-10 bg-zinc-50 rounded-3xl border border-dashed border-zinc-200">
-                    <p className="text-zinc-400 text-sm italic">Nenhuma assinatura detectada.</p>
-                    <button onClick={handleAddClick} className="mt-2 text-emerald-600 font-bold text-sm hover:underline">Adicionar manualmente</button>
+                <>
+                {/* Desktop Empty State */}
+                <div className="hidden md:block text-center py-10 bg-zinc-50 rounded-3xl border border-dashed border-zinc-200">
+                    <p className="text-zinc-400 text-sm italic">Nenhuma assinatura ou gasto recorrente detectado.</p>
+                    <button onClick={handleAddClick} className="mt-3 text-emerald-600 font-bold text-sm hover:text-emerald-700">+ Adicionar primeira assinatura</button>
                 </div>
+                {/* Mobile Empty State */}
+                <div className="md:hidden text-center py-6 bg-zinc-50 rounded-xl border border-dashed border-zinc-200">
+                    <p className="text-zinc-400 text-xs italic">Nenhuma assinatura detectada.</p>
+                    <button onClick={handleAddClick} className="mt-2 text-emerald-600 font-bold text-xs">Adicionar</button>
+                </div>
+                </>
             )}
          </div>
       </div>

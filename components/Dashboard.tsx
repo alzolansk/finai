@@ -116,136 +116,128 @@ const Dashboard: React.FC<DashboardProps> = ({
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn pb-20">
+    <div className="space-y-4 md:space-y-6 animate-fadeIn pb-20">
       
-      {/* Header & Date Navigation */}
-      <div className="flex flex-col md:flex-row justify-between items-end md:items-center mb-8 gap-4">
+      {/* Header & Date Navigation - Mobile Optimized */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-3 md:gap-4">
         <div>
-           <h2 className="text-4xl font-light text-zinc-900 tracking-tight">
+           <h2 className="text-2xl md:text-4xl font-light text-zinc-900 tracking-tight">
               Visão Geral
            </h2>
-           <p className="text-zinc-500 mt-1">Seu fluxo de caixa (Regime de Caixa).</p>
+           <p className="text-zinc-500 text-xs md:text-base mt-0.5 md:mt-1">Seu fluxo de caixa</p>
         </div>
 
-        <div className="flex items-center gap-4 bg-white p-2 rounded-2xl shadow-sm border border-zinc-100">
-           <button onClick={handlePrevMonth} className="p-2 hover:bg-zinc-100 rounded-xl transition-colors text-zinc-600">
-             <ChevronLeft size={20} />
+        <div className="flex items-center bg-white p-1 md:p-2 rounded-lg md:rounded-2xl shadow-sm border border-zinc-100 shrink-0">
+           <button onClick={handlePrevMonth} className="p-1.5 md:p-2 active:bg-zinc-100 md:hover:bg-zinc-100 rounded-md md:rounded-xl transition-colors text-zinc-600">
+             <ChevronLeft size={16} className="md:w-5 md:h-5" />
            </button>
-           <div className="flex items-center gap-2 px-2 min-w-[140px] justify-center">
-             <Calendar size={16} className="text-emerald-600" />
-             <span className="font-bold text-zinc-800 capitalize">
+           <div className="flex items-center gap-1 md:gap-2 px-1.5 md:px-4 min-w-[80px] md:min-w-[140px] justify-center">
+             <Calendar size={12} className="md:w-4 md:h-4 text-emerald-600 hidden sm:block" />
+             <span className="font-bold text-xs md:text-base text-zinc-800 capitalize whitespace-nowrap">
                 {getMonthName(currentDate)}
              </span>
            </div>
-           <button onClick={handleNextMonth} className="p-2 hover:bg-zinc-100 rounded-xl transition-colors text-zinc-600">
-             <ChevronRight size={20} />
+           <button onClick={handleNextMonth} className="p-1.5 md:p-2 active:bg-zinc-100 md:hover:bg-zinc-100 rounded-md md:rounded-xl transition-colors text-zinc-600">
+             <ChevronRight size={16} className="md:w-5 md:h-5" />
            </button>
         </div>
       </div>
 
-      {/* Smart Alerts Section */}
+      {/* Smart Alerts Section - Hidden on mobile, compact on tablet+ */}
       {bodyAlerts.length > 0 && (
-        <div className="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {bodyAlerts.map(alert => (
-            <div key={alert.id} className={`p-4 rounded-2xl border flex items-start gap-3 ${
+        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+          {bodyAlerts.slice(0, 3).map(alert => (
+            <div key={alert.id} className={`p-3 rounded-xl border flex items-center gap-2 ${
               alert.type === 'danger' ? 'bg-rose-50 border-rose-100 text-rose-900' :
               alert.type === 'warning' ? 'bg-orange-50 border-orange-100 text-orange-900' :
               'bg-blue-50 border-blue-100 text-blue-900'
             }`}>
-              <div className={`p-2 rounded-lg shrink-0 ${
+              <div className={`p-1.5 rounded-lg shrink-0 ${
                  alert.type === 'danger' ? 'bg-rose-100 text-rose-600' :
                  alert.type === 'warning' ? 'bg-orange-100 text-orange-600' :
                  'bg-blue-100 text-blue-600'
               }`}>
-                <AlertTriangle size={18} />
+                <AlertTriangle size={14} />
               </div>
-              <div>
-                <h4 className="font-bold text-sm mb-1">{alert.title}</h4>
-                <p className="text-xs opacity-80 mb-2">{alert.message}</p>
-                {alert.action && (
-                  <button className="text-xs font-bold underline hover:opacity-70">
-                    {alert.action}
-                  </button>
-                )}
-              </div>
+              <p className="text-xs font-medium truncate flex-1">{alert.title}</p>
             </div>
           ))}
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6 items-start">
 
         {/* Left Column - Main Stats & Goals */}
-        <div className="lg:col-span-3 flex flex-col gap-6">
+        <div className="lg:col-span-3 flex flex-col gap-4 md:gap-6">
             
-            {/* Top Cards Grid - Height h-56 (approx 14rem/224px) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Balance Card */}
-                <div className="bg-zinc-900 text-white p-8 rounded-3xl shadow-2xl flex flex-col justify-between h-56 relative overflow-hidden group transition-all hover:scale-[1.01]">
+            {/* Top Cards Grid - Mobile: Stack, Desktop: 3 cols */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
+                {/* Balance Card - Full width on mobile */}
+                <div className="sm:col-span-2 md:col-span-1 bg-zinc-900 text-white p-5 md:p-8 rounded-2xl md:rounded-3xl shadow-xl md:shadow-2xl flex flex-col justify-between min-h-[140px] md:h-56 relative overflow-hidden group transition-all active:scale-[0.98]">
                     <div className="relative z-10">
-                        <div className="flex justify-between items-start mb-6">
-                            <div className="w-12 h-12 bg-zinc-800 rounded-2xl flex items-center justify-center text-emerald-400 border border-zinc-700 shadow-md">
-                                <Wallet size={24} />
+                        <div className="flex justify-between items-start mb-3 md:mb-6">
+                            <div className="w-10 h-10 md:w-12 md:h-12 bg-zinc-800 rounded-xl md:rounded-2xl flex items-center justify-center text-emerald-400 border border-zinc-700 shadow-md">
+                                <Wallet size={20} className="md:w-6 md:h-6" />
                             </div>
-                            <div className="px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs font-medium text-zinc-400">
+                            <div className="px-2 py-0.5 md:px-3 md:py-1 rounded-full bg-zinc-800 border border-zinc-700 text-[10px] md:text-xs font-medium text-zinc-400">
                                 {period === 'month' ? 'Mensal' : 'Anual'}
                             </div>
                         </div>
-                        <p className="text-zinc-400 text-sm font-medium mb-1">Saldo Líquido</p>
-                        <h3 className="text-4xl font-bold tracking-tight">
+                        <p className="text-zinc-400 text-xs md:text-sm font-medium mb-0.5 md:mb-1">Saldo Líquido</p>
+                        <h3 className="text-2xl md:text-4xl font-bold tracking-tight">
                         R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </h3>
                     </div>
-                    {/* Background decor */}
-                    <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-zinc-800 rounded-full blur-2xl opacity-50 group-hover:opacity-70 transition-opacity duration-700"></div>
+                    {/* Background decor - hidden on mobile */}
+                    <div className="hidden md:block absolute -right-10 -bottom-10 w-48 h-48 bg-zinc-800 rounded-full blur-2xl opacity-50"></div>
                 </div>
 
                 {/* Income Card */}
-                <div className="bg-white p-8 rounded-3xl border border-zinc-100 shadow-sm flex flex-col justify-center gap-4 hover:border-emerald-200 hover:shadow-emerald-500/10 transition-all group h-56">
+                <div className="bg-white p-4 md:p-8 rounded-2xl md:rounded-3xl border border-zinc-100 shadow-sm flex flex-col justify-center gap-2 md:gap-4 active:border-emerald-200 md:hover:border-emerald-200 transition-all group min-h-[100px] md:h-56">
                     <div className="flex items-center justify-between">
-                        <div className="p-2 bg-emerald-50 rounded-xl text-emerald-600 group-hover:scale-110 transition-transform"><ArrowUpRight size={24} /></div>
-                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">Receitas</span>
+                        <div className="p-1.5 md:p-2 bg-emerald-50 rounded-lg md:rounded-xl text-emerald-600"><ArrowUpRight size={18} className="md:w-6 md:h-6" /></div>
+                        <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-1.5 py-0.5 md:px-2 md:py-1 rounded-md md:rounded-lg">Receitas</span>
                     </div>
                     <div>
-                        <p className="text-zinc-400 text-sm mb-1">Entradas</p>
-                        <p className="text-3xl font-bold text-zinc-900">R$ {totalIncome.toLocaleString('pt-BR')}</p>
+                        <p className="text-zinc-400 text-xs md:text-sm mb-0.5 md:mb-1">Entradas</p>
+                        <p className="text-xl md:text-3xl font-bold text-zinc-900">R$ {totalIncome.toLocaleString('pt-BR')}</p>
                     </div>
                 </div>
 
                 {/* Expense Card */}
-                <div className="bg-white p-8 rounded-3xl border border-zinc-100 shadow-sm flex flex-col justify-center gap-4 hover:border-rose-200 hover:shadow-rose-500/10 transition-all group h-56">
+                <div className="bg-white p-4 md:p-8 rounded-2xl md:rounded-3xl border border-zinc-100 shadow-sm flex flex-col justify-center gap-2 md:gap-4 active:border-rose-200 md:hover:border-rose-200 transition-all group min-h-[100px] md:h-56">
                     <div className="flex items-center justify-between">
-                         <div className="p-2 bg-rose-50 rounded-xl text-rose-600 group-hover:scale-110 transition-transform"><TrendingDown size={24} /></div>
-                         <span className="text-xs font-bold uppercase tracking-wider text-rose-700 bg-rose-50 px-2 py-1 rounded-lg">Despesas</span>
+                         <div className="p-1.5 md:p-2 bg-rose-50 rounded-lg md:rounded-xl text-rose-600"><TrendingDown size={18} className="md:w-6 md:h-6" /></div>
+                         <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-rose-700 bg-rose-50 px-1.5 py-0.5 md:px-2 md:py-1 rounded-md md:rounded-lg">Despesas</span>
                     </div>
                     <div>
-                        <p className="text-zinc-400 text-sm mb-1">Saídas</p>
-                        <p className="text-3xl font-bold text-zinc-900">R$ {totalExpense.toLocaleString('pt-BR')}</p>
+                        <p className="text-zinc-400 text-xs md:text-sm mb-0.5 md:mb-1">Saídas</p>
+                        <p className="text-xl md:text-3xl font-bold text-zinc-900">R$ {totalExpense.toLocaleString('pt-BR')}</p>
                     </div>
                 </div>
             </div>
 
-            {/* Charts & Goals Row - Fixed Height h-80 (20rem/320px) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-80">
+            {/* Charts & Goals Row - Responsive height */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6 md:h-80">
                 {/* Goal Widget */}
                 {settings && period === 'month' && (
-                    <div className="bg-white rounded-3xl p-8 shadow-sm border border-zinc-100 relative overflow-hidden flex flex-col justify-center hover:shadow-lg transition-all hover:border-zinc-200 h-full">
-                        <div className="flex items-center gap-3 mb-6 relative z-10">
-                            <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
-                                <Target size={20} />
+                    <div className="bg-white rounded-2xl md:rounded-3xl p-4 md:p-8 shadow-sm border border-zinc-100 relative overflow-hidden flex flex-col justify-center transition-all h-auto md:h-full">
+                        <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-6 relative z-10">
+                            <div className="p-1.5 md:p-2 bg-emerald-50 rounded-lg text-emerald-600">
+                                <Target size={16} className="md:w-5 md:h-5" />
                             </div>
-                            <h3 className="font-bold text-zinc-800 text-lg">Meta Mensal</h3>
+                            <h3 className="font-bold text-zinc-800 text-sm md:text-lg">Meta Mensal</h3>
                         </div>
                         
                         <div className="relative z-10">
                             <div className="flex justify-between items-end mb-2">
-                                <span className={`text-3xl font-bold ${isGoalReached ? 'text-emerald-600' : 'text-zinc-900'}`}>
+                                <span className={`text-xl md:text-3xl font-bold ${isGoalReached ? 'text-emerald-600' : 'text-zinc-900'}`}>
                                     R$ {Math.max(0, savings).toLocaleString('pt-BR')}
                                 </span>
-                                <span className="text-zinc-400 font-medium text-sm mb-1">/ R$ {settings.savingsGoal.toLocaleString('pt-BR')}</span>
+                                <span className="text-zinc-400 font-medium text-[10px] md:text-sm mb-0.5 md:mb-1">/ R$ {settings.savingsGoal.toLocaleString('pt-BR')}</span>
                             </div>
 
-                            <div className="w-full bg-zinc-100 rounded-full h-4 mb-3 overflow-hidden">
+                            <div className="w-full bg-zinc-100 rounded-full h-2.5 md:h-4 mb-2 md:mb-3 overflow-hidden">
                                 <div 
                                     className={`h-full rounded-full transition-all duration-1000 ease-out ${isGoalReached ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-zinc-800'}`}
                                     style={{ width: `${Math.min(100, Math.max(0, goalProgress))}%` }}
@@ -262,38 +254,67 @@ const Dashboard: React.FC<DashboardProps> = ({
                 )}
 
                 {/* Categories Chart */}
-                <div className={`bg-white p-8 rounded-3xl shadow-sm border border-zinc-100 flex flex-col hover:shadow-lg transition-all hover:border-zinc-200 h-full ${(!settings || period !== 'month') ? 'col-span-2' : ''}`}>
-                    <h3 className="text-lg font-bold text-zinc-800 mb-2">Distribuição</h3>
-                    <div className="flex-1 flex items-center justify-center relative min-h-[200px]">
+                <div className={`bg-white p-4 md:p-8 rounded-2xl md:rounded-3xl shadow-sm border border-zinc-100 flex flex-col transition-all h-auto md:h-full ${(!settings || period !== 'month') ? 'col-span-1 md:col-span-2' : ''}`}>
+                    <h3 className="text-sm md:text-lg font-bold text-zinc-800 mb-2 md:mb-4">Distribuição por Categoria</h3>
+                    <div className="flex-1 flex items-center justify-center relative min-h-[150px] md:min-h-[250px]">
                         {dataByCategory.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={dataByCategory}
-                                        innerRadius={60}
-                                        outerRadius={80}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                        stroke="none"
-                                    >
-                                        {dataByCategory.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <RechartsTooltip 
-                                        formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR')}`}
-                                        contentStyle={{ background: '#18181b', border: 'none', borderRadius: '12px', color: '#fff' }}
-                                        itemStyle={{ color: '#fff' }}
-                                    />
-                                </PieChart>
-                            </ResponsiveContainer>
+                            <>
+                            {/* Mobile Chart */}
+                            <div className="md:hidden w-full h-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={dataByCategory}
+                                            innerRadius={40}
+                                            outerRadius={60}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                            stroke="none"
+                                        >
+                                            {dataByCategory.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <RechartsTooltip 
+                                            formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR')}`}
+                                            contentStyle={{ background: '#18181b', border: 'none', borderRadius: '12px', color: '#fff', fontSize: '12px' }}
+                                            itemStyle={{ color: '#fff' }}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                            {/* Desktop Chart */}
+                            <div className="hidden md:block w-full h-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={dataByCategory}
+                                            innerRadius={70}
+                                            outerRadius={100}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                            stroke="none"
+                                        >
+                                            {dataByCategory.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <RechartsTooltip 
+                                            formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR')}`}
+                                            contentStyle={{ background: '#18181b', border: 'none', borderRadius: '12px', color: '#fff', fontSize: '14px' }}
+                                            itemStyle={{ color: '#fff' }}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                            </>
                         ) : (
-                            <p className="text-zinc-400 text-sm">Sem dados.</p>
+                            <p className="text-zinc-400 text-xs md:text-sm">Sem dados.</p>
                         )}
                          {dataByCategory.length > 0 && (
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none flex-col">
-                                <span className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Maior</span>
-                                <span className="text-sm font-bold text-zinc-800">{dataByCategory[0].name.substring(0, 10)}</span>
+                                <span className="text-[8px] md:text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Maior</span>
+                                <span className="text-xs md:text-base font-bold text-zinc-800">{dataByCategory[0].name.substring(0, 10)}</span>
                             </div>
                         )}
                     </div>
@@ -317,18 +338,18 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         {/* Right Column - History & Forecast */}
-        <div className="lg:col-span-1 flex flex-col gap-6">
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-zinc-100 flex flex-col hover:shadow-lg transition-all hover:border-zinc-200 lg:h-[568px] h-auto">
-            <h3 className="text-xl font-bold text-zinc-800 mb-6 flex items-center gap-2 shrink-0">
-                <ArrowDownRight className="text-zinc-400" size={20} />
+        <div className="lg:col-span-1 flex flex-col gap-4 md:gap-6">
+            <div className="bg-white p-4 md:p-6 rounded-2xl md:rounded-3xl shadow-sm border border-zinc-100 flex flex-col transition-all lg:h-[568px] h-auto max-h-[400px] lg:max-h-none">
+            <h3 className="text-base md:text-xl font-bold text-zinc-800 mb-3 md:mb-6 flex items-center gap-2 shrink-0">
+                <ArrowDownRight className="text-zinc-400" size={16} />
                 Recentes
             </h3>
             
-            <div className="flex-1 overflow-y-auto space-y-4 pr-2 scrollbar-hide">
+            <div className="flex-1 overflow-y-auto space-y-2 md:space-y-4 pr-1 md:pr-2 scrollbar-hide">
                 {filteredTransactions.length === 0 && (
-                    <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
-                        <Wallet className="text-zinc-400 mb-2 w-10 h-10"/>
-                        <p className="text-zinc-400 text-sm">Sem dados no período.</p>
+                    <div className="h-full flex flex-col items-center justify-center text-center opacity-50 py-8">
+                        <Wallet className="text-zinc-400 mb-2 w-8 h-8 md:w-10 md:h-10"/>
+                        <p className="text-zinc-400 text-xs md:text-sm">Sem dados no período.</p>
                     </div>
                 )}
                 {filteredTransactions
@@ -337,7 +358,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                        const dateB = new Date(b.paymentDate || b.date).getTime();
                        return dateB - dateA;
                     })
-                    .slice(0, 50) 
+                    .slice(0, 8) 
                     .map(t => {
                         const effectiveDate = t.paymentDate || t.date;
                         const isScheduled = t.paymentDate && t.paymentDate !== t.date && new Date(t.paymentDate) > new Date(t.date);
@@ -346,24 +367,24 @@ const Dashboard: React.FC<DashboardProps> = ({
                         const IconComponent = iconConfig.icon;
                         
                         return (
-                            <div key={t.id} className="flex justify-between items-center gap-3 group p-3 hover:bg-zinc-50 rounded-2xl transition-all cursor-default hover:scale-[1.02] active:scale-[0.98]">
-                                <div className="flex items-center gap-4 min-w-0 flex-1">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm transition-all shrink-0 ${t.type === TransactionType.INCOME ? 'bg-emerald-100 group-hover:bg-emerald-200' : iconConfig.bgColor + ' group-hover:brightness-95'}`}>
-                                        <IconComponent size={20} className={t.type === TransactionType.INCOME ? 'text-emerald-600' : iconConfig.iconColor} />
+                            <div key={t.id} className="flex justify-between items-center gap-2 md:gap-3 group p-2 md:p-3 active:bg-zinc-50 md:hover:bg-zinc-50 rounded-xl md:rounded-2xl transition-all cursor-default active:scale-[0.98]">
+                                <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
+                                    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center shadow-sm transition-all shrink-0 ${t.type === TransactionType.INCOME ? 'bg-emerald-100' : iconConfig.bgColor}`}>
+                                        <IconComponent size={16} className={`md:w-5 md:h-5 ${t.type === TransactionType.INCOME ? 'text-emerald-600' : iconConfig.iconColor}`} />
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <p className="text-sm font-bold text-zinc-800 group-hover:text-emerald-600 transition-colors truncate" title={t.description}>{t.description}</p>
+                                        <p className="text-xs md:text-sm font-bold text-zinc-800 transition-colors truncate" title={t.description}>{t.description}</p>
                                         <div className="flex items-center gap-1">
-                                           <p className="text-[10px] text-zinc-400 uppercase tracking-wide font-medium truncate">{t.category}</p>
-                                           {isScheduled && <Clock size={10} className="text-orange-400 shrink-0" />}
+                                           <p className="text-[9px] md:text-[10px] text-zinc-400 uppercase tracking-wide font-medium truncate">{t.category}</p>
+                                           {isScheduled && <Clock size={8} className="md:w-2.5 md:h-2.5 text-orange-400 shrink-0" />}
                                         </div>
                                     </div>
                                 </div>
                                 <div className="text-right shrink-0">
-                                    <span className={`text-sm font-bold block whitespace-nowrap ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-zinc-800'}`}>
+                                    <span className={`text-xs md:text-sm font-bold block whitespace-nowrap ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-zinc-800'}`}>
                                         {t.type === TransactionType.EXPENSE && '- '}R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                     </span>
-                                    <span className="text-[10px] text-zinc-300">{new Date(effectiveDate).toLocaleDateString('pt-BR', {day: '2-digit', month:'2-digit'})}</span>
+                                    <span className="text-[9px] md:text-[10px] text-zinc-300">{new Date(effectiveDate).toLocaleDateString('pt-BR', {day: '2-digit', month:'2-digit'})}</span>
                                 </div>
                             </div>
                         );
@@ -372,7 +393,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             
             <button
                 onClick={onViewAllHistory}
-                className="w-full mt-6 py-3 text-sm font-bold text-zinc-500 hover:bg-zinc-50 rounded-xl transition-colors hover:text-zinc-900 border border-transparent hover:border-zinc-200 shrink-0"
+                className="w-full mt-4 md:mt-6 py-2.5 md:py-3 text-xs md:text-sm font-bold text-zinc-500 active:bg-zinc-50 md:hover:bg-zinc-50 rounded-lg md:rounded-xl transition-colors active:text-zinc-900 md:hover:text-zinc-900 border border-zinc-200 md:border-transparent md:hover:border-zinc-200 shrink-0"
             >
                 Ver Extrato Completo
             </button>

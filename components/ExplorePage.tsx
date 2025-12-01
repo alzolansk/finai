@@ -428,14 +428,21 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
 
   return (
     <div className="animate-fadeIn pb-20">
-      <div className="mb-6">
+      {/* Header - Desktop */}
+      <div className="hidden md:block mb-6">
         <h2 className="text-3xl font-light text-zinc-800 mb-2">Explorar</h2>
         <p className="text-zinc-500 text-sm">Busca avançada e filtros customizados</p>
       </div>
+      
+      {/* Header - Mobile */}
+      <div className="md:hidden mb-4">
+        <h2 className="text-xl font-light text-zinc-800 mb-1">Explorar</h2>
+        <p className="text-zinc-500 text-[10px]">Busca avançada e filtros</p>
+      </div>
 
-      {/* Search and Quick Actions */}
-      <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 p-6 mb-4">
-        <div className="flex flex-col md:flex-row gap-3 mb-4">
+      {/* Search and Quick Actions - Desktop */}
+      <div className="hidden md:block bg-white rounded-3xl shadow-sm border border-zinc-100 p-6 mb-4">
+        <div className="flex gap-3 mb-4">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-400" size={18} />
             <input
@@ -459,7 +466,6 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
           </button>
         </div>
 
-        {/* Quick Filters */}
         <div className="flex flex-wrap gap-2">
           {quickFilters.map((filter, idx) => (
             <button
@@ -477,6 +483,54 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
             >
               <X size={12} />
               Limpar Tudo
+            </button>
+          )}
+        </div>
+      </div>
+      
+      {/* Search and Quick Actions - Mobile */}
+      <div className="md:hidden bg-white rounded-xl shadow-sm border border-zinc-100 p-3 mb-3">
+        <div className="flex gap-2 mb-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-zinc-400" size={16} />
+            <input
+              type="text"
+              placeholder="Buscar..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all text-xs"
+            />
+          </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`px-3 py-2.5 rounded-lg font-medium text-xs transition-all flex items-center gap-1.5 shrink-0 ${
+              showFilters
+                ? 'bg-emerald-600 text-white'
+                : 'bg-zinc-100 text-zinc-700 active:bg-zinc-200'
+            }`}
+          >
+            <Filter size={16} />
+            {activeFilterCount > 0 && `(${activeFilterCount})`}
+          </button>
+        </div>
+
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-3 px-3 pb-1">
+          {quickFilters.map((filter, idx) => (
+            <button
+              key={idx}
+              onClick={filter.action}
+              className="px-2.5 py-1.5 bg-zinc-50 active:bg-zinc-100 text-zinc-600 text-[10px] rounded-lg transition-all whitespace-nowrap shrink-0"
+            >
+              {filter.label}
+            </button>
+          ))}
+          {activeFilterCount > 0 && (
+            <button
+              onClick={clearAllFilters}
+              className="px-2.5 py-1.5 bg-rose-50 active:bg-rose-100 text-rose-600 text-[10px] rounded-lg transition-all flex items-center gap-1 whitespace-nowrap shrink-0"
+            >
+              <X size={10} />
+              Limpar
             </button>
           )}
         </div>
@@ -713,13 +767,13 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
       )}
 
       {/* Results */}
-      <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 overflow-hidden">
-        <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
+      <div className="bg-white rounded-xl md:rounded-3xl shadow-sm border border-zinc-100 overflow-hidden">
+        {/* Results Header - Desktop */}
+        <div className="hidden md:flex p-6 border-b border-zinc-100 items-center justify-between">
           <h3 className="text-lg font-bold text-zinc-800">
             {filteredTransactions.length} {filteredTransactions.length === 1 ? 'resultado' : 'resultados'}
           </h3>
 
-          {/* View Mode Toggle */}
           <div className="inline-flex bg-zinc-100 rounded-lg p-0.5">
             <button
               type="button"
@@ -756,6 +810,49 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
             </button>
           </div>
         </div>
+        
+        {/* Results Header - Mobile */}
+        <div className="md:hidden p-3 border-b border-zinc-100 flex flex-col gap-2">
+          <h3 className="text-sm font-bold text-zinc-800">
+            {filteredTransactions.length} {filteredTransactions.length === 1 ? 'resultado' : 'resultados'}
+          </h3>
+
+          <div className="inline-flex bg-zinc-100 rounded-lg p-0.5 w-full">
+            <button
+              type="button"
+              onClick={() => setViewMode('itemized')}
+              className={`px-3 py-1.5 rounded-md text-[10px] font-medium transition-all whitespace-nowrap flex-1 ${
+                viewMode === 'itemized'
+                  ? 'bg-white text-zinc-900 shadow-sm'
+                  : 'text-zinc-500 active:text-zinc-800'
+              }`}
+            >
+              Itemizado
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('invoices')}
+              className={`px-3 py-1.5 rounded-md text-[10px] font-medium transition-all whitespace-nowrap flex-1 ${
+                viewMode === 'invoices'
+                  ? 'bg-white text-zinc-900 shadow-sm'
+                  : 'text-zinc-500 active:text-zinc-800'
+              }`}
+            >
+              Por Faturas
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('tags')}
+              className={`px-3 py-1.5 rounded-md text-[10px] font-medium transition-all whitespace-nowrap flex-1 ${
+                viewMode === 'tags'
+                  ? 'bg-white text-zinc-900 shadow-sm'
+                  : 'text-zinc-500 active:text-zinc-800'
+              }`}
+            >
+              Por Tags
+            </button>
+          </div>
+        </div>
 
         <div className="divide-y divide-zinc-100">
           {filteredTransactions.length === 0 ? (
@@ -770,61 +867,114 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
               const dateLabel = dateFieldMode === 'payment' ? 'Vencimento' : 'Compra';
 
               return (
-                <div key={t.id} className="p-6 hover:bg-zinc-50 transition-colors group">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                <div key={t.id}>
+                  {/* Desktop Row */}
+                  <div className="hidden md:flex p-6 hover:bg-zinc-50 transition-colors group">
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                          t.type === TransactionType.INCOME ? 'bg-emerald-100' : iconConfig.bgColor
+                        }`}>
+                          <IconComponent size={24} className={
+                            t.type === TransactionType.INCOME ? 'text-emerald-600' : iconConfig.iconColor
+                          } />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-bold text-zinc-800">{t.description}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="bg-zinc-100 px-2 py-0.5 rounded text-[10px] text-zinc-500 font-medium uppercase">
+                              {t.category}
+                            </span>
+                            <span className="text-xs text-zinc-400">{dateLabel}: {formatDate(baseDateValue)}</span>
+                            {t.isReimbursable && (
+                              <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
+                                💰 {t.reimbursedBy || 'Reembolsável'}
+                              </span>
+                            )}
+                            {t.tags && t.tags.length > 0 && (
+                              <div className="flex gap-1">
+                                {t.tags.map(tag => (
+                                  <span key={tag} className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-[10px] font-medium">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className={`font-bold text-lg ${
+                          t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-zinc-900'
+                        }`}>
+                          {t.type === TransactionType.EXPENSE && '- '}
+                          R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                        <button
+                          onClick={() => openTagDialog(t)}
+                          className="p-2 text-zinc-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          title="Adicionar Tags"
+                        >
+                          <Tag size={18} />
+                        </button>
+                        <button
+                          onClick={() => onDelete(t.id)}
+                          className="p-2 text-zinc-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          title="Excluir"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Mobile Row */}
+                  <div className="md:hidden p-3 active:bg-zinc-50 transition-colors">
+                    <div className="flex items-start gap-3">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
                         t.type === TransactionType.INCOME ? 'bg-emerald-100' : iconConfig.bgColor
                       }`}>
-                        <IconComponent size={24} className={
+                        <IconComponent size={18} className={
                           t.type === TransactionType.INCOME ? 'text-emerald-600' : iconConfig.iconColor
                         } />
                       </div>
-                      <div className="flex-1">
-                        <p className="font-bold text-zinc-800">{t.description}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="bg-zinc-100 px-2 py-0.5 rounded text-[10px] text-zinc-500 font-medium uppercase">
-                            {t.category}
-                          </span>
-                          <span className="text-xs text-zinc-400">{dateLabel}: {formatDate(baseDateValue)}</span>
-                          {t.isReimbursable && (
-                            <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
-                              💰 {t.reimbursedBy || 'Reembolsável'}
-                            </span>
-                          )}
-                          {t.tags && t.tags.length > 0 && (
-                            <div className="flex gap-1">
-                              {t.tags.map(tag => (
-                                <span key={tag} className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-[10px] font-medium">
-                                  {tag}
-                                </span>
-                              ))}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-zinc-800 text-sm truncate">{t.description}</p>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                              <span className="bg-zinc-100 px-1.5 py-0.5 rounded text-[9px] text-zinc-500 font-medium uppercase">
+                                {t.category}
+                              </span>
+                              <span className="text-[10px] text-zinc-400">
+                                {new Date(baseDateValue).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                              </span>
                             </div>
-                          )}
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className={`font-bold text-sm ${
+                              t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-zinc-900'
+                            }`}>
+                              {t.type === TransactionType.EXPENSE && '-'}
+                              R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            </span>
+                            <button
+                              onClick={() => openTagDialog(t)}
+                              className="p-1.5 text-zinc-300 active:text-blue-500 active:bg-blue-50 rounded-lg transition-all"
+                              title="Adicionar Tags"
+                            >
+                              <Tag size={16} />
+                            </button>
+                            <button
+                              onClick={() => onDelete(t.id)}
+                              className="p-1.5 text-zinc-300 active:text-rose-500 active:bg-rose-50 rounded-lg transition-all"
+                              title="Excluir"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className={`font-bold text-lg ${
-                        t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-zinc-900'
-                      }`}>
-                        {t.type === TransactionType.EXPENSE && '- '}
-                        R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                      <button
-                        onClick={() => openTagDialog(t)}
-                        className="p-2 text-zinc-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                        title="Adicionar Tags"
-                      >
-                        <Tag size={18} />
-                      </button>
-                      <button
-                        onClick={() => onDelete(t.id)}
-                        className="p-2 text-zinc-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                        title="Excluir"
-                      >
-                        <Trash2 size={18} />
-                      </button>
                     </div>
                   </div>
                 </div>

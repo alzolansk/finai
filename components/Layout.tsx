@@ -1,8 +1,9 @@
-import React, { ReactNode } from 'react';
-import { Home, Plus, PieChart, MessageSquareText, X, Sparkles, Zap, AlertTriangle, Settings, Trash2, Activity, ChevronDown, ChevronUp, Calendar, Repeat, TrendingUp, FileText, Heart, Search, BarChart3, DollarSign, Bell, Users } from 'lucide-react';
+import React, { ReactNode, useState } from 'react';
+import { Home, Plus, PieChart, MessageSquareText, X, Sparkles, Zap, AlertTriangle, Settings, Trash2, Activity, ChevronDown, ChevronUp, Calendar, Repeat, TrendingUp, FileText, Heart, Search, BarChart3, DollarSign, Bell, Users, Menu } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { SmartAlert } from '../services/forecastService';
 import { clearAllData, getApiLogs, ApiLog } from '../services/storageService';
+import SyncSettings from './SyncSettings';
 
 interface LayoutProps {
   children: ReactNode;
@@ -59,6 +60,9 @@ const Layout: React.FC<LayoutProps> = ({
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
   const [showApiLogs, setShowApiLogs] = React.useState(false);
   const [apiLogs, setApiLogs] = React.useState<ApiLog[]>([]);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [hoveredTab, setHoveredTab] = React.useState<string | null>(null);
+  const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -70,6 +74,15 @@ const Layout: React.FC<LayoutProps> = ({
   React.useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
+
+  // Cleanup hover timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,29 +114,30 @@ const Layout: React.FC<LayoutProps> = ({
       <main className={`flex-1 flex flex-col h-screen overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${isChatOpen ? 'mr-0 md:mr-[400px]' : ''} relative z-10`}>
         
         <div className="flex-1 overflow-y-auto scrollbar-hide">
-          {/* Sticky Header */}
-          <header className="sticky top-0 z-30 bg-zinc-50/80 backdrop-blur-md border-b border-zinc-200/50 px-6 py-4 md:px-10 flex items-center justify-between transition-all">
-               <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 bg-zinc-900 rounded-xl flex items-center justify-center shadow-lg shadow-zinc-900/20 hover:scale-105 transition-transform duration-300">
-                    <div className="w-4 h-4 bg-emerald-500 rounded-full"></div>
+          {/* Sticky Header - Mobile Optimized */}
+          <header className="sticky top-0 z-30 bg-zinc-50/95 backdrop-blur-md border-b border-zinc-200/50 px-4 py-3 md:px-10 md:py-4 flex items-center justify-between transition-all">
+               <div className="flex items-center gap-2 md:gap-3">
+                 <div className="w-8 h-8 md:w-10 md:h-10 bg-zinc-900 rounded-lg md:rounded-xl flex items-center justify-center shadow-lg shadow-zinc-900/20 active:scale-95 transition-transform duration-300">
+                    <div className="w-3 h-3 md:w-4 md:h-4 bg-emerald-500 rounded-full"></div>
                  </div>
                  <div>
-                   <span className="font-bold text-xl tracking-tight text-zinc-900 block leading-none">FinAI</span>
-                   <span className="text-xs text-zinc-400 font-medium">Controle Inteligente</span>
+                   <span className="font-bold text-lg md:text-xl tracking-tight text-zinc-900 block leading-none">FinAI</span>
+                   <span className="text-[10px] md:text-xs text-zinc-400 font-medium hidden sm:block">Controle Inteligente</span>
                  </div>
                </div>
 
-               <div className="flex items-center gap-3">
+               {/* Mobile Header Actions */}
+               <div className="flex items-center gap-2 md:gap-3">
                  {/* Notifications Button */}
                  {onToggleNotifications && (
                    <button
                      onClick={onToggleNotifications}
-                     className="p-2 rounded-full hover:bg-zinc-100 text-zinc-400 hover:text-zinc-900 transition-colors relative"
+                     className="p-2 rounded-full active:bg-zinc-200 md:hover:bg-zinc-100 text-zinc-400 active:text-zinc-900 md:hover:text-zinc-900 transition-colors relative"
                      title="Notificações"
                    >
-                     <Bell size={20} />
+                     <Bell size={18} className="md:w-5 md:h-5" />
                      {unreadAlertsCount > 0 && (
-                       <div className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">
+                       <div className="absolute -top-0.5 -right-0.5 w-4 h-4 md:w-5 md:h-5 bg-rose-500 rounded-full flex items-center justify-center text-white text-[9px] md:text-[10px] font-bold">
                          {unreadAlertsCount > 9 ? '9+' : unreadAlertsCount}
                        </div>
                      )}
@@ -132,139 +146,281 @@ const Layout: React.FC<LayoutProps> = ({
 
                  <button
                     onClick={() => setIsSettingsOpen(true)}
-                    className="p-2 rounded-full hover:bg-zinc-100 text-zinc-400 hover:text-zinc-900 transition-colors"
+                    className="p-2 rounded-full active:bg-zinc-200 md:hover:bg-zinc-100 text-zinc-400 active:text-zinc-900 md:hover:text-zinc-900 transition-colors"
                     title="Configurações"
                  >
-                    <Settings size={20} />
+                    <Settings size={18} className="md:w-5 md:h-5" />
                  </button>
 
-                 {/* Header Alerts */}
-                 {headerAlerts.map(alert => (
-                   <div key={alert.id} className="relative group">
-                     <div className={`p-2 rounded-full cursor-help transition-colors ${
-                        alert.type === 'danger' ? 'bg-rose-100 text-rose-600' : 
-                        alert.type === 'warning' ? 'bg-orange-100 text-orange-600' : 
-                        'bg-blue-100 text-blue-600'
-                     }`}>
-                       {alert.id.startsWith('freq-') || alert.title.includes('Hábito Frequente') ? <Repeat size={20} /> : 
-                        alert.id.startsWith('large-') ? <TrendingUp size={20} /> :
-                        <AlertTriangle size={20} />}
+                 {/* Header Alerts - Hidden on mobile, shown on desktop */}
+                 <div className="hidden md:flex items-center gap-2">
+                   {headerAlerts.slice(0, 2).map(alert => (
+                     <div key={alert.id} className="relative group">
+                       <div className={`p-2 rounded-full cursor-help transition-colors ${
+                          alert.type === 'danger' ? 'bg-rose-100 text-rose-600' : 
+                          alert.type === 'warning' ? 'bg-orange-100 text-orange-600' : 
+                          'bg-blue-100 text-blue-600'
+                       }`}>
+                         {alert.id.startsWith('freq-') || alert.title.includes('Hábito Frequente') ? <Repeat size={18} /> : 
+                          alert.id.startsWith('large-') ? <TrendingUp size={18} /> :
+                          <AlertTriangle size={18} />}
+                       </div>
+                       {/* Tooltip - Desktop only */}
+                       <div className="absolute top-full right-0 mt-2 w-64 p-3 bg-white rounded-xl shadow-xl border border-zinc-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 transform translate-y-2 group-hover:translate-y-0">
+                         <h4 className={`font-bold text-sm mb-1 ${
+                            alert.type === 'danger' ? 'text-rose-600' : 
+                            alert.type === 'warning' ? 'text-orange-600' : 
+                            'text-blue-600'
+                         }`}>{alert.title}</h4>
+                         <p className="text-xs text-zinc-600">{alert.message}</p>
+                       </div>
                      </div>
-                     {/* Tooltip */}
-                     <div className="absolute top-full right-0 mt-2 w-64 p-3 bg-white rounded-xl shadow-xl border border-zinc-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 transform translate-y-2 group-hover:translate-y-0">
-                       <h4 className={`font-bold text-sm mb-1 ${
-                          alert.type === 'danger' ? 'text-rose-600' : 
-                          alert.type === 'warning' ? 'text-orange-600' : 
-                          'text-blue-600'
-                       }`}>{alert.title}</h4>
-                       <p className="text-xs text-zinc-600">{alert.message}</p>
-                     </div>
-                   </div>
-                 ))}
+                   ))}
+                 </div>
 
                  {/* Turbo Mode Toggle */}
                  {onToggleTurboMode && (
                    <button 
                      onClick={onToggleTurboMode}
-                     className={`relative group p-2 rounded-full transition-all flex items-center justify-center ${isTurboMode ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-zinc-100 text-zinc-400 hover:bg-zinc-200'}`}
+                     className={`p-2 rounded-full transition-all flex items-center justify-center active:scale-90 ${isTurboMode ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-zinc-100 text-zinc-400 active:bg-zinc-200'}`}
                    >
-                     <Zap size={20} className={isTurboMode ? 'fill-current' : ''} />
-                     
-                     {/* Tooltip */}
-                     <div className="absolute top-full right-0 mt-2 w-48 p-3 bg-white rounded-xl shadow-xl border border-zinc-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 transform translate-y-2 group-hover:translate-y-0 text-left">
-                       <h4 className="font-bold text-sm mb-1 text-indigo-600">Modo Turbo {isTurboMode ? 'Ativo' : 'Inativo'}</h4>
-                       <p className="text-xs text-zinc-600">
-                         {isTurboMode 
-                           ? 'Limites de gastos reduzidos em 20% para maximizar economia.' 
-                           : 'Ative para reduzir limites e economizar mais.'}
-                       </p>
-                     </div>
+                     <Zap size={18} className={`md:w-5 md:h-5 ${isTurboMode ? 'fill-current' : ''}`} />
                    </button>
                  )}
 
-                 <div className="w-px h-6 bg-zinc-200 mx-2"></div>
+                 <div className="w-px h-5 md:h-6 bg-zinc-200 mx-1 md:mx-2 hidden sm:block"></div>
 
+                 {/* Chat Button - Desktop */}
                  <button 
                     onClick={onToggleChat}
-                    className={`group flex items-center gap-3 px-5 py-2.5 rounded-full border transition-all duration-300 active:scale-95 ${isChatOpen ? 'bg-zinc-100 border-zinc-200 text-zinc-400' : 'bg-white border-zinc-200 hover:border-emerald-200 hover:shadow-md hover:shadow-emerald-900/5'}`}
+                    className={`hidden md:flex items-center gap-2 px-5 py-2.5 rounded-full border transition-all duration-300 ${isChatOpen ? 'bg-zinc-100 border-zinc-200 text-zinc-400' : 'bg-white border-zinc-200 hover:border-emerald-200 hover:shadow-md hover:shadow-emerald-900/5'}`}
                  >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isChatOpen ? 'bg-zinc-200 text-zinc-500' : 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100'}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isChatOpen ? 'bg-zinc-200 text-zinc-500' : 'bg-emerald-50 text-emerald-600'}`}>
                       <Sparkles size={16} />
                     </div>
                     <span className={`text-sm font-medium ${isChatOpen ? 'text-zinc-400' : 'text-zinc-700'}`}>
-                      {isChatOpen ? 'Assistente Ativo' : 'Assistente IA'}
+                      {isChatOpen ? 'Ativo' : 'Assistente IA'}
                     </span>
+                 </button>
+                 
+                 {/* Chat Button - Mobile */}
+                 <button 
+                    onClick={onToggleChat}
+                    className={`md:hidden flex items-center gap-2 px-3 py-2 rounded-full border transition-all duration-300 active:scale-95 ${isChatOpen ? 'bg-zinc-100 border-zinc-200 text-zinc-400' : 'bg-white border-zinc-200 active:border-emerald-200'}`}
+                 >
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${isChatOpen ? 'bg-zinc-200 text-zinc-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                      <Sparkles size={14} />
+                    </div>
                  </button>
                </div>
             </header>
 
-          <div className="max-w-7xl mx-auto w-full p-6 md:p-10 pb-32">
+          <div className="max-w-7xl mx-auto w-full p-4 md:p-6 lg:p-10 pb-28 md:pb-32">
             <div key={activeTab} className="animate-fadeIn">
               {children}
             </div>
           </div>
         </div>
 
-        {/* Floating Island Navigation */}
-        <div className="fixed inset-x-0 bottom-8 flex justify-center z-40 pointer-events-none">
+        {/* Floating Island Navigation - Desktop Version */}
+        <div className="hidden md:flex fixed bottom-8 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
           <div className="animate-slideUp pointer-events-auto">
-          <nav className="bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 text-zinc-400 rounded-2xl px-3 py-2 shadow-2xl shadow-zinc-900/40 flex items-center gap-2 transition-all hover:scale-[1.01] w-full max-w-3xl">
-            <div className="flex items-center gap-1 flex-1 justify-end">
+          <nav className="bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 text-zinc-400 rounded-2xl px-3 py-2.5 shadow-2xl shadow-zinc-900/40 flex items-center gap-1 transition-all">
+            
+            <button
+              onClick={() => onTabChange('dashboard')}
+              onMouseEnter={() => {
+                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                setHoveredTab('dashboard');
+              }}
+              onMouseLeave={() => {
+                hoverTimeoutRef.current = setTimeout(() => setHoveredTab(null), 2000);
+              }}
+              className={`p-3 rounded-xl transition-all duration-200 flex items-center overflow-hidden ${activeTab === 'dashboard' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+            >
+              <Home size={22} strokeWidth={activeTab === 'dashboard' ? 2.5 : 2} className="shrink-0" />
+              <span 
+                className="text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out"
+                style={{
+                  width: (hoveredTab === 'dashboard' || (hoveredTab === null && activeTab === 'dashboard')) ? '85px' : '0px',
+                  marginLeft: (hoveredTab === 'dashboard' || (hoveredTab === null && activeTab === 'dashboard')) ? '8px' : '0px',
+                  opacity: (hoveredTab === 'dashboard' || (hoveredTab === null && activeTab === 'dashboard')) ? 1 : 0
+                }}
+              >
+                Dashboard
+              </span>
+            </button>
+
+            <button
+              onClick={() => onTabChange('insights')}
+              onMouseEnter={() => {
+                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                setHoveredTab('insights');
+              }}
+              onMouseLeave={() => {
+                hoverTimeoutRef.current = setTimeout(() => setHoveredTab(null), 2000);
+              }}
+              className={`p-3 rounded-xl transition-all duration-200 flex items-center overflow-hidden ${activeTab === 'insights' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+            >
+              <PieChart size={22} strokeWidth={activeTab === 'insights' ? 2.5 : 2} className="shrink-0" />
+              <span 
+                className="text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out"
+                style={{
+                  width: (hoveredTab === 'insights' || (hoveredTab === null && activeTab === 'insights')) ? '65px' : '0px',
+                  marginLeft: (hoveredTab === 'insights' || (hoveredTab === null && activeTab === 'insights')) ? '8px' : '0px',
+                  opacity: (hoveredTab === 'insights' || (hoveredTab === null && activeTab === 'insights')) ? 1 : 0
+                }}
+              >
+                Insights
+              </span>
+            </button>
+
+            <button
+              onClick={() => onTabChange('reports')}
+              onMouseEnter={() => {
+                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                setHoveredTab('reports');
+              }}
+              onMouseLeave={() => {
+                hoverTimeoutRef.current = setTimeout(() => setHoveredTab(null), 2000);
+              }}
+              className={`p-3 rounded-xl transition-all duration-200 flex items-center overflow-hidden ${activeTab === 'reports' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+            >
+              <BarChart3 size={22} strokeWidth={activeTab === 'reports' ? 2.5 : 2} className="shrink-0" />
+              <span 
+                className="text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out"
+                style={{
+                  width: (hoveredTab === 'reports' || (hoveredTab === null && activeTab === 'reports')) ? '80px' : '0px',
+                  marginLeft: (hoveredTab === 'reports' || (hoveredTab === null && activeTab === 'reports')) ? '8px' : '0px',
+                  opacity: (hoveredTab === 'reports' || (hoveredTab === null && activeTab === 'reports')) ? 1 : 0
+                }}
+              >
+                Relatórios
+              </span>
+            </button>
+
+            <button
+              onClick={() => onTabChange('add')}
+              className="bg-emerald-500 text-white p-3 rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 hover:scale-105 transition-all mx-1 shrink-0"
+            >
+              <Plus size={24} strokeWidth={3} />
+            </button>
+
+            <button
+              onClick={() => onTabChange('budgets')}
+              onMouseEnter={() => {
+                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                setHoveredTab('budgets');
+              }}
+              onMouseLeave={() => {
+                hoverTimeoutRef.current = setTimeout(() => setHoveredTab(null), 2000);
+              }}
+              className={`p-3 rounded-xl transition-all duration-200 flex items-center overflow-hidden ${activeTab === 'budgets' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+            >
+              <DollarSign size={22} strokeWidth={activeTab === 'budgets' ? 2.5 : 2} className="shrink-0" />
+              <span 
+                className="text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out"
+                style={{
+                  width: (hoveredTab === 'budgets' || (hoveredTab === null && activeTab === 'budgets')) ? '90px' : '0px',
+                  marginLeft: (hoveredTab === 'budgets' || (hoveredTab === null && activeTab === 'budgets')) ? '8px' : '0px',
+                  opacity: (hoveredTab === 'budgets' || (hoveredTab === null && activeTab === 'budgets')) ? 1 : 0
+                }}
+              >
+                Orçamentos
+              </span>
+            </button>
+
+            <button
+              onClick={() => onTabChange('agenda')}
+              onMouseEnter={() => {
+                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                setHoveredTab('agenda');
+              }}
+              onMouseLeave={() => {
+                hoverTimeoutRef.current = setTimeout(() => setHoveredTab(null), 2000);
+              }}
+              className={`p-3 rounded-xl transition-all duration-200 flex items-center overflow-hidden ${activeTab === 'agenda' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+            >
+              <Calendar size={22} strokeWidth={activeTab === 'agenda' ? 2.5 : 2} className="shrink-0" />
+              <span 
+                className="text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out"
+                style={{
+                  width: (hoveredTab === 'agenda' || (hoveredTab === null && activeTab === 'agenda')) ? '60px' : '0px',
+                  marginLeft: (hoveredTab === 'agenda' || (hoveredTab === null && activeTab === 'agenda')) ? '8px' : '0px',
+                  opacity: (hoveredTab === 'agenda' || (hoveredTab === null && activeTab === 'agenda')) ? 1 : 0
+                }}
+              >
+                Agenda
+              </span>
+            </button>
+
+            <button
+              onClick={() => onTabChange('planning')}
+              onMouseEnter={() => {
+                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                setHoveredTab('planning');
+              }}
+              onMouseLeave={() => {
+                hoverTimeoutRef.current = setTimeout(() => setHoveredTab(null), 2000);
+              }}
+              className={`p-3 rounded-xl transition-all duration-200 flex items-center overflow-hidden ${activeTab === 'planning' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+            >
+              <Heart size={22} strokeWidth={activeTab === 'planning' ? 2.5 : 2} className="shrink-0" />
+              <span 
+                className="text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out"
+                style={{
+                  width: (hoveredTab === 'planning' || (hoveredTab === null && activeTab === 'planning')) ? '65px' : '0px',
+                  marginLeft: (hoveredTab === 'planning' || (hoveredTab === null && activeTab === 'planning')) ? '8px' : '0px',
+                  opacity: (hoveredTab === 'planning' || (hoveredTab === null && activeTab === 'planning')) ? 1 : 0
+                }}
+              >
+                Desejos
+              </span>
+            </button>
+
+          </nav>
+          </div>
+        </div>
+        
+        {/* Floating Island Navigation - Mobile Version */}
+        <div className="md:hidden fixed inset-x-0 bottom-0 pb-4 flex justify-center z-40 pointer-events-none px-3">
+          <div className="animate-slideUp pointer-events-auto w-full max-w-md">
+          <nav className="bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 text-zinc-400 rounded-2xl px-2 py-2 shadow-2xl shadow-zinc-900/40 flex items-center justify-between gap-1 transition-all">
+            
+            <div className="flex items-center gap-0.5 flex-1 justify-around">
               <button
                 onClick={() => onTabChange('dashboard')}
-                className={`p-3 rounded-xl transition-all duration-300 flex items-center gap-2 hover:scale-110 active:scale-90 ${activeTab === 'dashboard' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
-                title="Dashboard"
+                className={`p-2.5 rounded-xl transition-all duration-200 flex items-center justify-center active:scale-90 ${activeTab === 'dashboard' ? 'bg-zinc-800 text-white shadow-inner' : 'active:bg-zinc-800/50 active:text-zinc-200'}`}
               >
                 <Home size={20} strokeWidth={activeTab === 'dashboard' ? 2.5 : 2} />
               </button>
 
               <button
                 onClick={() => onTabChange('insights')}
-                className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'insights' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
-                title="Insights"
+                className={`p-2.5 rounded-xl transition-all duration-200 active:scale-90 ${activeTab === 'insights' ? 'bg-zinc-800 text-white shadow-inner' : 'active:bg-zinc-800/50 active:text-zinc-200'}`}
               >
                 <PieChart size={20} strokeWidth={activeTab === 'insights' ? 2.5 : 2} />
               </button>
-
-              <button
-                onClick={() => onTabChange('reports')}
-                className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'reports' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
-                title="Relatórios"
-              >
-                <BarChart3 size={20} strokeWidth={activeTab === 'reports' ? 2.5 : 2} />
-              </button>
             </div>
 
-            {/* Prominent Add Button (always centered) */}
             <button
               onClick={() => onTabChange('add')}
-              className="bg-emerald-500 text-white p-3 rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 hover:scale-110 active:scale-95 transition-all group flex-shrink-0"
-              title="Adicionar"
+              className="bg-emerald-500 text-white p-3 rounded-xl shadow-lg shadow-emerald-500/20 active:bg-emerald-600 active:scale-95 transition-all flex-shrink-0 mx-1"
             >
-              <Plus size={22} strokeWidth={3} className="group-hover:rotate-90 transition-transform duration-300" />
+              <Plus size={22} strokeWidth={3} />
             </button>
 
-            <div className="flex items-center gap-1 flex-1 justify-start">
-              <button
-                onClick={() => onTabChange('budgets')}
-                className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'budgets' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
-                title="Orçamentos"
-              >
-                <DollarSign size={20} strokeWidth={activeTab === 'budgets' ? 2.5 : 2} />
-              </button>
-
+            <div className="flex items-center gap-0.5 flex-1 justify-around">
               <button
                 onClick={() => onTabChange('agenda')}
-                className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'agenda' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
-                title="Agenda"
+                className={`p-2.5 rounded-xl transition-all duration-200 active:scale-90 ${activeTab === 'agenda' ? 'bg-zinc-800 text-white shadow-inner' : 'active:bg-zinc-800/50 active:text-zinc-200'}`}
               >
                 <Calendar size={20} strokeWidth={activeTab === 'agenda' ? 2.5 : 2} />
               </button>
 
               <button
                 onClick={() => onTabChange('planning')}
-                className={`p-3 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'planning' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
-                title="Lista de Desejos"
+                className={`p-2.5 rounded-xl transition-all duration-200 active:scale-90 ${activeTab === 'planning' ? 'bg-zinc-800 text-white shadow-inner' : 'active:bg-zinc-800/50 active:text-zinc-200'}`}
               >
                 <Heart size={20} strokeWidth={activeTab === 'planning' ? 2.5 : 2} />
               </button>
@@ -275,22 +431,22 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
       </main>
 
-      {/* Chat Sidebar (Right Drawer) */}
+      {/* Chat Sidebar (Right Drawer) - Mobile Optimized */}
       <aside 
-        className={`fixed inset-y-0 right-0 w-full md:w-[400px] bg-white/80 backdrop-blur-xl border-l border-white/50 shadow-2xl z-50 transform transition-transform duration-500 cubic-bezier(0.32,0.72,0,1) ${isChatOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed inset-y-0 right-0 w-full md:w-[400px] bg-white/95 md:bg-white/80 backdrop-blur-xl border-l border-white/50 shadow-2xl z-50 transform transition-transform duration-500 cubic-bezier(0.32,0.72,0,1) ${isChatOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
         <div className="flex flex-col h-full bg-white/50">
-          <div className="p-6 border-b border-zinc-100 flex justify-between items-center bg-white/80 backdrop-blur-md">
+          <div className="p-4 md:p-6 border-b border-zinc-100 flex justify-between items-center bg-white/80 backdrop-blur-md safe-area-top">
              <div>
-               <h3 className="font-bold text-zinc-900 text-lg">FinAI Chat</h3>
-               <p className="text-xs text-zinc-500">Seu consultor financeiro pessoal</p>
+               <h3 className="font-bold text-zinc-900 text-base md:text-lg">FinAI Chat</h3>
+               <p className="text-[10px] md:text-xs text-zinc-500">Seu consultor financeiro pessoal</p>
              </div>
-             <button onClick={onToggleChat} className="p-2 hover:bg-zinc-100 rounded-full transition-colors text-zinc-400 hover:text-zinc-900">
-               <X size={20} />
+             <button onClick={onToggleChat} className="p-2.5 active:bg-zinc-200 md:hover:bg-zinc-100 rounded-full transition-colors text-zinc-400 active:text-zinc-900 md:hover:text-zinc-900">
+               <X size={22} />
              </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-transparent">
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6 bg-transparent">
              {chatMessages.length === 0 && (
                 <div className="text-center mt-20 opacity-0 animate-fadeIn" style={{animationDelay: '0.1s', animationFillMode: 'forwards'}}>
                    <div className="w-16 h-16 bg-gradient-to-tr from-emerald-100 to-zinc-100 rounded-2xl mx-auto flex items-center justify-center mb-4 text-emerald-600 shadow-sm animate-pulse">
@@ -351,21 +507,21 @@ const Layout: React.FC<LayoutProps> = ({
              <div ref={chatEndRef} />
           </div>
 
-          <div className="p-4 bg-white/80 backdrop-blur-md border-t border-zinc-100">
+          <div className="p-3 md:p-4 bg-white/80 backdrop-blur-md border-t border-zinc-100 safe-area-bottom">
             <form onSubmit={handleSend} className="relative">
               <input 
                 type="text" 
-                placeholder="Ex: Quanto gastei em Uber este mês?" 
-                className="w-full pl-5 pr-14 py-4 bg-zinc-50 border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-300 focus:bg-white transition-all text-sm font-medium outline-none text-zinc-800 placeholder-zinc-400"
+                placeholder="Ex: Quanto gastei em Uber?" 
+                className="w-full pl-4 pr-12 py-3 md:py-4 bg-zinc-50 border border-zinc-200 rounded-xl md:rounded-2xl focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-300 focus:bg-white transition-all text-sm font-medium outline-none text-zinc-800 placeholder-zinc-400"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
               />
               <button 
                 type="submit" 
                 disabled={!inputText.trim() || isChatLoading}
-                className="absolute right-3 top-3 p-2 bg-zinc-900 text-white rounded-xl disabled:opacity-50 hover:bg-zinc-700 hover:scale-105 active:scale-95 transition-all shadow-md shadow-zinc-900/10"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-zinc-900 text-white rounded-lg md:rounded-xl disabled:opacity-50 active:bg-zinc-700 active:scale-95 transition-all shadow-md shadow-zinc-900/10"
               >
-                 <MessageSquareText size={18} />
+                 <MessageSquareText size={16} className="md:w-[18px] md:h-[18px]" />
               </button>
             </form>
           </div>
@@ -482,6 +638,9 @@ const Layout: React.FC<LayoutProps> = ({
                         </button>
                     </div>
                 </div>
+
+                {/* Cloud Sync Settings */}
+                <SyncSettings />
 
                 <div>
                     <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Zona de Perigo</h4>

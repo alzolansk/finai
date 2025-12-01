@@ -541,43 +541,61 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
   return (
     <div className="space-y-8 pb-20 animate-fadeIn">
       <style>{motionStyles}</style>
-      {/* Header */}
-      <div className="flex justify-between items-end">
+      
+      {/* Header - Desktop Version */}
+      <div className="hidden md:flex justify-between items-end">
         <div>
-          <h2 className="text-3xl font-light text-zinc-800 flex items-center gap-3">
-            Lista de Desejos Inteligente
-            <div className="group relative">
-              <HelpCircle size={20} className="text-zinc-400 cursor-help" />
-              <div className="absolute left-0 top-full mt-2 w-80 p-4 bg-white rounded-xl shadow-xl border border-zinc-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                <h4 className="font-bold text-sm mb-2 text-zinc-800">Como funciona?</h4>
-                <p className="text-xs text-zinc-600 leading-relaxed">
-                  Nossa IA pesquisa preços automaticamente, analisa sua situação financeira e indica quando seus objetivos serão viáveis.
-                  Você pode escolher pagar à vista ou parcelado e receber recomendações personalizadas.
-                </p>
-              </div>
-            </div>
+          <h2 className="text-3xl font-light text-zinc-800">
+            Lista de Desejos
           </h2>
-          <p className="text-zinc-500 text-sm mt-1">Planeje seus objetivos e veja quando são viáveis com IA</p>
+          <p className="text-zinc-500 text-sm mt-1">Planeje seus objetivos com inteligência artificial</p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowFilters(prev => !prev)}
-            className="p-3 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:border-emerald-200 hover:text-emerald-700 transition-all flex items-center gap-2"
-            title="Filtrar e ordenar"
+            className="p-3 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:border-emerald-200 hover:text-emerald-700 transition-all"
+            title="Filtrar"
           >
             <FilterIcon size={18} />
-            <span className="text-sm font-semibold hidden sm:inline">Filtros</span>
           </button>
           <button
             onClick={isAddingNew ? handleCancel : startConversation}
-            className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold transition-all ${
+            className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all ${
               isAddingNew
                 ? 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                 : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20'
             }`}
           >
-            {isAddingNew ? <X size={20} /> : <Plus size={20} />}
+            {isAddingNew ? <X size={18} /> : <Plus size={18} />}
             {isAddingNew ? 'Cancelar' : 'Novo Desejo'}
+          </button>
+        </div>
+      </div>
+      
+      {/* Header - Mobile Version */}
+      <div className="md:hidden flex flex-col gap-3">
+        <div>
+          <h2 className="text-xl font-light text-zinc-800">Lista de Desejos</h2>
+          <p className="text-zinc-500 text-[10px] mt-0.5">Planeje seus objetivos com IA</p>
+        </div>
+        <div className="flex items-center gap-2 w-full">
+          <button
+            onClick={() => setShowFilters(prev => !prev)}
+            className="p-2 rounded-lg border border-zinc-200 bg-white text-zinc-700 active:border-emerald-200 active:text-emerald-700 transition-all"
+            title="Filtrar"
+          >
+            <FilterIcon size={16} />
+          </button>
+          <button
+            onClick={isAddingNew ? handleCancel : startConversation}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg font-bold text-xs transition-all ${
+              isAddingNew
+                ? 'bg-zinc-100 text-zinc-600 active:bg-zinc-200'
+                : 'bg-emerald-500 text-white active:bg-emerald-600 shadow-lg shadow-emerald-500/20'
+            }`}
+          >
+            {isAddingNew ? <X size={16} /> : <Plus size={16} />}
+            {isAddingNew ? 'Cancelar' : 'Novo'}
           </button>
         </div>
       </div>
@@ -703,39 +721,19 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
         </div>
       )}
 
-      {/* Financial Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-2xl p-6 border border-zinc-100 shadow-sm group relative">
+      {/* Financial Summary - Desktop Version */}
+      <div className="hidden md:grid grid-cols-3 gap-6">
+        <div className="bg-white rounded-2xl p-6 border border-zinc-100 shadow-sm">
           <div className="flex items-center gap-3 mb-3">
             <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
               <DollarSign size={20} />
             </div>
-            <h3 className="font-bold text-zinc-700 text-sm flex items-center gap-2">
-              Potencial Mensal
-              <Info size={14} className="text-zinc-400 cursor-help" />
-            </h3>
+            <h3 className="font-bold text-zinc-700 text-sm">Potencial de Economia</h3>
           </div>
           <p className="text-2xl font-bold text-zinc-900">
             R$ {monthlySavingsPotential.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </p>
-          <p className="text-xs text-zinc-500 mt-1">Disponível para objetivos</p>
-
-          {/* Tooltip */}
-          <div className="absolute left-0 top-full mt-2 w-80 p-3 bg-zinc-900 text-white rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 text-xs">
-            <p className="mb-2"><strong>Como calculamos:</strong></p>
-            <p className="mb-1">📊 Renda mensal: R$ {monthlyIncome.toLocaleString('pt-BR')}</p>
-            <p className="mb-1">📉 Despesas médias: R$ {expenseBreakdown.average.toLocaleString('pt-BR')}</p>
-            <p className="mb-1">🔄 Despesas recorrentes: R$ {expenseBreakdown.recurring.toLocaleString('pt-BR')}</p>
-            <p className="mb-1 text-zinc-400 text-[10px]">Análise: últimos {expenseBreakdown.monthsAnalyzed} meses (outliers removidos)</p>
-            <div className="my-2 h-px bg-zinc-700"></div>
-            <p className="text-emerald-400 font-bold text-sm">💰 Disponível: R$ {monthlySavingsPotential.toLocaleString('pt-BR')}</p>
-            <div className="mt-3 p-2 bg-zinc-800 rounded-lg space-y-1">
-              <p className="text-zinc-300 text-[10px] font-bold">Cenários de economia:</p>
-              <p className="text-[10px]">🟢 {scenarios.conservative.label}: R$ {scenarios.conservative.monthlyAmount.toLocaleString('pt-BR', {minimumFractionDigits: 0})} ({scenarios.conservative.description})</p>
-              <p className="text-[10px]">🟡 {scenarios.realistic.label}: R$ {scenarios.realistic.monthlyAmount.toLocaleString('pt-BR', {minimumFractionDigits: 0})} ({scenarios.realistic.description})</p>
-              <p className="text-[10px]">🔴 {scenarios.optimistic.label}: R$ {scenarios.optimistic.monthlyAmount.toLocaleString('pt-BR', {minimumFractionDigits: 0})} ({scenarios.optimistic.description})</p>
-            </div>
-          </div>
+          <p className="text-xs text-zinc-500 mt-1">Disponível por mês para poupar</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 border border-zinc-100 shadow-sm">
@@ -743,11 +741,11 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
             <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
               <Heart size={20} />
             </div>
-            <h3 className="font-bold text-zinc-700 text-sm">Total de Desejos</h3>
+            <h3 className="font-bold text-zinc-700 text-sm">Seus Desejos</h3>
           </div>
           <p className="text-2xl font-bold text-zinc-900">{filteredTotals.count}</p>
           <p className="text-xs text-zinc-500 mt-1">
-            {filteredTotals.viable} viaveis agora {filteredTotals.count !== wishlistItems.length && `(de ${wishlistItems.length})`}
+            {filteredTotals.viable} viáveis no momento
           </p>
         </div>
 
@@ -759,11 +757,46 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
             <h3 className="font-bold text-zinc-700 text-sm">Valor Total</h3>
           </div>
           <p className="text-2xl font-bold text-zinc-900">
-            R$ {filteredTotals.totalAmount.toLocaleString('pt-BR')}
+            R$ {filteredTotals.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </p>
-          <p className="text-xs text-zinc-500 mt-1">
-            Soma {filteredTotals.count !== wishlistItems.length && `(total geral: R$ ${wishlistItems.reduce((sum, item) => sum + item.targetAmount, 0).toLocaleString('pt-BR')})`}
+          <p className="text-xs text-zinc-500 mt-1">Soma de todos os desejos</p>
+        </div>
+      </div>
+      
+      {/* Financial Summary - Mobile Version */}
+      <div className="md:hidden grid grid-cols-3 gap-2">
+        <div className="bg-white rounded-xl p-3 border border-zinc-100 shadow-sm">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <div className="p-1 bg-emerald-50 rounded-md text-emerald-600">
+              <DollarSign size={14} />
+            </div>
+          </div>
+          <p className="text-sm font-bold text-zinc-900">
+            R$ {monthlySavingsPotential.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
           </p>
+          <p className="text-[9px] text-zinc-500 mt-0.5">Disponível/mês</p>
+        </div>
+
+        <div className="bg-white rounded-xl p-3 border border-zinc-100 shadow-sm">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <div className="p-1 bg-blue-50 rounded-md text-blue-600">
+              <Heart size={14} />
+            </div>
+          </div>
+          <p className="text-sm font-bold text-zinc-900">{filteredTotals.count}</p>
+          <p className="text-[9px] text-zinc-500 mt-0.5">{filteredTotals.viable} viáveis</p>
+        </div>
+
+        <div className="bg-white rounded-xl p-3 border border-zinc-100 shadow-sm">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <div className="p-1 bg-purple-50 rounded-md text-purple-600">
+              <TrendingUp size={14} />
+            </div>
+          </div>
+          <p className="text-sm font-bold text-zinc-900">
+            R$ {(filteredTotals.totalAmount / 1000).toFixed(0)}k
+          </p>
+          <p className="text-[9px] text-zinc-500 mt-0.5">Total</p>
         </div>
       </div>
 
@@ -1081,13 +1114,54 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
           return (
             <div
               key={item.id}
-              className="bg-white rounded-3xl p-6 border border-zinc-100 shadow-sm hover:shadow-md transition-all"
+              className="bg-white rounded-xl md:rounded-2xl p-4 md:p-6 border border-zinc-100 shadow-sm hover:shadow-md transition-all"
               style={{
                 animation: 'wishlist-fade-slide 0.25s ease',
                 transition: 'transform 220ms ease, opacity 220ms ease'
               }}
             >
-              <div className="flex justify-between items-start mb-4">
+              {/* Mobile Layout */}
+              <div className="md:hidden">
+                <div className="flex items-start gap-3 mb-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${typeIcon.color} font-bold shadow-sm shrink-0`}>
+                    {typeIcon.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-bold text-zinc-800 truncate">{item.name}</h3>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusBadge.color}`}>
+                        {statusBadge.label}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        item.priority === WishlistPriority.HIGH ? 'bg-rose-100 text-rose-700' :
+                        item.priority === WishlistPriority.MEDIUM ? 'bg-amber-100 text-amber-700' :
+                        'bg-zinc-100 text-zinc-700'
+                      }`}>
+                        {item.priority}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (confirm('Tem certeza que deseja excluir este desejo?')) {
+                        onDeleteItem(item.id);
+                      }
+                    }}
+                    className="p-1.5 active:bg-rose-50 rounded-lg text-zinc-400 active:text-rose-600 transition-colors shrink-0"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+                
+                {item.paymentOption === 'installments' && item.installmentCount && (
+                  <div className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-lg mb-3 inline-block">
+                    {item.installmentCount}x de R$ {item.installmentAmount?.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop Layout */}
+              <div className="hidden md:flex justify-between items-start mb-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <div className={`w-11 h-11 aspect-square rounded-full flex items-center justify-center ${typeIcon.color} font-bold shadow-sm`}>
@@ -1171,16 +1245,16 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
               </div>
 
               {/* Progress Bar */}
-              <div className="mb-4">
-                <div className="flex justify-between items-end mb-2">
-                  <span className="text-2xl font-bold text-zinc-900">
-                    R$ {item.savedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="mb-3 md:mb-4">
+                <div className="flex justify-between items-end mb-1.5 md:mb-2">
+                  <span className="text-lg md:text-2xl font-bold text-zinc-900">
+                    R$ {item.savedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </span>
-                  <span className="text-sm text-zinc-500">
-                    de R$ {item.targetAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <span className="text-xs md:text-sm text-zinc-500">
+                    de R$ {item.targetAmount.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </span>
                 </div>
-                <div className="w-full bg-zinc-100 rounded-full h-3 overflow-hidden relative">
+                <div className="w-full bg-zinc-100 rounded-full h-2 md:h-3 overflow-hidden relative">
                   <div
                     className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full transition-all duration-500"
                     style={{ width: `${Math.min(100, progress)}%` }}
@@ -1193,10 +1267,10 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
                     ></div>
                   ))}
                 </div>
-                <div className="flex justify-between items-center mt-2">
-                  <span className="text-xs text-zinc-500">{progress.toFixed(1)}% alcançado</span>
-                  <span className="text-xs font-bold text-zinc-700">
-                    Faltam R$ {remaining.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                <div className="flex justify-between items-center mt-1.5 md:mt-2">
+                  <span className="text-[10px] md:text-xs text-zinc-500">{progress.toFixed(0)}% alcançado</span>
+                  <span className="text-[10px] md:text-xs font-bold text-zinc-700">
+                    Faltam R$ {remaining.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </span>
                 </div>
               </div>

@@ -7,7 +7,17 @@ export default defineConfig(({ mode }) => {
     return {
       server: {
         port: 3000,
-        host: '0.0.0.0',
+        host: true, // Aceita qualquer host
+        strictPort: true,
+        allowedHosts: [
+          'madalynn-distraite-noncuratively.ngrok-free.dev',
+          '.ngrok-free.dev',
+          '.ngrok.io',
+          'localhost'
+        ],
+        hmr: {
+          clientPort: 443, // Porta HTTPS do ngrok
+        },
       },
       plugins: [react()],
       define: {
