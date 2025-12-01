@@ -383,6 +383,8 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
                 creditCardIssuer: creditIssuer,
                 issuer: creditIssuer,
                 linkedToInvoice: formData.linkedToInvoice,
+                debtor: formData.debtor,
+                tags: formData.tags,
                 createdAt: Date.now()
             });
         }
@@ -402,6 +404,8 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onAdd, onCancel, existi
             linkedToInvoice: formData.linkedToInvoice,
             creditCardIssuer: creditIssuer,
             issuer: creditIssuer,
+            debtor: formData.debtor,
+            tags: formData.tags,
             createdAt: Date.now()
         });
     }
