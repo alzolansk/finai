@@ -1,13 +1,22 @@
-import { Transaction, TransactionType, UserSettings, WishlistItem } from '../types';
+import { Transaction, TransactionType, UserSettings, WishlistItem, Category } from '../types';
+import { DEMO_TRANSACTIONS, DEMO_SETTINGS, DEMO_WISHLIST } from '../utils/demoData';
 
 const TRANSACTIONS_KEY = 'finai_transactions';
 const SETTINGS_KEY = 'finai_settings';
 const SAVINGS_REVIEWS_KEY = 'finai_savings_reviews';
 const WISHLIST_KEY = 'finai_wishlist';
 
+// --- Demo Mode Check ---
+const isDemoMode = () => localStorage.getItem('finai_demo_mode') === 'true';
+
 // --- Transactions ---
 
 export const getTransactions = (): Transaction[] => {
+  // Se modo demo ativo, retorna dados mockados diretamente
+  if (isDemoMode()) {
+    return DEMO_TRANSACTIONS;
+  }
+
   const stored = localStorage.getItem(TRANSACTIONS_KEY);
   if (!stored) return [];
   try {
@@ -66,6 +75,11 @@ export const updateTransaction = (transaction: Transaction): Transaction[] => {
 // --- Settings & Onboarding ---
 
 export const getUserSettings = (): UserSettings | null => {
+  // Se modo demo ativo, retorna settings mockados
+  if (isDemoMode()) {
+    return DEMO_SETTINGS;
+  }
+
   const stored = localStorage.getItem(SETTINGS_KEY);
   if (!stored) return null;
   try {
@@ -308,6 +322,11 @@ export const toggleAgendaChecklist = (entry: AgendaChecklistEntry): AgendaCheckl
 // --- Wishlist Items ---
 
 export const getWishlistItems = (): WishlistItem[] => {
+  // Se modo demo ativo, retorna wishlist mockada
+  if (isDemoMode()) {
+    return DEMO_WISHLIST;
+  }
+
   const stored = localStorage.getItem(WISHLIST_KEY);
   if (!stored) return [];
   try {

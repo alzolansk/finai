@@ -23,3 +23,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Sensitive data - NEVER commit these!
+*.txt
+!README*.txt
+
+# Personal/financial data exports
+*.json.bak
+*backup*
+*export*
+
+# Claude/AI settings
+.claude/

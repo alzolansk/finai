@@ -348,4 +348,10 @@ export const unsubscribeAll = (): void => {
 
 // ============ STATUS ============
 
-export const isSyncEnabled = (): boolean => isFirebaseConfigured();
+export const isSyncEnabled = (): boolean => {
+  // Desabilita sync no modo demo
+  const isDemoMode = localStorage.getItem('finai_demo_mode') === 'true';
+  if (isDemoMode) return false;
+  
+  return isFirebaseConfigured();
+};

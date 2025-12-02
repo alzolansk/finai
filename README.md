@@ -1,122 +1,208 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+<p align="center">
+  <img src="images/finai-homepage.png" alt="FinAI Banner" width="100%"/>
+</p>
 
-# Run and deploy your AI Studio app
+<h1 align="center">💰 FinAI - Controle Financeiro Inteligente</h1>
 
-This contains everything you need to run your app locally.
+<p align="center">
+  <strong>Seu assistente financeiro pessoal com Inteligência Artificial</strong>
+</p>
 
-View your app in AI Studio: https://ai.studio/apps/drive/11Hp7QkaqVf8aWi0Ol2pEwEayfWA7yVgV
+<p align="center">
+  <img src="https://img.shields.io/badge/React-19.2-61DAFB?style=for-the-badge&logo=react&logoColor=white" alt="React"/>
+  <img src="https://img.shields.io/badge/TypeScript-5.8-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript"/>
+  <img src="https://img.shields.io/badge/Gemini_AI-Google-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Gemini AI"/>
+  <img src="https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" alt="Firebase"/>
+  <img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite"/>
+</p>
 
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `VITE_GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key (Vite only exposes variables prefixed with `VITE_`). If you prefer storing it in the browser, you can also set `localStorage.setItem('finai_gemini_api_key', '<sua-chave>')` in the devtools console.
-3. Run the app:
-   `npm run dev`
+<p align="center">
+  <a href="#-sobre">Sobre</a> •
+  <a href="#-funcionalidades">Funcionalidades</a> •
+  <a href="#-screenshots">Screenshots</a> •
+  <a href="#-como-surgiu">Como Surgiu</a> •
+  <a href="#-tecnologias">Tecnologias</a> •
+  <a href="#-como-usar">Como Usar</a>
+</p>
 
 ---
 
-## 📥 Nova Funcionalidade: Importação de Extratos Bancários
+## 📖 Sobre
 
-### Visão Geral
+O **FinAI** é um aplicativo de controle financeiro pessoal que utiliza Inteligência Artificial para ajudar você a entender seus gastos, planejar seus sonhos e tomar decisões financeiras mais inteligentes.
 
-O FinAI agora suporta **importação de extratos bancários** além de faturas de cartão de crédito. O sistema identifica automaticamente o tipo de documento e aplica filtros inteligentes para garantir que apenas transações relevantes sejam registradas.
+> ⚠️ **Transparência**: Este projeto foi iniciado a partir de um template do [Google AI Studio](https://aistudio.google.com/) e evoluído significativamente com a ajuda do [Claude](https://claude.ai/) (Anthropic) e [Kiro](https://kiro.dev/). Acredito na importância de ser honesto sobre o uso de ferramentas de IA no desenvolvimento.
 
-### Como Funciona
+---
 
-Ao importar um arquivo (PDF, CSV, ou imagem), a IA:
+## ✨ Funcionalidades
 
-1. **Detecta automaticamente** se é uma **fatura de cartão** ou **extrato bancário**
-2. **Identifica o emissor** (banco ou cartão)
-3. **Extrai transações** linha a linha
-4. **Aplica filtros inteligentes** para evitar duplicações e lançamentos irrelevantes
+### 🤖 Inteligência Artificial
+- **Chat Inteligente** - Converse com a IA sobre suas finanças
+- **Categorização Automática** - A IA categoriza suas transações automaticamente
+- **Análise de Viabilidade** - Descubra quando você pode realizar seus sonhos
+- **Insights Personalizados** - Receba dicas baseadas no seu perfil de gastos
 
-### Filtros Inteligentes
+### 📊 Dashboard Completo
+- Visão geral de receitas e despesas
+- Gráficos interativos por categoria
+- Projeção de gastos do mês
+- Histórico de transações
 
-#### 🔄 Transferências Internas
-**Não cria transação** quando detecta:
-- Transferências entre contas do mesmo titular
-- PIX para conta própria
-- Aplicações e resgates (investimentos/poupança)
-- Exemplos de padrões detectados:
-  - "Transferência para João Vitor" (quando João é o titular)
-  - "PIX enviado João Vitor" → "PIX recebido João Vitor"
-  - "Aplicação Poupança", "Resgate Investimento"
+### 📥 Importação Inteligente
+- Importe faturas de cartão (PDF, Excel, texto)
+- A IA extrai e categoriza automaticamente
+- Suporte a múltiplos bancos brasileiros
 
-**Motivo:** Movimentações internas não representam receita ou despesa real.
+### 🎯 Lista de Desejos
+- Adicione seus objetivos financeiros
+- A IA pesquisa preços e analisa viabilidade
+- Acompanhe seu progresso de economia
+- Simulação de parcelamento
 
-#### 💳 Pagamentos de Faturas
-**Não cria transação** quando detecta:
-- Pagamento de fatura de cartão de crédito
-- Débito automático de fatura
-- Exemplos de padrões detectados:
-  - "Pagamento Fatura Cartão"
-  - "PGTO CARTÃO CRÉDITO"
-  - "DÉBITO AUTOMÁTICO FATURA NUBANK"
-  - "Fatura Bradesco", "Pagamento C6 Bank"
+### 📅 Agenda Financeira
+- Visualize contas a pagar
+- Controle de recorrências
+- Alertas de vencimento
 
-**Motivo:** Evita dupla contagem, já que os itens da fatura já foram importados pelo módulo de faturas.
+### ☁️ Sincronização
+- Seus dados salvos na nuvem (Firebase)
+- Acesse de qualquer dispositivo
+- Funciona offline (PWA)
 
-#### 📊 Linhas de Saldo
-**Não cria transação** quando detecta:
-- "Saldo Anterior", "Saldo Atual"
-- "Saldo Disponível"
-- Linhas informativas de balanço
+---
 
-### Tipos de Documentos Suportados
+## 📸 Screenshots
 
-| Tipo | Descrição | Filtros Aplicados |
-|------|-----------|-------------------|
-| **Fatura de Cartão** | Faturas mensais de cartão de crédito | ✅ Detecta data de vencimento<br>✅ Evita duplicação de assinaturas<br>✅ Ignora linhas de pagamento/total |
-| **Extrato Bancário** | Extratos de conta corrente/poupança | ✅ Filtra transferências internas<br>✅ Filtra pagamentos de faturas<br>✅ Filtra linhas de saldo |
+<p align="center">
+  <img src="images/finai-homepage.png" alt="Dashboard" width="45%"/>
+  <img src="images/finai-import.png" alt="Importação" width="45%"/>
+</p>
 
-### Formatos Aceitos
-- **PDF** - Faturas e extratos em PDF
-- **Imagens** - JPG, PNG (screenshots de apps bancários)
-- **CSV** - Exportações de planilhas
+<p align="center">
+  <img src="images/finai-assistant.png" alt="Assistente IA" width="45%"/>
+  <img src="images/finai-agenda.png" alt="Agenda" width="45%"/>
+</p>
 
-### Como Usar
+<p align="center">
+  <img src="images/finai-streamings-insight.png" alt="Insights" width="45%"/>
+  <img src="images/finai-import-2.png" alt="Importação 2" width="45%"/>
+</p>
 
-1. Vá em **"Adicionar"** → **"Importar"**
-2. Faça upload do arquivo (fatura ou extrato)
-3. Aguarde a análise da IA
-4. O sistema identificará o tipo e aplicará os filtros automaticamente
-5. Somente transações relevantes serão adicionadas
+---
 
-### Auditoria e Transparência
+## 🚀 Como Surgiu
 
-Todas as transações filtradas são registradas no console para auditoria:
+Este projeto nasceu da minha vontade de aprender mais sobre **Inteligência Artificial aplicada** e criar algo útil no processo.
+
+### A Jornada:
+
+1. **Início no Google AI Studio** 🎬
+   - Comecei explorando o Google AI Studio e seus templates
+   - Encontrei um template de app financeiro que me interessou
+   - Usei como base para entender a integração com Gemini AI
+
+2. **Evolução com Claude/Kiro** 🤖
+   - Utilizei o Claude (Anthropic) para expandir funcionalidades
+   - Kiro me ajudou a refatorar e melhorar o código
+   - Aprendi muito sobre React, TypeScript e boas práticas
+
+3. **Resultado Final** ✨
+   - Um app funcional que uso no meu dia a dia
+   - Experiência prática com IA generativa
+   - Portfolio que reflete aprendizado real
+
+> 💡 **Minha visão**: Ferramentas de IA são como superpoderes para desenvolvedores. O importante é saber usá-las e ser transparente sobre isso.
+
+---
+
+## 🛠️ Tecnologias
+
+| Categoria | Tecnologia |
+|-----------|------------|
+| **Frontend** | React 19, TypeScript, Tailwind CSS |
+| **Build** | Vite |
+| **IA** | Google Gemini AI |
+| **Backend** | Firebase (Auth, Firestore) |
+| **Gráficos** | Recharts |
+| **Ícones** | Lucide React |
+| **PWA** | Service Worker, Web Manifest |
+
+---
+
+## 💻 Como Usar
+
+### Pré-requisitos
+- Node.js 18+
+- Conta no Google AI Studio (para API key do Gemini)
+- Conta no Firebase (opcional, para sincronização)
+
+### Instalação
+
+```bash
+# Clone o repositório
+git clone https://github.com/seu-usuario/finai.git
+
+# Entre na pasta
+cd finai
+
+# Instale as dependências
+npm install
+
+# Configure as variáveis de ambiente
+cp .env.example .env.local
+# Edite .env.local com suas chaves
+
+# Inicie o servidor de desenvolvimento
+npm run dev
 ```
-⚠️ Skipping internal transfer: "PIX para João Vitor (próprio)"
-⚠️ Skipping invoice payment: "PAGAMENTO FATURA NUBANK"
+
+### Variáveis de Ambiente
+
+```env
+VITE_GEMINI_API_KEY=sua_chave_gemini
+VITE_FIREBASE_API_KEY=sua_chave_firebase
+VITE_FIREBASE_AUTH_DOMAIN=seu_projeto.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=seu_projeto
 ```
 
-### Configuração Técnica
+---
 
-#### Tipos Adicionados (`types.ts`)
-```typescript
-movementType?: 'regular' | 'internal_transfer' | 'invoice_payment';
-ignoredReason?: string;
-```
+## 🎬 Demo
 
-#### Funções Utilitárias (`importUtils.ts`)
-- `isPagamentoFaturaDescription()` - Detecta pagamentos de fatura
-- `isLikelyInternalTransfer()` - Detecta transferências internas
+Quer ver o app em ação sem configurar nada?
 
-#### API de Importação (`geminiService.ts`)
-A função `parseImportFile()` agora aceita um parâmetro opcional:
-```typescript
-ownerName?: string // Nome do titular para detectar transferências internas
-```
+1. Acesse as **Configurações** ⚙️
+2. Role até o final
+3. Clique em **"Ativar Modo Demo"**
+4. Explore com dados fictícios!
 
-### Benefícios
+---
 
-✅ **Zero duplicação** - Evita lançar a mesma despesa duas vezes  
-✅ **Visão financeira real** - Só conta o que realmente impacta o orçamento  
-✅ **Economia de tempo** - Processamento automático e inteligente  
-✅ **Transparência** - Log de tudo que foi filtrado para auditoria
+## 📝 Licença
+
+Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+---
+
+## 🙏 Agradecimentos
+
+- [Google AI Studio](https://aistudio.google.com/) - Template inicial e API Gemini
+- [Anthropic Claude](https://claude.ai/) - Assistência no desenvolvimento
+- [Kiro](https://kiro.dev/) - IDE com IA integrada
+- Comunidade open source pelos pacotes incríveis
+
+---
+
+<p align="center">
+  Feito com ❤️ e muita ajuda de IA
+</p>
+
+<p align="center">
+  <a href="https://linkedin.com/in/seu-perfil">
+    <img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn"/>
+  </a>
+  <a href="https://github.com/seu-usuario">
+    <img src="https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white" alt="GitHub"/>
+  </a>
+</p>

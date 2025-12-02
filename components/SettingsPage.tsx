@@ -30,10 +30,12 @@ import {
   ExternalLink,
   ToggleLeft,
   ToggleRight,
-  Info
+  Info,
+  Sparkles
 } from 'lucide-react';
 import { useFirebaseSync } from '../hooks/useFirebaseSync';
 import { clearAllData, getApiLogs, ApiLog } from '../services/storageService';
+import { enableDemoMode, disableDemoMode, isDemoMode } from '../utils/mockData';
 
 interface SettingsPageProps {
   onNavigate: (tab: string) => void;
@@ -617,6 +619,43 @@ const DataSection: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNaviga
         >
           <Trash2 size={18} />
           Excluir todos os registros
+        </button>
+      </div>
+
+      {/* Demo Mode Section */}
+      <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-2xl p-6 border border-violet-200">
+        <div className="flex items-start gap-4 mb-4">
+          <div className="p-3 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl text-white">
+            <Sparkles size={24} />
+          </div>
+          <div>
+            <h3 className="font-bold text-zinc-900 mb-1">🎬 Modo Demonstração</h3>
+            <p className="text-sm text-zinc-600">
+              {isDemoMode() 
+                ? 'Modo demo ativo! Os dados exibidos são fictícios para demonstração.'
+                : 'Carrega dados fictícios realistas para tirar prints e demonstrações.'}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => {
+            if (isDemoMode()) {
+              disableDemoMode();
+            } else {
+              if (confirm('Isso substituirá seus dados atuais por dados de demonstração. Continuar?')) {
+                enableDemoMode();
+              }
+            }
+            window.location.reload();
+          }}
+          className={`w-full py-3 font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
+            isDemoMode()
+              ? 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+              : 'bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:from-violet-600 hover:to-purple-700'
+          }`}
+        >
+          <Sparkles size={18} />
+          {isDemoMode() ? 'Desativar Modo Demo' : 'Ativar Modo Demo'}
         </button>
       </div>
     </div>
