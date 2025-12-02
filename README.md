@@ -93,26 +93,17 @@ O **FinAI** é um aplicativo de controle financeiro pessoal que utiliza Intelig�
 
 ## 🚀 Como Surgiu
 
-Este projeto nasceu da minha vontade de aprender mais sobre **Inteligência Artificial aplicada** e criar algo útil no processo.
+Estava querendo aprender mais sobre IA aplicada e pensei: por que não fazer algo que eu realmente usaria?
 
-### A Jornada:
+### O Processo
 
-1. **Início no Google AI Studio** 🎬
-   - Comecei explorando o Google AI Studio e seus templates
-   - Encontrei um template de app financeiro que me interessou
-   - Usei como base para entender a integração com Gemini AI
+Comecei explorando o Google AI Studio e encontrei um template de app financeiro. Achei interessante e decidi usar como ponto de partida pra entender como funciona a integração com o Gemini AI.
 
-2. **Evolução com Claude/Kiro** 🤖
-   - Utilizei o Claude (Anthropic) para expandir funcionalidades
-   - Kiro me ajudou a refatorar e melhorar o código
-   - Aprendi muito sobre React, TypeScript e boas práticas
+Daí fui expandindo as funcionalidades com ajuda do Claude e do Kiro - refatorando código, implementando novas features e aprendendo React e TypeScript na prática. Foi um processo bem iterativo: tinha uma ideia, implementava, testava, melhorava.
 
-3. **Resultado Final** ✨
-   - Um app funcional que uso no meu dia a dia
-   - Experiência prática com IA generativa
-   - Portfolio que reflete aprendizado real
+O resultado é um app que uso diariamente pra controlar minhas finanças e que virou um projeto de portfolio bacana. Aprendi bastante sobre desenvolvimento com IA, e mais importante: aprendi que essas ferramentas são ótimas quando você sabe o que quer construir e entende o que elas estão gerando.
 
-> 💡 **Minha visão**: Ferramentas de IA são como superpoderes para desenvolvedores. O importante é saber usá-las e ser transparente sobre isso.
+> 💡 Ferramentas de IA ajudam demais no desenvolvimento, mas o projeto, as decisões e o aprendizado são seus. Só quis ser transparente sobre como construí isso.
 
 ---
 
