@@ -93,26 +93,19 @@ O **FinAI** é um aplicativo de controle financeiro pessoal que utiliza Intelig�
 
 ## 🚀 Como Surgiu
 
-Este projeto nasceu da minha vontade de aprender mais sobre **Inteligência Artificial aplicada** e criar algo útil no processo.
-
-### A Jornada:
-
 1. **Início no Google AI Studio** 🎬
    - Comecei explorando o Google AI Studio e seus templates
-   - Encontrei um template de app financeiro que me interessou
+   - Enviei um prompt para a geração de um template de app financeiro com IA.
    - Usei como base para entender a integração com Gemini AI
 
 2. **Evolução com Claude/Kiro** 🤖
-   - Utilizei o Claude (Anthropic) para expandir funcionalidades
+   - Utilizei o Claude Code para expandir funcionalidades
    - Kiro me ajudou a refatorar e melhorar o código
-   - Aprendi muito sobre React, TypeScript e boas práticas
+   - Aprendi muito sobre React e TypeScript.
 
 3. **Resultado Final** ✨
-   - Um app funcional que uso no meu dia a dia
+   - Um app que uso no meu dia a dia
    - Experiência prática com IA generativa
-   - Portfolio que reflete aprendizado real
-
-> 💡 **Minha visão**: Ferramentas de IA são como superpoderes para desenvolvedores. O importante é saber usá-las e ser transparente sobre isso.
 
 ---
 
@@ -141,7 +134,7 @@ Este projeto nasceu da minha vontade de aprender mais sobre **Inteligência Arti
 
 ```bash
 # Clone o repositório
-git clone https://github.com/seu-usuario/finai.git
+git clone https://github.com/alzolansk/finai.git
 
 # Entre na pasta
 cd finai
@@ -170,8 +163,7 @@ VITE_FIREBASE_PROJECT_ID=seu_projeto
 
 ## 🎬 Demo
 
-Quer ver o app em ação sem configurar nada?
-
+Se quiser usar o app sem configurar nada: 
 1. Acesse as **Configurações** ⚙️
 2. Role até o final
 3. Clique em **"Ativar Modo Demo"**
@@ -185,8 +177,6 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 
 ---
 
-## 🙏 Agradecimentos
-
 - [Google AI Studio](https://aistudio.google.com/) - Template inicial e API Gemini
 - [Anthropic Claude](https://claude.ai/) - Assistência no desenvolvimento
 - [Kiro](https://kiro.dev/) - IDE com IA integrada
@@ -194,15 +184,12 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 
 ---
 
-<p align="center">
-  Feito com ❤️ e muita ajuda de IA
-</p>
 
 <p align="center">
-  <a href="https://linkedin.com/in/seu-perfil">
+  <a href="https://linkedin.com/in/joaoalvesz">
     <img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn"/>
   </a>
-  <a href="https://github.com/seu-usuario">
+  <a href="https://github.com/alzolansk">
     <img src="https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white" alt="GitHub"/>
   </a>
 </p>
