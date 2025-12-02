@@ -5,7 +5,7 @@
 <h1 align="center">💰 FinAI - Controle Financeiro Inteligente</h1>
 
 <p align="center">
-  <strong>Seu assistente financeiro pessoal com Inteligência Artificial</strong>
+  <strong>Assistente financeiro pessoal com Inteligência Artificial</strong>
 </p>
 
 <p align="center">
