@@ -27,6 +27,7 @@ export interface Transaction {
   category: Category;
   type: TransactionType;
   isRecurring?: boolean;
+  recurringEndDate?: string; // ISO string - Date when recurring transaction was cancelled (projections stop after this date)
   issuer?: string; // Bank/Card issuer (e.g., "Nubank", "Itaú", "C6")
   isAiGenerated?: boolean;
   linkedToInvoice?: boolean; // Indicates if this subscription is linked to a credit card invoice

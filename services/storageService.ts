@@ -72,6 +72,56 @@ export const updateTransaction = (transaction: Transaction): Transaction[] => {
   return current;
 };
 
+/**
+ * Cancels a recurring transaction by setting its end date.
+ * This preserves historical data while stopping future projections.
+ * @param id - The transaction ID to cancel
+ * @param endDate - The date from which to stop projections (defaults to current month)
+ * @returns Updated transaction array
+ */
+export const cancelRecurringTransaction = (id: string, endDate?: Date): Transaction[] => {
+  const current = getTransactions();
+  const index = current.findIndex(t => t.id === id);
+
+  if (index >= 0 && current[index].isRecurring) {
+    const updated = [...current];
+    // Set the end date to the beginning of the specified month (or current month)
+    const cancelDate = endDate || new Date();
+    const endDateStr = new Date(cancelDate.getFullYear(), cancelDate.getMonth(), 1).toISOString();
+
+    updated[index] = {
+      ...updated[index],
+      recurringEndDate: endDateStr
+    };
+
+    localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(updated));
+    return updated;
+  }
+
+  return current;
+};
+
+/**
+ * Reactivates a cancelled recurring transaction by removing its end date.
+ * @param id - The transaction ID to reactivate
+ * @returns Updated transaction array
+ */
+export const reactivateRecurringTransaction = (id: string): Transaction[] => {
+  const current = getTransactions();
+  const index = current.findIndex(t => t.id === id);
+
+  if (index >= 0 && current[index].isRecurring && current[index].recurringEndDate) {
+    const updated = [...current];
+    const { recurringEndDate, ...rest } = updated[index];
+    updated[index] = rest as Transaction;
+
+    localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(updated));
+    return updated;
+  }
+
+  return current;
+};
+
 // --- Settings & Onboarding ---
 
 export const getUserSettings = (): UserSettings | null => {

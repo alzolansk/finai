@@ -88,6 +88,21 @@ export const projectRecurringTransactions = (
       return;
     }
 
+    // Check if this recurring transaction has been cancelled
+    // If recurringEndDate is set, don't project for months after that date
+    if (recurring.recurringEndDate) {
+      const endDate = normalizeToLocalDate(recurring.recurringEndDate);
+      if (endDate) {
+        // Don't project if target month is on or after the end date month
+        if (
+          targetYear > endDate.getFullYear() ||
+          (targetYear === endDate.getFullYear() && targetMonth >= endDate.getMonth())
+        ) {
+          return; // Skip this recurring transaction for this target month
+        }
+      }
+    }
+
     // Only project if the target month is AFTER the original month (not the same month)
     if (
       targetYear > anchorDate.getFullYear() ||

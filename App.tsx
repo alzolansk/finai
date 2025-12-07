@@ -16,7 +16,7 @@ import DebtorDashboard from './components/DebtorDashboard';
 import SettingsPage from './components/SettingsPage';
 import { Transaction, UserSettings, ChatMessage, TransactionType, Category, TimePeriod, WishlistItem, WishlistPriority, WishlistItemType, BudgetAlert } from './types';
 import { generateSmartAlerts } from './services/forecastService';
-import { getTransactions, saveTransaction, getUserSettings, saveUserSettings, deleteTransaction, updateTransaction, getSavingsReviews, saveSavingsReview, SavingsReview, getAgendaChecklist, toggleAgendaChecklist, AgendaChecklistEntry, getWishlistItems, saveWishlistItem, deleteWishlistItem, getImportedInvoices } from './services/storageService';
+import { getTransactions, saveTransaction, getUserSettings, saveUserSettings, deleteTransaction, updateTransaction, cancelRecurringTransaction, reactivateRecurringTransaction, getSavingsReviews, saveSavingsReview, SavingsReview, getAgendaChecklist, toggleAgendaChecklist, AgendaChecklistEntry, getWishlistItems, saveWishlistItem, deleteWishlistItem, getImportedInvoices } from './services/storageService';
 import { chatWithAdvisor, researchWishlistItem, analyzeWishlistViability } from './services/geminiService';
 import { SavingsPlanAction } from './services/savingsService';
 import { generateReimbursementIncomes, cleanupOrphanedReimbursements } from './services/reimbursementService';
@@ -272,6 +272,28 @@ const App: React.FC = () => {
       const updated = deleteTransaction(id);
       setTransactions(updated);
       removeTransaction(id); // Sync to cloud
+  };
+
+  // Cancel a recurring transaction (preserves history, stops future projections)
+  const handleCancelRecurring = (id: string) => {
+      const updated = cancelRecurringTransaction(id);
+      setTransactions(updated);
+      // Find and sync the updated transaction
+      const cancelledTransaction = updated.find(t => t.id === id);
+      if (cancelledTransaction) {
+        syncTransaction(cancelledTransaction);
+      }
+  };
+
+  // Reactivate a cancelled recurring transaction
+  const handleReactivateRecurring = (id: string) => {
+      const updated = reactivateRecurringTransaction(id);
+      setTransactions(updated);
+      // Find and sync the updated transaction
+      const reactivatedTransaction = updated.find(t => t.id === id);
+      if (reactivatedTransaction) {
+        syncTransaction(reactivatedTransaction);
+      }
   };
 
   const handleUpdateTransaction = (transaction: Transaction) => {
@@ -706,10 +728,12 @@ const App: React.FC = () => {
       )}
 
       {activeTab === 'insights' && (
-        <InsightsPanel 
-          transactions={transactions} 
+        <InsightsPanel
+          transactions={transactions}
           onUpdate={handleUpdateTransaction}
           onDelete={handleDeleteTransaction}
+          onCancelRecurring={handleCancelRecurring}
+          onReactivateRecurring={handleReactivateRecurring}
           onAdd={(t) => handleAddTransactions([t])}
         />
       )}

@@ -2,13 +2,15 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Transaction, Insight, Category, TransactionType } from '../types';
 import { generateInsights } from '../services/geminiService';
-import { Lightbulb, AlertCircle, RefreshCw, CheckCircle2, BadgePercent, Trash2, Edit2, Plus, X, Wand2, Link2 } from 'lucide-react';
+import { Lightbulb, AlertCircle, RefreshCw, CheckCircle2, BadgePercent, Trash2, Edit2, Plus, X, Wand2, Link2, Ban, PlayCircle } from 'lucide-react';
 import { getIconForTransaction } from '../utils/iconMapper';
 
 interface InsightsPanelProps {
   transactions: Transaction[];
   onUpdate: (transaction: Transaction) => void;
   onDelete: (id: string) => void;
+  onCancelRecurring?: (id: string) => void;
+  onReactivateRecurring?: (id: string) => void;
   onAdd: (transaction: Transaction) => void;
 }
 
@@ -18,7 +20,7 @@ interface StoredInsights {
   timestamp: number;
 }
 
-const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions, onUpdate, onDelete, onAdd }) => {
+const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions, onUpdate, onDelete, onCancelRecurring, onReactivateRecurring, onAdd }) => {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(false);
   
@@ -414,32 +416,61 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions, onUpdate, o
             {transactions.filter(t => t.isRecurring).map(t => {
                 const iconConfig = getIconForTransaction(t.description, t.category);
                 const IconComponent = iconConfig.icon;
-                
+                const isCancelled = !!t.recurringEndDate;
+
                 return (
-                <div key={t.id} className={`flex items-center gap-4 bg-white p-5 rounded-2xl border transition-all group hover:shadow-md ${t.isAiGenerated ? 'border-emerald-200' : 'border-zinc-100'}`}>
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${t.isAiGenerated ? 'bg-emerald-100' : iconConfig.bgColor}`}>
-                        {t.isAiGenerated ? (
+                <div key={t.id} className={`flex items-center gap-4 bg-white p-5 rounded-2xl border transition-all group hover:shadow-md ${isCancelled ? 'border-amber-200 bg-amber-50/50' : t.isAiGenerated ? 'border-emerald-200' : 'border-zinc-100'}`}>
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isCancelled ? 'bg-amber-100' : t.isAiGenerated ? 'bg-emerald-100' : iconConfig.bgColor}`}>
+                        {isCancelled ? (
+                            <Ban size={20} className="text-amber-600" />
+                        ) : t.isAiGenerated ? (
                             <Wand2 size={20} className="text-emerald-600" />
                         ) : (
                             <IconComponent size={22} className={iconConfig.iconColor} />
                         )}
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="font-bold text-base text-zinc-800">{t.description}</p>
+                        <p className={`font-bold text-base ${isCancelled ? 'text-zinc-500 line-through' : 'text-zinc-800'}`}>{t.description}</p>
                         <p className="text-sm text-zinc-400">
-                            {t.linkedToInvoice && t.creditCardIssuer ? `Vinculado ao ${t.creditCardIssuer}` : 'Gasto recorrente mensal'}
+                            {isCancelled ? (
+                              <span className="text-amber-600">Cancelada - não aparecerá em projeções futuras</span>
+                            ) : t.linkedToInvoice && t.creditCardIssuer ? (
+                              `Vinculado ao ${t.creditCardIssuer}`
+                            ) : (
+                              'Gasto recorrente mensal'
+                            )}
                         </p>
                     </div>
-                    
+
                     <div className="flex items-center gap-6 shrink-0">
-                        <span className="font-bold text-lg text-zinc-900">R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className={`font-bold text-lg ${isCancelled ? 'text-zinc-400' : 'text-zinc-900'}`}>R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => handleEditClick(t)} className="p-2 text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 rounded-lg transition-colors">
-                                <Edit2 size={18} />
-                            </button>
-                            <button 
-                                onClick={() => handleDeleteClick(t.id)} 
+                            {!isCancelled && (
+                              <button onClick={() => handleEditClick(t)} className="p-2 text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 rounded-lg transition-colors">
+                                  <Edit2 size={18} />
+                              </button>
+                            )}
+                            {isCancelled ? (
+                              <button
+                                onClick={() => onReactivateRecurring?.(t.id)}
+                                className="p-2 text-amber-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                title="Reativar recorrência"
+                              >
+                                <PlayCircle size={18} />
+                              </button>
+                            ) : (
+                              <button
+                                  onClick={() => onCancelRecurring?.(t.id)}
+                                  className="p-2 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                  title="Cancelar recorrência (preserva histórico)"
+                              >
+                                  <Ban size={18} />
+                              </button>
+                            )}
+                            <button
+                                onClick={() => handleDeleteClick(t.id)}
                                 className={`rounded-lg transition-all flex items-center gap-1 ${deleteConfirmationId === t.id ? 'bg-rose-100 text-rose-600 px-3 py-2' : 'p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50'}`}
+                                title="Excluir permanentemente"
                             >
                                 {deleteConfirmationId === t.id ? (
                                     <span className="text-xs font-bold">Confirma?</span>
@@ -459,31 +490,59 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions, onUpdate, o
             {transactions.filter(t => t.isRecurring).map(t => {
                 const iconConfig = getIconForTransaction(t.description, t.category);
                 const IconComponent = iconConfig.icon;
-                
+                const isCancelled = !!t.recurringEndDate;
+
                 return (
-                <div key={t.id} className={`flex items-center gap-2 bg-white p-3 rounded-xl border transition-all group ${t.isAiGenerated ? 'border-emerald-200' : 'border-zinc-100'}`}>
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${t.isAiGenerated ? 'bg-emerald-100' : iconConfig.bgColor}`}>
-                        {t.isAiGenerated ? (
+                <div key={t.id} className={`flex items-center gap-2 bg-white p-3 rounded-xl border transition-all group ${isCancelled ? 'border-amber-200 bg-amber-50/50' : t.isAiGenerated ? 'border-emerald-200' : 'border-zinc-100'}`}>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isCancelled ? 'bg-amber-100' : t.isAiGenerated ? 'bg-emerald-100' : iconConfig.bgColor}`}>
+                        {isCancelled ? (
+                            <Ban size={14} className="text-amber-600" />
+                        ) : t.isAiGenerated ? (
                             <Wand2 size={14} className="text-emerald-600" />
                         ) : (
                             <IconComponent size={14} className={iconConfig.iconColor} />
                         )}
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="font-bold text-xs text-zinc-800 truncate">{t.description}</p>
+                        <p className={`font-bold text-xs truncate ${isCancelled ? 'text-zinc-500 line-through' : 'text-zinc-800'}`}>{t.description}</p>
                         <p className="text-[10px] text-zinc-400 truncate">
-                            {t.linkedToInvoice && t.creditCardIssuer ? t.creditCardIssuer : 'Recorrente'}
+                            {isCancelled ? (
+                              <span className="text-amber-600">Cancelada</span>
+                            ) : t.linkedToInvoice && t.creditCardIssuer ? (
+                              t.creditCardIssuer
+                            ) : (
+                              'Recorrente'
+                            )}
                         </p>
                     </div>
-                    
+
                     <div className="flex items-center gap-2 shrink-0">
-                        <span className="font-bold text-xs text-zinc-900">R$ {t.amount.toLocaleString('pt-BR')}</span>
+                        <span className={`font-bold text-xs ${isCancelled ? 'text-zinc-400' : 'text-zinc-900'}`}>R$ {t.amount.toLocaleString('pt-BR')}</span>
                         <div className="flex gap-1">
-                            <button onClick={() => handleEditClick(t)} className="p-1.5 text-zinc-400 active:text-zinc-800 active:bg-zinc-100 rounded-md transition-colors">
-                                <Edit2 size={14} />
-                            </button>
-                            <button 
-                                onClick={() => handleDeleteClick(t.id)} 
+                            {!isCancelled && (
+                              <button onClick={() => handleEditClick(t)} className="p-1.5 text-zinc-400 active:text-zinc-800 active:bg-zinc-100 rounded-md transition-colors">
+                                  <Edit2 size={14} />
+                              </button>
+                            )}
+                            {isCancelled ? (
+                              <button
+                                onClick={() => onReactivateRecurring?.(t.id)}
+                                className="p-1.5 text-amber-500 active:text-emerald-600 active:bg-emerald-50 rounded-md transition-colors"
+                                title="Reativar"
+                              >
+                                <PlayCircle size={14} />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => onCancelRecurring?.(t.id)}
+                                className="p-1.5 text-zinc-400 active:text-amber-600 active:bg-amber-50 rounded-md transition-colors"
+                                title="Cancelar"
+                              >
+                                <Ban size={14} />
+                              </button>
+                            )}
+                            <button
+                                onClick={() => handleDeleteClick(t.id)}
                                 className={`rounded-md transition-all flex items-center gap-1 ${deleteConfirmationId === t.id ? 'bg-rose-100 text-rose-600 px-2 py-1.5' : 'p-1.5 text-zinc-400 active:text-rose-600 active:bg-rose-50'}`}
                             >
                                 {deleteConfirmationId === t.id ? (
