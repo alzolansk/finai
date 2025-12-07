@@ -130,7 +130,8 @@ const TransactionItem = React.memo(
 TransactionItem.displayName = 'TransactionItem';
 
 // Constants for pagination
-const ITEMS_PER_PAGE = 50;
+const ITEMS_PER_PAGE = 30; // Reduzido de 50 para 30 para carregamento mais rápido
+const INITIAL_ITEMS = 15; // Carrega apenas 15 itens inicialmente
 
 const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelete, onUpdate, onBack }) => {
   const [filter, setFilter] = useState('');
@@ -144,16 +145,30 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
     credit: true
   });
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_ITEMS); // Inicia com menos itens
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editForm, setEditForm] = useState<Partial<Transaction>>({});
+  const [isInitialLoad, setIsInitialLoad] = useState(true); // Flag para primeira carga
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Load more items after initial render
+  useEffect(() => {
+    if (isInitialLoad) {
+      // Após 100ms, carrega mais itens para melhor UX
+      const timer = setTimeout(() => {
+        setVisibleCount(ITEMS_PER_PAGE);
+        setIsInitialLoad(false);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isInitialLoad]);
 
   // Debounce filter input
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedFilter(filter);
-      setVisibleCount(ITEMS_PER_PAGE); // Reset pagination on filter change
+      setVisibleCount(INITIAL_ITEMS); // Reset para carregamento inicial rápido
+      setIsInitialLoad(true);
     }, 300);
     return () => clearTimeout(timer);
   }, [filter]);
@@ -337,7 +352,11 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
     setVisibleCount(ITEMS_PER_PAGE);
   }, []);
 
+  // Só calcula issuerGroups quando estiver no modo invoices (otimização de performance)
   const issuerGroups = useMemo(() => {
+    // Se não estiver no modo invoices, retorna array vazio para evitar cálculo desnecessário
+    if (viewMode !== 'invoices') return [];
+
     const expensesOnly = filteredTransactions.filter((t) => t.type === TransactionType.EXPENSE);
     const issuerMap = new Map<string, Map<string, Transaction[]>>();
 
@@ -376,7 +395,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
     });
 
     return groups.sort((a, b) => b.totalAmount - a.totalAmount || b.itemCount - a.itemCount);
-  }, [filteredTransactions]);
+  }, [filteredTransactions, viewMode]); // Adiciona viewMode como dependência
 
   const handleDelete = useCallback(
     (id: string) => {
@@ -440,29 +459,25 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
       <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 overflow-hidden">
         {/* Control Bar */}
         <div className="p-6 border-b border-zinc-100 space-y-4">
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-400" size={18} />
-              <input
-                type="text"
-                placeholder="Buscar transação..."
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all text-sm"
-              />
-            </div>
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-400" size={18} />
+            <input
+              type="text"
+              placeholder="Buscar por descrição ou categoria..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="w-full pl-11 pr-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all text-sm"
+            />
+          </div>
 
+          {/* Filters Row */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            {/* Period Selector */}
             <div className="flex items-center gap-2">
-              {selectedDate && (
-                <button
-                  onClick={handleShowAllMonths}
-                  className="px-3 py-3 text-xs font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl transition-colors whitespace-nowrap"
-                >
-                  Limpar
-                </button>
-              )}
+              <label className="text-xs font-bold text-zinc-600">Período:</label>
               <div className="flex items-center bg-zinc-50 border border-zinc-200 rounded-xl overflow-hidden">
-                <button onClick={handlePrevMonth} className="p-3 hover:bg-zinc-100 transition-colors text-zinc-600">
+                <button onClick={handlePrevMonth} className="p-2 hover:bg-zinc-100 transition-colors text-zinc-600">
                   <ChevronLeftIcon size={16} />
                 </button>
                 <div className="flex items-center gap-1.5 px-3 min-w-[120px] justify-center border-x border-zinc-200">
@@ -471,15 +486,50 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                     {selectedDate ? getMonthName(selectedDate) : 'Todos'}
                   </span>
                 </div>
-                <button onClick={handleNextMonth} className="p-3 hover:bg-zinc-100 transition-colors text-zinc-600">
+                <button onClick={handleNextMonth} className="p-2 hover:bg-zinc-100 transition-colors text-zinc-600">
                   <ChevronRight size={16} />
+                </button>
+              </div>
+              {selectedDate && (
+                <button
+                  onClick={handleShowAllMonths}
+                  className="px-3 py-2 text-xs font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-2 sm:ml-auto">
+              <label className="text-xs font-bold text-zinc-600">Visualização:</label>
+              <div className="inline-flex bg-zinc-100 rounded-lg p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('itemized')}
+                  className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    viewMode === 'itemized' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'
+                  }`}
+                >
+                  Itemizado
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('invoices')}
+                  className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    viewMode === 'invoices' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'
+                  }`}
+                >
+                  Faturas
                 </button>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+          {/* Transaction Type Filters */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold text-zinc-600">Exibir:</label>
+            <div className="flex flex-wrap items-center gap-2">
               {filterOptions.map((option) => {
                 const isActive = visibilityFilters[option.key];
                 return (
@@ -499,27 +549,6 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                 );
               })}
             </div>
-
-            <div className="inline-flex bg-zinc-100 rounded-lg p-0.5">
-              <button
-                type="button"
-                onClick={() => setViewMode('itemized')}
-                className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  viewMode === 'itemized' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'
-                }`}
-              >
-                Itemizado
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('invoices')}
-                className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  viewMode === 'invoices' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'
-                }`}
-              >
-                Por Faturas
-              </button>
-            </div>
           </div>
         </div>
 
@@ -527,7 +556,23 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
         <div ref={listRef} className="divide-y divide-zinc-100 max-h-[70vh] overflow-y-auto">
           {viewMode === 'itemized' ? (
             visibleTransactions.length === 0 ? (
-              <div className="p-10 text-center text-zinc-400">Nenhuma transacao encontrada.</div>
+              isInitialLoad ? (
+                /* Skeleton loading durante carregamento inicial */
+                <div className="animate-pulse">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="p-6 flex items-center gap-4">
+                      <div className="w-12 h-12 bg-zinc-200 rounded-2xl"></div>
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 bg-zinc-200 rounded w-1/3"></div>
+                        <div className="h-3 bg-zinc-100 rounded w-1/4"></div>
+                      </div>
+                      <div className="h-5 bg-zinc-200 rounded w-24"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-10 text-center text-zinc-400">Nenhuma transacao encontrada.</div>
+              )
             ) : (
               <>
                 {visibleTransactions.map((t) => (

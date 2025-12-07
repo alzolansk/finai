@@ -531,12 +531,6 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
   }, [filteredItems]);
 
   const archivedItems = useMemo(() => wishlistItems.filter(i => i.isArchived), [wishlistItems]);
-  const archivedMatches = useMemo(() =>
-    wishlistItems.filter(i =>
-      i.isArchived &&
-      (searchTerm.trim() ? i.name.toLowerCase().includes(searchTerm.toLowerCase()) : true)
-    ).length,
-  [wishlistItems, searchTerm]);
 
   return (
     <div className="space-y-8 pb-20 animate-fadeIn">
@@ -612,18 +606,6 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
               placeholder="Ex.: viagem, notebook, curso..."
               className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
             />
-            {archivedMatches > 0 && statusFilter !== 'archived' && (
-              <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
-                Arquivados: {archivedMatches} encontrados
-                <button
-                  onClick={() => setStatusFilter('archived')}
-                  className="text-emerald-700 font-semibold hover:text-emerald-800"
-                  type="button"
-                >
-                  Ver arquivados
-                </button>
-              </div>
-            )}
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full md:w-auto">
             <div>
@@ -704,19 +686,17 @@ const WishlistTab: React.FC<WishlistTabProps> = ({
         </div>
       )}
 
-      {/* Archived hint */}
-      {(archivedMatches > 0 || statusFilter === 'archived') && (
+      {/* Archived hint - only show when viewing archived */}
+      {statusFilter === 'archived' && (
         <div className="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 shadow-sm text-sm">
           <div className="text-amber-800">
-            {statusFilter === 'archived'
-              ? `Listando arquivados (${archivedItems.length})`
-              : `Arquivados: ${archivedMatches} encontrados`}
+            Listando arquivados ({archivedItems.length})
           </div>
           <button
-            onClick={() => setStatusFilter(statusFilter === 'archived' ? 'all' : 'archived')}
+            onClick={() => setStatusFilter('all')}
             className="text-sm font-bold text-amber-700 hover:text-amber-800"
           >
-            {statusFilter === 'archived' ? 'Voltar' : 'Ver arquivados'}
+            Voltar
           </button>
         </div>
       )}

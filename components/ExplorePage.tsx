@@ -579,33 +579,39 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
         </div>
       </div>
 
-      {/* Advanced Filters Panel */}
+      {/* Advanced Filters Panel - Optimized */}
       {showFilters && (
-        <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 p-6 mb-4 animate-slideUp">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+        <div
+          className="bg-white rounded-2xl shadow-sm border border-zinc-100 mb-4 overflow-hidden"
+          style={{
+            animation: 'slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}
+        >
+          <div className="p-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             {/* Date Range */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-zinc-700">
                   <Calendar size={12} className="inline mr-1" />
                   Período
                 </label>
-                <div className="inline-flex bg-zinc-100 rounded-lg p-0.5 text-[11px] font-medium text-zinc-600">
+                <div className="inline-flex bg-zinc-100 rounded-md p-0.5 text-[10px] font-semibold">
                   <button
                     type="button"
                     onClick={() => setDateFieldMode('payment')}
-                    className={`px-2.5 py-1 rounded-md transition-all ${
+                    className={`px-2 py-1 rounded transition-all ${
                       dateFieldMode === 'payment'
                         ? 'bg-white text-zinc-900 shadow-sm'
                         : 'text-zinc-500 hover:text-zinc-800'
                     }`}
                   >
-                    Vencimento
+                    Venc.
                   </button>
                   <button
                     type="button"
                     onClick={() => setDateFieldMode('purchase')}
-                    className={`px-2.5 py-1 rounded-md transition-all ${
+                    className={`px-2 py-1 rounded transition-all ${
                       dateFieldMode === 'purchase'
                         ? 'bg-white text-zinc-900 shadow-sm'
                         : 'text-zinc-500 hover:text-zinc-800'
@@ -620,44 +626,44 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
                   type="date"
                   value={dateRangeStart}
                   onChange={(e) => setDateRangeStart(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                  className="flex-1 px-2.5 py-2 text-xs bg-zinc-50 border border-zinc-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
                 />
                 <input
                   type="date"
                   value={dateRangeEnd}
                   onChange={(e) => setDateRangeEnd(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                  className="flex-1 px-2.5 py-2 text-xs bg-zinc-50 border border-zinc-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
                 />
               </div>
             </div>
 
             {/* Amount Range */}
             <div>
-              <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-zinc-700 mb-2">
                 <DollarSign size={12} className="inline mr-1" />
                 Valor (R$)
               </label>
               <div className="flex gap-2">
                 <input
                   type="number"
-                  placeholder="Mínimo"
+                  placeholder="Mín"
                   value={minAmount}
                   onChange={(e) => setMinAmount(e.target.value ? Number(e.target.value) : '')}
-                  className="flex-1 px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                  className="flex-1 px-2.5 py-2 text-xs bg-zinc-50 border border-zinc-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
                 />
                 <input
                   type="number"
-                  placeholder="Máximo"
+                  placeholder="Máx"
                   value={maxAmount}
                   onChange={(e) => setMaxAmount(e.target.value ? Number(e.target.value) : '')}
-                  className="flex-1 px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                  className="flex-1 px-2.5 py-2 text-xs bg-zinc-50 border border-zinc-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
                 />
               </div>
             </div>
 
             {/* Type */}
             <div>
-              <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-zinc-700 mb-2">
                 <ArrowUpDown size={12} className="inline mr-1" />
                 Tipo
               </label>
@@ -670,10 +676,10 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
                         prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
                       );
                     }}
-                    className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
                       selectedTypes.includes(type)
-                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                        : 'bg-zinc-50 text-zinc-600 border border-zinc-200 hover:bg-zinc-100'
+                        ? 'bg-emerald-500 text-white shadow-sm'
+                        : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
                     }`}
                   >
                     {type === TransactionType.EXPENSE ? 'Despesa' : 'Receita'}
@@ -682,14 +688,14 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
               </div>
             </div>
 
-            {/* Categories */}
+            {/* Categories - Otimizado */}
             <div>
-              <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-zinc-700 mb-2">
                 <FileText size={12} className="inline mr-1" />
                 Categorias
               </label>
-              <div className="flex flex-wrap gap-1">
-                {Object.values(Category).slice(0, 6).map(cat => (
+              <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
+                {Object.values(Category).slice(0, 8).map(cat => (
                   <button
                     key={cat}
                     onClick={() => {
@@ -697,10 +703,10 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
                         prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
                       );
                     }}
-                    className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
                       selectedCategories.includes(cat)
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                        ? 'bg-emerald-500 text-white shadow-sm'
+                        : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
                     }`}
                   >
                     {cat}
@@ -709,15 +715,15 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
               </div>
             </div>
 
-            {/* Issuers */}
+            {/* Issuers - Limitado para performance */}
             {allIssuers.length > 0 && (
               <div>
-                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-bold text-zinc-700 mb-2">
                   <Building2 size={12} className="inline mr-1" />
-                  Bancos/Cartões
+                  Bancos
                 </label>
-                <div className="flex flex-wrap gap-1">
-                  {allIssuers.slice(0, 4).map(issuer => (
+                <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
+                  {allIssuers.slice(0, 6).map(issuer => (
                     <button
                       key={issuer}
                       onClick={() => {
@@ -725,10 +731,10 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
                           prev.includes(issuer) ? prev.filter(i => i !== issuer) : [...prev, issuer]
                         );
                       }}
-                      className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
+                      className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
                         selectedIssuers.includes(issuer)
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                          ? 'bg-emerald-500 text-white shadow-sm'
+                          : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
                       }`}
                     >
                       {issuer}
@@ -738,15 +744,15 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
               </div>
             )}
 
-            {/* Tags */}
+            {/* Tags - Limitado para performance */}
             {allTags.length > 0 && (
               <div>
-                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-bold text-zinc-700 mb-2">
                   <Tag size={12} className="inline mr-1" />
                   Tags
                 </label>
-                <div className="flex flex-wrap gap-1">
-                  {allTags.map(tag => (
+                <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
+                  {allTags.slice(0, 10).map(tag => (
                     <button
                       key={tag}
                       onClick={() => {
@@ -754,10 +760,10 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
                           prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
                         );
                       }}
-                      className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
+                      className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
                         selectedTags.includes(tag)
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                          ? 'bg-blue-500 text-white shadow-sm'
+                          : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
                       }`}
                     >
                       {tag}
@@ -768,15 +774,22 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
             )}
           </div>
 
-          {/* Save Filter Button */}
-          <div className="flex justify-end gap-2 pt-4 border-t border-zinc-100">
+          {/* Footer Actions */}
+          <div className="flex items-center justify-between pt-3 border-t border-zinc-100">
+            <button
+              onClick={() => setShowFilters(false)}
+              className="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-700 font-medium transition-all"
+            >
+              Fechar
+            </button>
             <button
               onClick={() => setShowSaveDialog(true)}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-500 transition-all flex items-center gap-2"
+              className="px-4 py-2 bg-emerald-500 text-white rounded-lg text-xs font-semibold hover:bg-emerald-600 active:scale-95 transition-all flex items-center gap-1.5 shadow-sm"
             >
-              <Save size={16} />
+              <Save size={14} />
               Salvar Filtro
             </button>
+          </div>
           </div>
         </div>
       )}
@@ -912,7 +925,7 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
               return (
                 <div key={t.id}>
                   {/* Desktop Row */}
-                  <div className="hidden md:flex p-6 hover:bg-zinc-50 transition-colors group">
+                  <div className="hidden md:flex p-6 hover:bg-zinc-50 transition-colors group relative">
                     <div className="flex items-center justify-between w-full">
                       <div className="flex items-center gap-4 flex-1">
                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
@@ -946,34 +959,36 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
                         <span className={`font-bold text-lg ${
                           t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-zinc-900'
                         }`}>
                           {t.type === TransactionType.EXPENSE && '- '}
                           R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </span>
-                        <button
-                          onClick={() => openEditDialog(t)}
-                          className="p-2 text-zinc-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                          title="Editar"
-                        >
-                          <Edit2 size={18} />
-                        </button>
-                        <button
-                          onClick={() => openTagDialog(t)}
-                          className="p-2 text-zinc-300 hover:text-purple-500 hover:bg-purple-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                          title="Adicionar Tags"
-                        >
-                          <Tag size={18} />
-                        </button>
-                        <button
-                          onClick={() => onDelete(t.id)}
-                          className="p-2 text-zinc-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                          title="Excluir"
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                        <div className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto bg-white rounded-lg shadow-lg border border-zinc-200 p-1">
+                          <button
+                            onClick={() => openEditDialog(t)}
+                            className="p-2 text-zinc-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
+                            title="Editar"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => openTagDialog(t)}
+                            className="p-2 text-zinc-400 hover:text-purple-500 hover:bg-purple-50 rounded-lg transition-all"
+                            title="Tags"
+                          >
+                            <Tag size={16} />
+                          </button>
+                          <button
+                            onClick={() => onDelete(t.id)}
+                            className="p-2 text-zinc-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                            title="Excluir"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1334,59 +1349,89 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
 
       {/* Edit Dialog - Using Portal */}
       {showEditDialog && editingTransaction && ReactDOM.createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-scaleIn">
-            <div className="sticky top-0 bg-white border-b border-zinc-100 p-6 flex items-center justify-between">
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60"
+          style={{
+            backdropFilter: 'blur(8px)',
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+          onClick={closeEditDialog}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+            style={{
+              animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+              maxHeight: '85vh'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header - Compact */}
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
-                  <Edit2 className="text-blue-600" size={20} />
+                <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
+                  <Edit2 className="text-white" size={18} />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-zinc-900">Editar Transação</h3>
-                  <p className="text-xs text-zinc-500 mt-0.5">Atualize os dados da transação</p>
+                  <h3 className="text-lg font-bold text-white">Editar Transação</h3>
+                  <p className="text-xs text-blue-100">Atualize os dados rapidamente</p>
                 </div>
               </div>
               <button
                 onClick={closeEditDialog}
-                className="p-2 hover:bg-zinc-100 rounded-lg transition-colors text-zinc-400 hover:text-zinc-900"
+                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors text-white"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            {/* Content - Scrollable */}
+            <div className="p-5 space-y-3.5 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 140px)' }}>
               {/* Description */}
               <div>
-                <label className="block text-sm font-bold text-zinc-700 mb-2">Descrição</label>
+                <label className="block text-xs font-bold text-zinc-700 mb-1.5">Descrição</label>
                 <input
                   type="text"
                   value={editForm.description || ''}
                   onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                   placeholder="Ex: Compra no supermercado"
                 />
               </div>
 
-              {/* Amount */}
-              <div>
-                <label className="block text-sm font-bold text-zinc-700 mb-2">Valor (R$)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={editForm.amount || ''}
-                  onChange={(e) => setEditForm({ ...editForm, amount: parseFloat(e.target.value) })}
-                  className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                  placeholder="0.00"
-                />
+              {/* Amount & Type - Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 mb-1.5">Valor (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editForm.amount || ''}
+                    onChange={(e) => setEditForm({ ...editForm, amount: parseFloat(e.target.value) })}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 mb-1.5">Tipo</label>
+                  <select
+                    value={editForm.type || ''}
+                    onChange={(e) => setEditForm({ ...editForm, type: e.target.value as TransactionType })}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white"
+                  >
+                    <option value={TransactionType.EXPENSE}>Despesa</option>
+                    <option value={TransactionType.INCOME}>Receita</option>
+                  </select>
+                </div>
               </div>
 
               {/* Category */}
               <div>
-                <label className="block text-sm font-bold text-zinc-700 mb-2">Categoria</label>
+                <label className="block text-xs font-bold text-zinc-700 mb-1.5">Categoria</label>
                 <select
                   value={editForm.category || ''}
                   onChange={(e) => setEditForm({ ...editForm, category: e.target.value as Category })}
-                  className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white"
+                  className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white"
                 >
                   {Object.values(Category).map((cat) => (
                     <option key={cat} value={cat}>
@@ -1396,54 +1441,43 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
                 </select>
               </div>
 
-              {/* Type */}
-              <div>
-                <label className="block text-sm font-bold text-zinc-700 mb-2">Tipo</label>
-                <select
-                  value={editForm.type || ''}
-                  onChange={(e) => setEditForm({ ...editForm, type: e.target.value as TransactionType })}
-                  className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white"
-                >
-                  <option value={TransactionType.EXPENSE}>Despesa</option>
-                  <option value={TransactionType.INCOME}>Receita</option>
-                </select>
-              </div>
+              {/* Dates - Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 mb-1.5">Data da Compra</label>
+                  <input
+                    type="date"
+                    value={editForm.date || ''}
+                    onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  />
+                </div>
 
-              {/* Date */}
-              <div>
-                <label className="block text-sm font-bold text-zinc-700 mb-2">Data da Compra</label>
-                <input
-                  type="date"
-                  value={editForm.date || ''}
-                  onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                />
-              </div>
-
-              {/* Payment Date */}
-              <div>
-                <label className="block text-sm font-bold text-zinc-700 mb-2">Data de Pagamento</label>
-                <input
-                  type="date"
-                  value={editForm.paymentDate || ''}
-                  onChange={(e) => setEditForm({ ...editForm, paymentDate: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                />
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 mb-1.5">Pagamento</label>
+                  <input
+                    type="date"
+                    value={editForm.paymentDate || ''}
+                    onChange={(e) => setEditForm({ ...editForm, paymentDate: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="sticky bottom-0 bg-white border-t border-zinc-100 p-6 flex gap-3">
+            {/* Footer - Compact */}
+            <div className="bg-zinc-50 border-t border-zinc-200 px-5 py-3.5 flex gap-2.5">
               <button
                 onClick={closeEditDialog}
-                className="flex-1 px-6 py-3 rounded-xl border border-zinc-200 text-zinc-700 font-bold hover:bg-zinc-50 transition-all"
+                className="flex-1 px-4 py-2.5 rounded-lg border border-zinc-300 text-sm text-zinc-700 font-semibold hover:bg-zinc-100 transition-all"
               >
                 Cancelar
               </button>
               <button
                 onClick={saveEdit}
-                className="flex-1 px-6 py-3 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition-all flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2.5 rounded-lg bg-blue-500 text-sm text-white font-semibold hover:bg-blue-600 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/30"
               >
-                <Save size={18} />
+                <Save size={16} />
                 Salvar
               </button>
             </div>
