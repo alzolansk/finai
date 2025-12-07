@@ -37,10 +37,13 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions, settings, onUpd
     const now = new Date();
     const maxFutureDate = new Date(now.getFullYear(), now.getMonth() + 12, 1); // Max 12 months in future
 
-    // Project recurring transactions into upcoming months so the month-by-month
+    // Project recurring transactions into current and upcoming months so the month-by-month
     // view reflects everything that will hit cash flow (agenda items).
+    // IMPORTANT: Start from i=0 to include the CURRENT month, not just future months.
+    // This ensures recurring income (like salary) and recurring expenses are properly
+    // reflected in the current month's totals.
     const projectedRecurring: Transaction[] = [];
-    for (let i = 1; i <= timeHorizon; i++) {
+    for (let i = 0; i <= timeHorizon; i++) {
       const targetMonth = new Date(now.getFullYear(), now.getMonth() + i, 1);
       projectedRecurring.push(...projectRecurringTransactions(transactions, targetMonth));
     }
