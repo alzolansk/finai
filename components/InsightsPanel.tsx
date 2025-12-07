@@ -439,9 +439,13 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions, onUpdate, o
                             </button>
                             <button 
                                 onClick={() => handleDeleteClick(t.id)} 
-                                className={`p-2 rounded-lg transition-all ${deleteConfirmationId === t.id ? 'bg-rose-100 text-rose-600' : 'text-zinc-400 hover:text-rose-600 hover:bg-rose-50'}`}
+                                className={`rounded-lg transition-all flex items-center gap-1 ${deleteConfirmationId === t.id ? 'bg-rose-100 text-rose-600 px-3 py-2' : 'p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50'}`}
                             >
-                                <Trash2 size={18} />
+                                {deleteConfirmationId === t.id ? (
+                                    <span className="text-xs font-bold">Confirma?</span>
+                                ) : (
+                                    <Trash2 size={18} />
+                                )}
                             </button>
                         </div>
                     </div>
@@ -480,9 +484,13 @@ const InsightsPanel: React.FC<InsightsPanelProps> = ({ transactions, onUpdate, o
                             </button>
                             <button 
                                 onClick={() => handleDeleteClick(t.id)} 
-                                className={`p-1.5 rounded-md transition-all ${deleteConfirmationId === t.id ? 'bg-rose-100 text-rose-600' : 'text-zinc-400 active:text-rose-600 active:bg-rose-50'}`}
+                                className={`rounded-md transition-all flex items-center gap-1 ${deleteConfirmationId === t.id ? 'bg-rose-100 text-rose-600 px-2 py-1.5' : 'p-1.5 text-zinc-400 active:text-rose-600 active:bg-rose-50'}`}
                             >
-                                <Trash2 size={14} />
+                                {deleteConfirmationId === t.id ? (
+                                    <span className="text-[10px] font-bold">Confirma?</span>
+                                ) : (
+                                    <Trash2 size={14} />
+                                )}
                             </button>
                         </div>
                     </div>

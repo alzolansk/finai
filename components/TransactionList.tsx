@@ -1,6 +1,20 @@
-﻿import React, { useState, useMemo } from 'react';
-import { Transaction, TransactionType } from '../types';
-import { Trash2, Search, ArrowLeft, CalendarDays, FileText, ChevronDown, ChevronRight, Building2, SlidersHorizontal, CheckCircle2, Circle, Calendar, ChevronLeft as ChevronLeftIcon } from 'lucide-react';
+﻿import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { Transaction, TransactionType, Category } from '../types';
+import {
+  Trash2,
+  Search,
+  ArrowLeft,
+  CalendarDays,
+  FileText,
+  ChevronDown,
+  ChevronRight,
+  Building2,
+  Calendar,
+  ChevronLeft as ChevronLeftIcon,
+  Edit2,
+  Save,
+  X
+} from 'lucide-react';
 import { formatDate, projectRecurringTransactions, getMonthName } from '../utils/dateUtils';
 import { getIconForTransaction } from '../utils/iconMapper';
 
@@ -10,6 +24,7 @@ type FilterKey = 'installments' | 'transfers' | 'credit';
 interface TransactionListProps {
   transactions: Transaction[];
   onDelete: (id: string) => void;
+  onUpdate?: (transaction: Transaction) => void;
   onBack: () => void;
 }
 
@@ -26,8 +41,100 @@ interface IssuerGroup {
   itemCount: number;
 }
 
-const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelete, onBack }) => {
+// Memoized transaction item component
+const TransactionItem = React.memo(
+  ({
+    t,
+    isNested,
+    onDelete,
+    onEdit
+  }: {
+    t: Transaction;
+    isNested: boolean;
+    onDelete: (id: string) => void;
+    onEdit: (transaction: Transaction) => void;
+  }) => {
+    const effectiveDate = t.paymentDate || t.date;
+    const differentDates = t.paymentDate && t.paymentDate !== t.date;
+    const iconConfig = getIconForTransaction(t.description, t.category);
+    const IconComponent = iconConfig.icon;
+    const isProjected = t.isProjected || false;
+
+    return (
+      <div
+        className={`${isNested ? 'pl-16' : ''} p-6 flex items-center justify-between hover:bg-zinc-50 transition-colors group relative ${isNested ? 'border-l-2 border-zinc-200' : ''} ${isProjected ? 'bg-blue-50/30' : ''}`}
+      >
+        <div className="flex items-center gap-4">
+          <div
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center ${t.type === TransactionType.INCOME ? 'bg-emerald-100' : iconConfig.bgColor}`}
+          >
+            <IconComponent
+              size={24}
+              className={t.type === TransactionType.INCOME ? 'text-emerald-600' : iconConfig.iconColor}
+            />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="font-bold text-zinc-800">
+                {t.type === TransactionType.INCOME && t.debtor ? `${t.debtor} - ${t.description}` : t.description}
+              </p>
+              {isProjected && (
+                <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
+                  Recorrente
+                </span>
+              )}
+            </div>
+            <div className="flex flex-col gap-1 text-xs mt-1">
+              <div className="flex items-center gap-2">
+                <span className="bg-zinc-100 px-2 py-0.5 rounded text-zinc-500 font-medium uppercase tracking-wide">
+                  {t.category}
+                </span>
+                {!isNested && <span className="text-zinc-400">Compra: {formatDate(t.date)}</span>}
+              </div>
+              {differentDates && !isNested && (
+                <span className="text-emerald-600 flex items-center gap-1 font-medium">
+                  <CalendarDays size={10} /> Pagamento: {formatDate(effectiveDate)}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`font-bold text-lg ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-zinc-900'}`}>
+            {t.type === TransactionType.EXPENSE && '- '}R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </span>
+          {!isProjected && (
+            <div className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto bg-white rounded-lg shadow-lg border border-zinc-200 p-1">
+              <button
+                onClick={() => onEdit(t)}
+                className="p-2 text-zinc-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
+                title="Editar"
+              >
+                <Edit2 size={16} />
+              </button>
+              <button
+                onClick={() => onDelete(t.id)}
+                className="p-2 text-zinc-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                title="Excluir"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+);
+
+TransactionItem.displayName = 'TransactionItem';
+
+// Constants for pagination
+const ITEMS_PER_PAGE = 50;
+
+const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelete, onUpdate, onBack }) => {
   const [filter, setFilter] = useState('');
+  const [debouncedFilter, setDebouncedFilter] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('itemized');
   const [expandedIssuers, setExpandedIssuers] = useState<Set<string>>(new Set());
   const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set());
@@ -36,7 +143,20 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
     transfers: true,
     credit: true
   });
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null); // null means "All months"
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Transaction>>({});
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Debounce filter input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedFilter(filter);
+      setVisibleCount(ITEMS_PER_PAGE); // Reset pagination on filter change
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [filter]);
 
   const filterOptions: { key: FilterKey; label: string; helper: string }[] = [
     { key: 'installments', label: 'Parcelas', helper: 'Compras divididas' },
@@ -44,9 +164,12 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
     { key: 'credit', label: 'Credito', helper: 'Compras no cartao' }
   ];
 
-  const normalizeText = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const normalizeText = useCallback(
+    (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(),
+    []
+  );
 
-  const toggleIssuer = (issuer: string) => {
+  const toggleIssuer = useCallback((issuer: string) => {
     setExpandedIssuers((prev) => {
       const next = new Set(prev);
       if (next.has(issuer)) {
@@ -56,9 +179,9 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
       }
       return next;
     });
-  };
+  }, []);
 
-  const toggleInvoice = (issuer: string, paymentDate: string) => {
+  const toggleInvoice = useCallback((issuer: string, paymentDate: string) => {
     const key = `${issuer}-${paymentDate}`;
     setExpandedInvoices((prev) => {
       const next = new Set(prev);
@@ -69,118 +192,150 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
       }
       return next;
     });
-  };
+  }, []);
 
-  const toggleVisibilityFilter = (key: FilterKey) => {
+  const toggleVisibilityFilter = useCallback((key: FilterKey) => {
     setVisibilityFilters((prev) => ({
       ...prev,
       [key]: !prev[key]
     }));
-  };
+    setVisibleCount(ITEMS_PER_PAGE); // Reset pagination on filter change
+  }, []);
 
-  const isInstallmentTransaction = (t: Transaction) => /\(\d+\/\d+\)/.test(t.description);
+  const isInstallmentTransaction = useCallback((t: Transaction) => /\(\d+\/\d+\)/.test(t.description), []);
 
-  const isTransferTransaction = (t: Transaction) => {
-    if (t.movementType === 'internal_transfer') return true;
-    const normalized = normalizeText(t.description);
-    return /(pix|ted|doc|transferencia|resgate|aplicacao|poupan)/.test(normalized);
-  };
+  const isTransferTransaction = useCallback(
+    (t: Transaction) => {
+      if (t.movementType === 'internal_transfer') return true;
+      const normalized = normalizeText(t.description);
+      return /(pix|ted|doc|transferencia|resgate|aplicacao|poupan)/.test(normalized);
+    },
+    [normalizeText]
+  );
 
-  const isCreditPurchaseTransaction = (t: Transaction) => {
+  const isCreditPurchaseTransaction = useCallback((t: Transaction) => {
     if (t.type !== TransactionType.EXPENSE) return false;
     const hasIssuerFlag = Boolean(t.issuer || t.creditCardIssuer || t.linkedToInvoice);
     const hasDifferentPaymentDate =
-      !!t.paymentDate &&
-      !!t.date &&
-      new Date(t.paymentDate).getTime() !== new Date(t.date).getTime();
+      !!t.paymentDate && !!t.date && new Date(t.paymentDate).getTime() !== new Date(t.date).getTime();
     return hasIssuerFlag || hasDifferentPaymentDate;
-  };
+  }, []);
 
   // Include projected recurring transactions for the selected month
   const allTransactions = useMemo(() => {
     if (!selectedDate) {
-      return transactions; // Show all transactions without projections when "All months" is selected
+      return transactions;
     }
     const projected = projectRecurringTransactions(transactions, selectedDate);
     return [...transactions, ...projected];
   }, [transactions, selectedDate]);
 
-  const filteredTransactions = useMemo(
-    () => {
-      const normalizedQuery = normalizeText(filter || '');
+  const filteredTransactions = useMemo(() => {
+    const normalizedQuery = normalizeText(debouncedFilter || '');
 
-      let result = allTransactions.filter((t) => {
+    let result = allTransactions.filter((t) => {
+      // Quick visibility filter checks first (cheaper)
+      if (!visibilityFilters.installments && isInstallmentTransaction(t)) return false;
+      if (!visibilityFilters.transfers && isTransferTransaction(t)) return false;
+      if (!visibilityFilters.credit && isCreditPurchaseTransaction(t)) return false;
+
+      // Text search (more expensive)
+      if (normalizedQuery) {
         const normalizedDescription = normalizeText(t.description);
         const normalizedCategory = normalizeText(t.category);
-
-        return (
-          (normalizedDescription.includes(normalizedQuery) || normalizedCategory.includes(normalizedQuery)) &&
-          (visibilityFilters.installments || !isInstallmentTransaction(t)) &&
-          (visibilityFilters.transfers || !isTransferTransaction(t)) &&
-          (visibilityFilters.credit || !isCreditPurchaseTransaction(t))
-        );
-      });
-
-      // Apply month filter if a specific month is selected
-      if (selectedDate) {
-        result = result.filter((t) => {
-          const tDate = new Date(t.paymentDate || t.date);
-          return (
-            tDate.getMonth() === selectedDate.getMonth() &&
-            tDate.getFullYear() === selectedDate.getFullYear()
-          );
-        });
+        if (!normalizedDescription.includes(normalizedQuery) && !normalizedCategory.includes(normalizedQuery)) {
+          return false;
+        }
       }
 
-      return result;
-    },
-    [allTransactions, filter, visibilityFilters, selectedDate]
-  );
+      return true;
+    });
+
+    // Apply month filter if a specific month is selected
+    if (selectedDate) {
+      const targetMonth = selectedDate.getMonth();
+      const targetYear = selectedDate.getFullYear();
+      result = result.filter((t) => {
+        const tDate = new Date(t.paymentDate || t.date);
+        return tDate.getMonth() === targetMonth && tDate.getFullYear() === targetYear;
+      });
+    }
+
+    return result;
+  }, [
+    allTransactions,
+    debouncedFilter,
+    visibilityFilters,
+    selectedDate,
+    normalizeText,
+    isInstallmentTransaction,
+    isTransferTransaction,
+    isCreditPurchaseTransaction
+  ]);
 
   const itemizedTransactions = useMemo(
     () =>
-      [...filteredTransactions].sort(
-        (a, b) => {
-          // Sort by payment date (most recent first)
-          const dateA = new Date(a.paymentDate || a.date).getTime();
-          const dateB = new Date(b.paymentDate || b.date).getTime();
-
-          if (dateB !== dateA) {
-            return dateB - dateA; // Sort by date descending
-          }
-
-          // If dates are equal, sort by createdAt timestamp (most recent insertion first)
-          const aCreated = a.createdAt || 0;
-          const bCreated = b.createdAt || 0;
-          return bCreated - aCreated;
-        }
-      ),
+      [...filteredTransactions].sort((a, b) => {
+        const dateA = new Date(a.paymentDate || a.date).getTime();
+        const dateB = new Date(b.paymentDate || b.date).getTime();
+        if (dateB !== dateA) return dateB - dateA;
+        return (b.createdAt || 0) - (a.createdAt || 0);
+      }),
     [filteredTransactions]
   );
 
-  const handlePrevMonth = () => {
+  // Visible transactions (paginated)
+  const visibleTransactions = useMemo(
+    () => itemizedTransactions.slice(0, visibleCount),
+    [itemizedTransactions, visibleCount]
+  );
+
+  const hasMore = visibleCount < itemizedTransactions.length;
+
+  // Load more on scroll
+  const handleScroll = useCallback(() => {
+    if (!listRef.current || !hasMore) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = listRef.current;
+    if (scrollTop + clientHeight >= scrollHeight - 200) {
+      setVisibleCount((prev) => Math.min(prev + ITEMS_PER_PAGE, itemizedTransactions.length));
+    }
+  }, [hasMore, itemizedTransactions.length]);
+
+  useEffect(() => {
+    const listElement = listRef.current;
+    if (listElement) {
+      listElement.addEventListener('scroll', handleScroll, { passive: true });
+      return () => listElement.removeEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
+
+  const handlePrevMonth = useCallback(() => {
     if (!selectedDate) {
-      setSelectedDate(new Date()); // Start with current month if "All months" was selected
+      setSelectedDate(new Date());
     } else {
       const newDate = new Date(selectedDate);
       newDate.setMonth(newDate.getMonth() - 1);
       setSelectedDate(newDate);
     }
-  };
+    setVisibleCount(ITEMS_PER_PAGE);
+  }, [selectedDate]);
 
-  const handleNextMonth = () => {
+  const handleNextMonth = useCallback(() => {
     if (!selectedDate) {
-      setSelectedDate(new Date()); // Start with current month if "All months" was selected
+      setSelectedDate(new Date());
     } else {
       const newDate = new Date(selectedDate);
       newDate.setMonth(newDate.getMonth() + 1);
       setSelectedDate(newDate);
     }
-  };
+    setVisibleCount(ITEMS_PER_PAGE);
+  }, [selectedDate]);
 
-  const handleShowAllMonths = () => {
+  const handleShowAllMonths = useCallback(() => {
     setSelectedDate(null);
-  };
+    setVisibleCount(ITEMS_PER_PAGE);
+  }, []);
 
   const issuerGroups = useMemo(() => {
     const expensesOnly = filteredTransactions.filter((t) => t.type === TransactionType.EXPENSE);
@@ -217,191 +372,181 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
       const totalAmount = invoices.reduce((sum, invoice) => sum + invoice.total, 0);
       const itemCount = invoices.reduce((sum, invoice) => sum + invoice.transactions.length, 0);
 
-      return {
-        issuer,
-        invoices,
-        totalAmount,
-        itemCount
-      };
+      return { issuer, invoices, totalAmount, itemCount };
     });
 
     return groups.sort((a, b) => b.totalAmount - a.totalAmount || b.itemCount - a.itemCount);
   }, [filteredTransactions]);
 
-  const renderTransaction = (t: Transaction, isNested: boolean = false) => {
-    const effectiveDate = t.paymentDate || t.date;
-    const differentDates = t.paymentDate && t.paymentDate !== t.date;
-    const iconConfig = getIconForTransaction(t.description, t.category);
-    const IconComponent = iconConfig.icon;
-    const isProjected = t.isProjected || false;
+  const handleDelete = useCallback(
+    (id: string) => {
+      onDelete(id);
+    },
+    [onDelete]
+  );
 
-    return (
-      <div
-        key={t.id}
-        className={`${isNested ? 'pl-16' : ''} p-6 flex items-center justify-between hover:bg-zinc-50 transition-colors group ${isNested ? 'border-l-2 border-zinc-200' : ''} ${isProjected ? 'bg-blue-50/30' : ''}`}
-      >
-        <div className="flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${t.type === TransactionType.INCOME ? 'bg-emerald-100' : iconConfig.bgColor}`}>
-            <IconComponent size={24} className={t.type === TransactionType.INCOME ? 'text-emerald-600' : iconConfig.iconColor} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <p className="font-bold text-zinc-800">{t.description}</p>
-              {isProjected && (
-                <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                  Recorrente
-                </span>
-              )}
-            </div>
-            <div className="flex flex-col gap-1 text-xs mt-1">
-              <div className="flex items-center gap-2">
-                <span className="bg-zinc-100 px-2 py-0.5 rounded text-zinc-500 font-medium uppercase tracking-wide">{t.category}</span>
-                {!isNested && <span className="text-zinc-400">Compra: {formatDate(t.date)}</span>}
-              </div>
-              {differentDates && !isNested && (
-                <span className="text-emerald-600 flex items-center gap-1 font-medium">
-                  <CalendarDays size={10} /> Pagamento: {formatDate(effectiveDate)}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-6">
-          <span className={`font-bold text-lg ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-zinc-900'}`}>
-            {t.type === TransactionType.EXPENSE && '- '}R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </span>
-          {!isProjected && (
-            <button
-              onClick={() => onDelete(t.id)}
-              className="p-2 text-zinc-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-              title="Excluir"
-            >
-              <Trash2 size={18} />
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  };
+  const handleEdit = useCallback((transaction: Transaction) => {
+    setEditingTransaction(transaction);
+    setEditForm({
+      description: transaction.description,
+      amount: transaction.amount,
+      category: transaction.category,
+      date: transaction.date.split('T')[0],
+      paymentDate: transaction.paymentDate ? transaction.paymentDate.split('T')[0] : transaction.date.split('T')[0],
+      type: transaction.type
+    });
+  }, []);
+
+  const handleSaveEdit = useCallback(() => {
+    if (!editingTransaction || !onUpdate) return;
+
+    const updatedTransaction: Transaction = {
+      ...editingTransaction,
+      description: editForm.description || editingTransaction.description,
+      amount: editForm.amount !== undefined ? editForm.amount : editingTransaction.amount,
+      category: (editForm.category || editingTransaction.category) as Category,
+      date: editForm.date ? new Date(editForm.date + 'T00:00:00').toISOString() : editingTransaction.date,
+      paymentDate: editForm.paymentDate ? new Date(editForm.paymentDate + 'T00:00:00').toISOString() : editingTransaction.paymentDate,
+      type: (editForm.type || editingTransaction.type) as TransactionType,
+      updatedAt: Date.now()
+    };
+
+    onUpdate(updatedTransaction);
+    setEditingTransaction(null);
+    setEditForm({});
+  }, [editingTransaction, editForm, onUpdate]);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingTransaction(null);
+    setEditForm({});
+  }, []);
 
   return (
     <div className="animate-fadeIn max-w-4xl mx-auto pb-20">
-      {/* Simplified Header */}
+      {/* Header */}
       <div className="flex items-center gap-4 mb-6">
-        <button onClick={onBack} className="p-3 bg-white rounded-xl shadow-sm border border-zinc-100 hover:bg-zinc-50 text-zinc-600 transition-all">
-           <ArrowLeft size={20} />
+        <button
+          onClick={onBack}
+          className="p-3 bg-white rounded-xl shadow-sm border border-zinc-100 hover:bg-zinc-50 text-zinc-600 transition-all"
+        >
+          <ArrowLeft size={20} />
         </button>
         <div>
-           <h2 className="text-3xl font-light text-zinc-800">Extrato Completo</h2>
-           <p className="text-zinc-400 text-sm">Gerencie todos os seus registros.</p>
+          <h2 className="text-3xl font-light text-zinc-800">Extrato Completo</h2>
+          <p className="text-zinc-400 text-sm">{filteredTransactions.length} resultados</p>
         </div>
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-zinc-100 overflow-hidden">
-        {/* Unified Control Bar */}
+        {/* Control Bar */}
         <div className="p-6 border-b border-zinc-100 space-y-4">
-            {/* Search + Month Selector */}
-            <div className="flex flex-col md:flex-row gap-3">
-                <div className="relative flex-1">
-                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-400" size={18} />
-                    <input
-                        type="text"
-                        placeholder="Buscar transação..."
-                        value={filter}
-                        onChange={(e) => setFilter(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all text-sm"
-                    />
-                </div>
-
-                {/* Compact Month Selector */}
-                <div className="flex items-center gap-2">
-                  {selectedDate && (
-                    <button
-                      onClick={handleShowAllMonths}
-                      className="px-3 py-3 text-xs font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl transition-colors whitespace-nowrap"
-                    >
-                      Limpar
-                    </button>
-                  )}
-                  <div className="flex items-center bg-zinc-50 border border-zinc-200 rounded-xl overflow-hidden">
-                    <button onClick={handlePrevMonth} className="p-3 hover:bg-zinc-100 transition-colors text-zinc-600">
-                      <ChevronLeftIcon size={16} />
-                    </button>
-                    <div className="flex items-center gap-1.5 px-3 min-w-[120px] justify-center border-x border-zinc-200">
-                      <Calendar size={14} className="text-emerald-600" />
-                      <span className="text-sm font-semibold text-zinc-800 capitalize">
-                         {selectedDate ? getMonthName(selectedDate) : 'Todos'}
-                      </span>
-                    </div>
-                    <button onClick={handleNextMonth} className="p-3 hover:bg-zinc-100 transition-colors text-zinc-600">
-                      <ChevronRight size={16} />
-                    </button>
-                  </div>
-                </div>
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-400" size={18} />
+              <input
+                type="text"
+                placeholder="Buscar transação..."
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all text-sm"
+              />
             </div>
 
-            {/* Compact Filters Row */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              {/* Quick Filters */}
-              <div className="flex items-center gap-2">
-                {filterOptions.map((option) => {
-                  const isActive = visibilityFilters[option.key];
-                  return (
-                    <button
-                      key={option.key}
-                      type="button"
-                      onClick={() => toggleVisibilityFilter(option.key)}
-                      title={option.helper}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                        isActive
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-zinc-100 text-zinc-500 border border-transparent hover:bg-zinc-200'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* View Mode Toggle */}
-              <div className="inline-flex bg-zinc-100 rounded-lg p-0.5">
+            <div className="flex items-center gap-2">
+              {selectedDate && (
                 <button
-                  type="button"
-                  onClick={() => setViewMode('itemized')}
-                  className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    viewMode === 'itemized'
-                      ? 'bg-white text-zinc-900 shadow-sm'
-                      : 'text-zinc-500 hover:text-zinc-800'
-                  }`}
+                  onClick={handleShowAllMonths}
+                  className="px-3 py-3 text-xs font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl transition-colors whitespace-nowrap"
                 >
-                  Itemizado
+                  Limpar
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('invoices')}
-                  className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    viewMode === 'invoices'
-                      ? 'bg-white text-zinc-900 shadow-sm'
-                      : 'text-zinc-500 hover:text-zinc-800'
-                  }`}
-                >
-                  Faturas
+              )}
+              <div className="flex items-center bg-zinc-50 border border-zinc-200 rounded-xl overflow-hidden">
+                <button onClick={handlePrevMonth} className="p-3 hover:bg-zinc-100 transition-colors text-zinc-600">
+                  <ChevronLeftIcon size={16} />
+                </button>
+                <div className="flex items-center gap-1.5 px-3 min-w-[120px] justify-center border-x border-zinc-200">
+                  <Calendar size={14} className="text-emerald-600" />
+                  <span className="text-sm font-semibold text-zinc-800 capitalize">
+                    {selectedDate ? getMonthName(selectedDate) : 'Todos'}
+                  </span>
+                </div>
+                <button onClick={handleNextMonth} className="p-3 hover:bg-zinc-100 transition-colors text-zinc-600">
+                  <ChevronRight size={16} />
                 </button>
               </div>
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              {filterOptions.map((option) => {
+                const isActive = visibilityFilters[option.key];
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => toggleVisibilityFilter(option.key)}
+                    title={option.helper}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      isActive
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-zinc-100 text-zinc-500 border border-transparent hover:bg-zinc-200'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="inline-flex bg-zinc-100 rounded-lg p-0.5">
+              <button
+                type="button"
+                onClick={() => setViewMode('itemized')}
+                className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  viewMode === 'itemized' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'
+                }`}
+              >
+                Itemizado
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('invoices')}
+                className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  viewMode === 'invoices' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'
+                }`}
+              >
+                Por Faturas
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* List */}
-        <div className="divide-y divide-zinc-100">
+        {/* List with scroll container */}
+        <div ref={listRef} className="divide-y divide-zinc-100 max-h-[70vh] overflow-y-auto">
           {viewMode === 'itemized' ? (
-            itemizedTransactions.length === 0 ? (
+            visibleTransactions.length === 0 ? (
               <div className="p-10 text-center text-zinc-400">Nenhuma transacao encontrada.</div>
             ) : (
-              itemizedTransactions.map((t) => renderTransaction(t, false))
+              <>
+                {visibleTransactions.map((t) => (
+                  <TransactionItem key={t.id} t={t} isNested={false} onDelete={handleDelete} onEdit={handleEdit} />
+                ))}
+                {hasMore && (
+                  <div className="p-4 text-center">
+                    <button
+                      onClick={() => setVisibleCount((prev) => prev + ITEMS_PER_PAGE)}
+                      className="text-sm text-emerald-600 font-medium hover:text-emerald-700"
+                    >
+                      Carregar mais ({itemizedTransactions.length - visibleCount} restantes)
+                    </button>
+                  </div>
+                )}
+              </>
             )
           ) : issuerGroups.length === 0 ? (
-            <div className="p-10 text-center text-zinc-400">Nenhuma fatura encontrada para as transacoes filtradas.</div>
+            <div className="p-10 text-center text-zinc-400">Nenhuma fatura encontrada.</div>
           ) : (
             issuerGroups.map((group) => {
               const isIssuerOpen = expandedIssuers.has(group.issuer);
@@ -453,12 +598,9 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                                   <FileText className="text-zinc-500" size={18} />
                                 </div>
                                 <div>
-                                  <p className="font-semibold text-zinc-800">
-                                    Vencimento: {formatDate(invoice.paymentDate)}
-                                  </p>
+                                  <p className="font-semibold text-zinc-800">Vencimento: {formatDate(invoice.paymentDate)}</p>
                                   <p className="text-xs text-zinc-500 mt-1">
-                                    {invoice.transactions.length}{' '}
-                                    {invoice.transactions.length === 1 ? 'item' : 'itens'}
+                                    {invoice.transactions.length} {invoice.transactions.length === 1 ? 'item' : 'itens'}
                                   </p>
                                 </div>
                               </div>
@@ -476,7 +618,9 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
 
                             {isInvoiceOpen && (
                               <div className="bg-zinc-50/80 border-t border-zinc-100">
-                                {invoice.transactions.map((t) => renderTransaction(t, true))}
+                                {invoice.transactions.map((t) => (
+                                  <TransactionItem key={t.id} t={t} isNested={true} onDelete={handleDelete} onEdit={handleEdit} />
+                                ))}
                               </div>
                             )}
                           </div>
@@ -490,6 +634,144 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
           )}
         </div>
       </div>
+
+      {/* Edit Modal - Optimized with portal-like behavior */}
+      {editingTransaction && (
+        <div
+          className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+          style={{
+            backdropFilter: 'blur(8px)',
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+          onClick={handleCancelEdit}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden"
+            style={{
+              animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+              maxHeight: '85vh'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header - Compact */}
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
+                  <Edit2 className="text-white" size={18} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Editar Transação</h3>
+                  <p className="text-xs text-blue-100">Atualize os dados rapidamente</p>
+                </div>
+              </div>
+              <button
+                onClick={handleCancelEdit}
+                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content - Scrollable */}
+            <div className="p-5 space-y-3.5 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 140px)' }}>
+              {/* Description */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 mb-1.5">Descrição</label>
+                <input
+                  type="text"
+                  value={editForm.description || ''}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  placeholder="Ex: Compra no supermercado"
+                />
+              </div>
+
+              {/* Amount & Type - Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 mb-1.5">Valor (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editForm.amount || ''}
+                    onChange={(e) => setEditForm({ ...editForm, amount: parseFloat(e.target.value) })}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 mb-1.5">Tipo</label>
+                  <select
+                    value={editForm.type || ''}
+                    onChange={(e) => setEditForm({ ...editForm, type: e.target.value as TransactionType })}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white"
+                  >
+                    <option value={TransactionType.EXPENSE}>Despesa</option>
+                    <option value={TransactionType.INCOME}>Receita</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 mb-1.5">Categoria</label>
+                <select
+                  value={editForm.category || ''}
+                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value as Category })}
+                  className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white"
+                >
+                  {Object.values(Category).map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Dates - Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 mb-1.5">Data da Compra</label>
+                  <input
+                    type="date"
+                    value={editForm.date || ''}
+                    onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 mb-1.5">Pagamento</label>
+                  <input
+                    type="date"
+                    value={editForm.paymentDate || ''}
+                    onChange={(e) => setEditForm({ ...editForm, paymentDate: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer - Compact */}
+            <div className="bg-zinc-50 border-t border-zinc-200 px-5 py-3.5 flex gap-2.5">
+              <button
+                onClick={handleCancelEdit}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-zinc-300 text-sm text-zinc-700 font-semibold hover:bg-zinc-100 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-blue-500 text-sm text-white font-semibold hover:bg-blue-600 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/30"
+              >
+                <Save size={16} />
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

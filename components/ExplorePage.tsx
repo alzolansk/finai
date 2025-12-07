@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import { Transaction, TransactionType, Category, AdvancedFilter } from '../types';
-import { Search, Filter, X, Save, Trash2, Calendar, DollarSign, Tag, Building2, FileText, ArrowUpDown, Star, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, Filter, X, Save, Trash2, Calendar, DollarSign, Tag, Building2, FileText, ArrowUpDown, Star, ChevronDown, ChevronRight, Edit2 } from 'lucide-react';
 import { fuzzyMatch } from '../utils/searchUtils';
 import { getIconForTransaction } from '../utils/iconMapper';
 import { formatDate } from '../utils/dateUtils';
@@ -46,6 +46,11 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [newTag, setNewTag] = useState('');
   const [reimbursedBy, setReimbursedBy] = useState('');
+
+  // Edit management
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Transaction>>({});
 
   // Get unique values for filter dropdowns
   const allIssuers = useMemo(() => {
@@ -260,6 +265,44 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
     };
 
     onUpdateTransaction(updatedTransaction);
+  };
+
+  // Edit management
+  const openEditDialog = (transaction: Transaction) => {
+    setEditingTransaction(transaction);
+    setEditForm({
+      description: transaction.description,
+      amount: transaction.amount,
+      category: transaction.category,
+      date: transaction.date.split('T')[0],
+      paymentDate: transaction.paymentDate ? transaction.paymentDate.split('T')[0] : transaction.date.split('T')[0],
+      type: transaction.type
+    });
+    setShowEditDialog(true);
+  };
+
+  const closeEditDialog = () => {
+    setShowEditDialog(false);
+    setEditingTransaction(null);
+    setEditForm({});
+  };
+
+  const saveEdit = () => {
+    if (!editingTransaction) return;
+
+    const updatedTransaction: Transaction = {
+      ...editingTransaction,
+      description: editForm.description || editingTransaction.description,
+      amount: editForm.amount !== undefined ? editForm.amount : editingTransaction.amount,
+      category: (editForm.category || editingTransaction.category) as Category,
+      date: editForm.date ? new Date(editForm.date + 'T00:00:00').toISOString() : editingTransaction.date,
+      paymentDate: editForm.paymentDate ? new Date(editForm.paymentDate + 'T00:00:00').toISOString() : editingTransaction.paymentDate,
+      type: (editForm.type || editingTransaction.type) as TransactionType,
+      updatedAt: Date.now()
+    };
+
+    onUpdateTransaction(updatedTransaction);
+    closeEditDialog();
   };
 
   const activeFilterCount = [
@@ -911,8 +954,15 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
                           R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </span>
                         <button
-                          onClick={() => openTagDialog(t)}
+                          onClick={() => openEditDialog(t)}
                           className="p-2 text-zinc-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          title="Editar"
+                        >
+                          <Edit2 size={18} />
+                        </button>
+                        <button
+                          onClick={() => openTagDialog(t)}
+                          className="p-2 text-zinc-300 hover:text-purple-500 hover:bg-purple-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                           title="Adicionar Tags"
                         >
                           <Tag size={18} />
@@ -1274,6 +1324,126 @@ const ExplorePage: React.FC<ExplorePageProps> = ({ transactions, onDelete, onUpd
                 disabled={!filterName.trim()}
                 className="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Edit Dialog - Using Portal */}
+      {showEditDialog && editingTransaction && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-scaleIn">
+            <div className="sticky top-0 bg-white border-b border-zinc-100 p-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                  <Edit2 className="text-blue-600" size={20} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-zinc-900">Editar Transação</h3>
+                  <p className="text-xs text-zinc-500 mt-0.5">Atualize os dados da transação</p>
+                </div>
+              </div>
+              <button
+                onClick={closeEditDialog}
+                className="p-2 hover:bg-zinc-100 rounded-lg transition-colors text-zinc-400 hover:text-zinc-900"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-bold text-zinc-700 mb-2">Descrição</label>
+                <input
+                  type="text"
+                  value={editForm.description || ''}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  placeholder="Ex: Compra no supermercado"
+                />
+              </div>
+
+              {/* Amount */}
+              <div>
+                <label className="block text-sm font-bold text-zinc-700 mb-2">Valor (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editForm.amount || ''}
+                  onChange={(e) => setEditForm({ ...editForm, amount: parseFloat(e.target.value) })}
+                  className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  placeholder="0.00"
+                />
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="block text-sm font-bold text-zinc-700 mb-2">Categoria</label>
+                <select
+                  value={editForm.category || ''}
+                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value as Category })}
+                  className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white"
+                >
+                  {Object.values(Category).map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Type */}
+              <div>
+                <label className="block text-sm font-bold text-zinc-700 mb-2">Tipo</label>
+                <select
+                  value={editForm.type || ''}
+                  onChange={(e) => setEditForm({ ...editForm, type: e.target.value as TransactionType })}
+                  className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white"
+                >
+                  <option value={TransactionType.EXPENSE}>Despesa</option>
+                  <option value={TransactionType.INCOME}>Receita</option>
+                </select>
+              </div>
+
+              {/* Date */}
+              <div>
+                <label className="block text-sm font-bold text-zinc-700 mb-2">Data da Compra</label>
+                <input
+                  type="date"
+                  value={editForm.date || ''}
+                  onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                />
+              </div>
+
+              {/* Payment Date */}
+              <div>
+                <label className="block text-sm font-bold text-zinc-700 mb-2">Data de Pagamento</label>
+                <input
+                  type="date"
+                  value={editForm.paymentDate || ''}
+                  onChange={(e) => setEditForm({ ...editForm, paymentDate: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 bg-white border-t border-zinc-100 p-6 flex gap-3">
+              <button
+                onClick={closeEditDialog}
+                className="flex-1 px-6 py-3 rounded-xl border border-zinc-200 text-zinc-700 font-bold hover:bg-zinc-50 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveEdit}
+                className="flex-1 px-6 py-3 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition-all flex items-center justify-center gap-2"
+              >
+                <Save size={18} />
                 Salvar
               </button>
             </div>

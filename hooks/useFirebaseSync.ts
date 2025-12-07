@@ -38,12 +38,14 @@ interface UseFirebaseSyncProps {
   onTransactionsUpdate?: (transactions: Transaction[]) => void;
   onSettingsUpdate?: (settings: UserSettings | null) => void;
   onWishlistUpdate?: (items: WishlistItem[]) => void;
+  onAgendaChecklistUpdate?: (entries: AgendaChecklistEntry[]) => void;
 }
 
 export const useFirebaseSync = ({
   onTransactionsUpdate,
   onSettingsUpdate,
-  onWishlistUpdate
+  onWishlistUpdate,
+  onAgendaChecklistUpdate
 }: UseFirebaseSyncProps = {}) => {
   const isInitialized = useRef(false);
   const syncEnabled = isSyncEnabled();
@@ -65,6 +67,10 @@ export const useFirebaseSync = ({
 
     if (onWishlistUpdate) {
       syncWishlist(onWishlistUpdate);
+    }
+
+    if (onAgendaChecklistUpdate) {
+      syncAgendaChecklist(onAgendaChecklistUpdate);
     }
 
     // Cleanup on unmount

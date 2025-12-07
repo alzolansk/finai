@@ -59,32 +59,131 @@ const App: React.FC = () => {
 
   // Firebase Sync - Use useCallback to prevent recreating functions
   const handleTransactionsUpdate = React.useCallback((cloudTransactions: Transaction[]) => {
-    localStorage.setItem('finai_transactions', JSON.stringify(cloudTransactions));
-    setTransactions(cloudTransactions);
+    // Merge strategy: combine local and cloud, preferring newer items
+    const localTransactions = getTransactions();
+    
+    // If cloud is empty but local has data, don't overwrite
+    if (cloudTransactions.length === 0 && localTransactions.length > 0) {
+      console.log('☁️ Cloud is empty, keeping local data');
+      return;
+    }
+    
+    // Create a map of all transactions by ID, preferring the one with newer updatedAt/createdAt
+    const mergedMap = new Map<string, Transaction>();
+    
+    // Add local transactions first
+    localTransactions.forEach(t => {
+      mergedMap.set(t.id, t);
+    });
+    
+    // Merge cloud transactions (overwrite if cloud version is newer)
+    cloudTransactions.forEach(cloudT => {
+      const localT = mergedMap.get(cloudT.id);
+      if (!localT) {
+        // New from cloud
+        mergedMap.set(cloudT.id, cloudT);
+      } else {
+        // Compare timestamps - prefer newer
+        const cloudTime = (cloudT as any)._updatedAt || cloudT.createdAt || 0;
+        const localTime = (localT as any)._updatedAt || localT.createdAt || 0;
+        if (cloudTime >= localTime) {
+          mergedMap.set(cloudT.id, cloudT);
+        }
+      }
+    });
+    
+    const merged = Array.from(mergedMap.values());
+    merged.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    
+    localStorage.setItem('finai_transactions', JSON.stringify(merged));
+    setTransactions(merged);
   }, []);
 
   const handleSettingsUpdate = React.useCallback((cloudSettings: UserSettings | null) => {
     if (cloudSettings) {
-      localStorage.setItem('finai_settings', JSON.stringify(cloudSettings));
-      setSettings(cloudSettings);
+      // Only update if cloud has settings
+      const localSettings = getUserSettings();
+      if (!localSettings) {
+        // No local settings, use cloud
+        localStorage.setItem('finai_settings', JSON.stringify(cloudSettings));
+        setSettings(cloudSettings);
+      } else {
+        // Compare timestamps if available
+        const cloudTime = (cloudSettings as any)._updatedAt || 0;
+        const localTime = (localSettings as any)._updatedAt || 0;
+        if (cloudTime >= localTime) {
+          localStorage.setItem('finai_settings', JSON.stringify(cloudSettings));
+          setSettings(cloudSettings);
+        }
+      }
     }
   }, []);
 
   const handleWishlistUpdate = React.useCallback((cloudWishlist: WishlistItem[]) => {
-    localStorage.setItem('finai_wishlist', JSON.stringify(cloudWishlist));
-    setWishlistItems(cloudWishlist);
+    const localWishlist = getWishlistItems();
+    
+    // If cloud is empty but local has data, don't overwrite
+    if (cloudWishlist.length === 0 && localWishlist.length > 0) {
+      console.log('☁️ Cloud wishlist is empty, keeping local data');
+      return;
+    }
+    
+    // Merge by ID, preferring newer
+    const mergedMap = new Map<string, WishlistItem>();
+    localWishlist.forEach(w => mergedMap.set(w.id, w));
+    cloudWishlist.forEach(cloudW => {
+      const localW = mergedMap.get(cloudW.id);
+      if (!localW) {
+        mergedMap.set(cloudW.id, cloudW);
+      } else {
+        const cloudTime = (cloudW as any)._updatedAt || cloudW.createdAt || 0;
+        const localTime = (localW as any)._updatedAt || localW.createdAt || 0;
+        if (cloudTime >= localTime) {
+          mergedMap.set(cloudW.id, cloudW);
+        }
+      }
+    });
+    
+    const merged = Array.from(mergedMap.values());
+    merged.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    
+    localStorage.setItem('finai_wishlist', JSON.stringify(merged));
+    setWishlistItems(merged);
+  }, []);
+
+  const handleAgendaChecklistUpdate = React.useCallback((cloudChecklist: AgendaChecklistEntry[]) => {
+    const localChecklist = getAgendaChecklist();
+    
+    // If cloud is empty but local has data, don't overwrite
+    if (cloudChecklist.length === 0 && localChecklist.length > 0) {
+      console.log('☁️ Cloud checklist is empty, keeping local data');
+      return;
+    }
+    
+    // Merge by targetId + monthKey
+    const mergedMap = new Map<string, AgendaChecklistEntry>();
+    localChecklist.forEach(e => mergedMap.set(`${e.targetId}_${e.monthKey}`, e));
+    cloudChecklist.forEach(e => mergedMap.set(`${e.targetId}_${e.monthKey}`, e));
+    
+    const merged = Array.from(mergedMap.values());
+    localStorage.setItem('finai_agenda_checklist', JSON.stringify(merged));
+    setAgendaChecklist(merged);
   }, []);
 
   const {
+    syncEnabled,
     syncTransaction,
     removeTransaction,
     syncUserSettings,
     syncWishlistItem,
-    removeWishlistItem
+    removeWishlistItem,
+    syncAgendaEntry,
+    uploadAllData
   } = useFirebaseSync({
     onTransactionsUpdate: handleTransactionsUpdate,
     onSettingsUpdate: handleSettingsUpdate,
-    onWishlistUpdate: handleWishlistUpdate
+    onWishlistUpdate: handleWishlistUpdate,
+    onAgendaChecklistUpdate: handleAgendaChecklistUpdate
   });
 
   // Initial Load
@@ -95,6 +194,22 @@ const App: React.FC = () => {
     setAgendaChecklist(getAgendaChecklist());
     setWishlistItems(getWishlistItems());
   }, []);
+
+  // Auto-upload local data to cloud on first load if sync is enabled
+  useEffect(() => {
+    if (!syncEnabled) return;
+    
+    // Small delay to ensure listeners are set up first
+    const timer = setTimeout(() => {
+      const localTransactions = getTransactions();
+      if (localTransactions.length > 0) {
+        console.log('☁️ Uploading local data to cloud...');
+        uploadAllData();
+      }
+    }, 2000);
+    
+    return () => clearTimeout(timer);
+  }, [syncEnabled, uploadAllData]);
 
   // Budget Alerts Processing
   useEffect(() => {
@@ -382,6 +497,10 @@ const App: React.FC = () => {
 
     const updated = toggleAgendaChecklist(entry);
     setAgendaChecklist(updated);
+    
+    // Sync to cloud - check if it was added or removed
+    const wasRemoved = !updated.find(e => e.targetId === entry.targetId && e.monthKey === entry.monthKey);
+    syncAgendaEntry(entry, wasRemoved);
   };
 
   const handleAddWishlistItem = (item: WishlistItem) => {

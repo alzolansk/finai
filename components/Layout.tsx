@@ -46,17 +46,7 @@ const Layout: React.FC<LayoutProps> = ({
   onToggleNotifications,
   unreadAlertsCount = 0
 }) => {
-  const [hoveredTab, setHoveredTab] = React.useState<string | null>(null);
-  const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  // Cleanup hover timeout on unmount
-  React.useEffect(() => {
-    return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-      }
-    };
-  }, []);
 
   // Filter alerts for header (Overspend, Turbo, Frequent Habits, and Large Expenses)
   const headerAlerts = alerts.filter(a => 
@@ -203,153 +193,58 @@ const Layout: React.FC<LayoutProps> = ({
             
             <button
               onClick={() => onTabChange('dashboard')}
-              onMouseEnter={() => {
-                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-                setHoveredTab('dashboard');
-              }}
-              onMouseLeave={() => {
-                hoverTimeoutRef.current = setTimeout(() => setHoveredTab(null), 2000);
-              }}
-              className={`p-3 rounded-xl transition-all duration-200 flex items-center overflow-hidden ${activeTab === 'dashboard' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              className={`p-3 rounded-xl transition-all duration-200 ${activeTab === 'dashboard' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              title="Dashboard"
             >
-              <Home size={22} strokeWidth={activeTab === 'dashboard' ? 2.5 : 2} className="shrink-0" />
-              <span 
-                className="text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out"
-                style={{
-                  width: (hoveredTab === 'dashboard' || (hoveredTab === null && activeTab === 'dashboard')) ? '85px' : '0px',
-                  marginLeft: (hoveredTab === 'dashboard' || (hoveredTab === null && activeTab === 'dashboard')) ? '8px' : '0px',
-                  opacity: (hoveredTab === 'dashboard' || (hoveredTab === null && activeTab === 'dashboard')) ? 1 : 0
-                }}
-              >
-                Dashboard
-              </span>
+              <Home size={22} strokeWidth={activeTab === 'dashboard' ? 2.5 : 2} />
             </button>
 
             <button
               onClick={() => onTabChange('insights')}
-              onMouseEnter={() => {
-                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-                setHoveredTab('insights');
-              }}
-              onMouseLeave={() => {
-                hoverTimeoutRef.current = setTimeout(() => setHoveredTab(null), 2000);
-              }}
-              className={`p-3 rounded-xl transition-all duration-200 flex items-center overflow-hidden ${activeTab === 'insights' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              className={`p-3 rounded-xl transition-all duration-200 ${activeTab === 'insights' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              title="Insights"
             >
-              <PieChart size={22} strokeWidth={activeTab === 'insights' ? 2.5 : 2} className="shrink-0" />
-              <span 
-                className="text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out"
-                style={{
-                  width: (hoveredTab === 'insights' || (hoveredTab === null && activeTab === 'insights')) ? '65px' : '0px',
-                  marginLeft: (hoveredTab === 'insights' || (hoveredTab === null && activeTab === 'insights')) ? '8px' : '0px',
-                  opacity: (hoveredTab === 'insights' || (hoveredTab === null && activeTab === 'insights')) ? 1 : 0
-                }}
-              >
-                Insights
-              </span>
+              <PieChart size={22} strokeWidth={activeTab === 'insights' ? 2.5 : 2} />
             </button>
 
             <button
               onClick={() => onTabChange('reports')}
-              onMouseEnter={() => {
-                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-                setHoveredTab('reports');
-              }}
-              onMouseLeave={() => {
-                hoverTimeoutRef.current = setTimeout(() => setHoveredTab(null), 2000);
-              }}
-              className={`p-3 rounded-xl transition-all duration-200 flex items-center overflow-hidden ${activeTab === 'reports' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              className={`p-3 rounded-xl transition-all duration-200 ${activeTab === 'reports' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              title="Relatórios"
             >
-              <BarChart3 size={22} strokeWidth={activeTab === 'reports' ? 2.5 : 2} className="shrink-0" />
-              <span 
-                className="text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out"
-                style={{
-                  width: (hoveredTab === 'reports' || (hoveredTab === null && activeTab === 'reports')) ? '80px' : '0px',
-                  marginLeft: (hoveredTab === 'reports' || (hoveredTab === null && activeTab === 'reports')) ? '8px' : '0px',
-                  opacity: (hoveredTab === 'reports' || (hoveredTab === null && activeTab === 'reports')) ? 1 : 0
-                }}
-              >
-                Relatórios
-              </span>
+              <BarChart3 size={22} strokeWidth={activeTab === 'reports' ? 2.5 : 2} />
             </button>
 
             <button
               onClick={() => onTabChange('add')}
-              className="bg-emerald-500 text-white p-3 rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 hover:scale-105 transition-all mx-1 shrink-0"
+              className="bg-emerald-500 text-white p-3 rounded-xl shadow-lg shadow-emerald-500/20 transition-all mx-1 group"
+              title="Adicionar"
             >
-              <Plus size={24} strokeWidth={3} />
+              <Plus size={24} strokeWidth={3} className="transition-transform duration-300 group-hover:rotate-90" />
             </button>
 
             <button
               onClick={() => onTabChange('budgets')}
-              onMouseEnter={() => {
-                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-                setHoveredTab('budgets');
-              }}
-              onMouseLeave={() => {
-                hoverTimeoutRef.current = setTimeout(() => setHoveredTab(null), 2000);
-              }}
-              className={`p-3 rounded-xl transition-all duration-200 flex items-center overflow-hidden ${activeTab === 'budgets' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              className={`p-3 rounded-xl transition-all duration-200 ${activeTab === 'budgets' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              title="Orçamentos"
             >
-              <DollarSign size={22} strokeWidth={activeTab === 'budgets' ? 2.5 : 2} className="shrink-0" />
-              <span 
-                className="text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out"
-                style={{
-                  width: (hoveredTab === 'budgets' || (hoveredTab === null && activeTab === 'budgets')) ? '90px' : '0px',
-                  marginLeft: (hoveredTab === 'budgets' || (hoveredTab === null && activeTab === 'budgets')) ? '8px' : '0px',
-                  opacity: (hoveredTab === 'budgets' || (hoveredTab === null && activeTab === 'budgets')) ? 1 : 0
-                }}
-              >
-                Orçamentos
-              </span>
+              <DollarSign size={22} strokeWidth={activeTab === 'budgets' ? 2.5 : 2} />
             </button>
 
             <button
               onClick={() => onTabChange('agenda')}
-              onMouseEnter={() => {
-                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-                setHoveredTab('agenda');
-              }}
-              onMouseLeave={() => {
-                hoverTimeoutRef.current = setTimeout(() => setHoveredTab(null), 2000);
-              }}
-              className={`p-3 rounded-xl transition-all duration-200 flex items-center overflow-hidden ${activeTab === 'agenda' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              className={`p-3 rounded-xl transition-all duration-200 ${activeTab === 'agenda' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              title="Agenda"
             >
-              <Calendar size={22} strokeWidth={activeTab === 'agenda' ? 2.5 : 2} className="shrink-0" />
-              <span 
-                className="text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out"
-                style={{
-                  width: (hoveredTab === 'agenda' || (hoveredTab === null && activeTab === 'agenda')) ? '60px' : '0px',
-                  marginLeft: (hoveredTab === 'agenda' || (hoveredTab === null && activeTab === 'agenda')) ? '8px' : '0px',
-                  opacity: (hoveredTab === 'agenda' || (hoveredTab === null && activeTab === 'agenda')) ? 1 : 0
-                }}
-              >
-                Agenda
-              </span>
+              <Calendar size={22} strokeWidth={activeTab === 'agenda' ? 2.5 : 2} />
             </button>
 
             <button
               onClick={() => onTabChange('planning')}
-              onMouseEnter={() => {
-                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-                setHoveredTab('planning');
-              }}
-              onMouseLeave={() => {
-                hoverTimeoutRef.current = setTimeout(() => setHoveredTab(null), 2000);
-              }}
-              className={`p-3 rounded-xl transition-all duration-200 flex items-center overflow-hidden ${activeTab === 'planning' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              className={`p-3 rounded-xl transition-all duration-200 ${activeTab === 'planning' ? 'bg-zinc-800 text-white shadow-inner' : 'hover:bg-zinc-800/50 hover:text-zinc-200'}`}
+              title="Desejos"
             >
-              <Heart size={22} strokeWidth={activeTab === 'planning' ? 2.5 : 2} className="shrink-0" />
-              <span 
-                className="text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out"
-                style={{
-                  width: (hoveredTab === 'planning' || (hoveredTab === null && activeTab === 'planning')) ? '65px' : '0px',
-                  marginLeft: (hoveredTab === 'planning' || (hoveredTab === null && activeTab === 'planning')) ? '8px' : '0px',
-                  opacity: (hoveredTab === 'planning' || (hoveredTab === null && activeTab === 'planning')) ? 1 : 0
-                }}
-              >
-                Desejos
-              </span>
+              <Heart size={22} strokeWidth={activeTab === 'planning' ? 2.5 : 2} />
             </button>
 
           </nav>
@@ -379,9 +274,10 @@ const Layout: React.FC<LayoutProps> = ({
 
             <button
               onClick={() => onTabChange('add')}
-              className="bg-emerald-500 text-white p-3 rounded-xl shadow-lg shadow-emerald-500/20 active:bg-emerald-600 active:scale-95 transition-all flex-shrink-0 mx-1"
+              className="bg-emerald-500 text-white p-3 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex-shrink-0 mx-1 group"
+              title="Adicionar"
             >
-              <Plus size={22} strokeWidth={3} />
+              <Plus size={22} strokeWidth={3} className="transition-transform duration-300 group-active:rotate-90" />
             </button>
 
             <div className="flex items-center gap-0.5 flex-1 justify-around">

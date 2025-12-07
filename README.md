@@ -5,7 +5,7 @@
 <h1 align="center">💰 FinAI - Controle Financeiro Inteligente</h1>
 
 <p align="center">
-  <strong>Seu assistente financeiro pessoal com Inteligência Artificial</strong>
+  <strong>Assistente financeiro pessoal com Inteligência Artificial</strong>
 </p>
 
 <p align="center">
@@ -93,17 +93,19 @@ O **FinAI** é um aplicativo de controle financeiro pessoal que utiliza Intelig�
 
 ## 🚀 Como Surgiu
 
-Estava querendo aprender mais sobre IA aplicada e pensei: por que não fazer algo que eu realmente usaria?
+1. **Início no Google AI Studio** 🎬
+   - Comecei explorando o Google AI Studio e seus templates
+   - Enviei um prompt para a geração de um template de app financeiro com IA.
+   - Usei como base para entender a integração com Gemini AI
 
-### O Processo
+2. **Evolução com Claude/Kiro** 🤖
+   - Utilizei o Claude Code para expandir funcionalidades
+   - Kiro me ajudou a refatorar e melhorar o código
+   - Aprendi muito sobre React e TypeScript.
 
-Comecei explorando o Google AI Studio e encontrei um template de app financeiro. Achei interessante e decidi usar como ponto de partida pra entender como funciona a integração com o Gemini AI.
-
-Daí fui expandindo as funcionalidades com ajuda do Claude e do Kiro - refatorando código, implementando novas features e aprendendo React e TypeScript na prática. Foi um processo bem iterativo: tinha uma ideia, implementava, testava, melhorava.
-
-O resultado é um app que uso diariamente pra controlar minhas finanças e que virou um projeto de portfolio bacana. Aprendi bastante sobre desenvolvimento com IA, e mais importante: aprendi que essas ferramentas são ótimas quando você sabe o que quer construir e entende o que elas estão gerando.
-
-> 💡 Ferramentas de IA ajudam demais no desenvolvimento, mas o projeto, as decisões e o aprendizado são seus. Só quis ser transparente sobre como construí isso.
+3. **Resultado Final** ✨
+   - Um app que uso no meu dia a dia
+   - Experiência prática com IA generativa
 
 ---
 
@@ -132,7 +134,7 @@ O resultado é um app que uso diariamente pra controlar minhas finanças e que v
 
 ```bash
 # Clone o repositório
-git clone https://github.com/seu-usuario/finai.git
+git clone https://github.com/alzolansk/finai.git
 
 # Entre na pasta
 cd finai
@@ -161,8 +163,7 @@ VITE_FIREBASE_PROJECT_ID=seu_projeto
 
 ## 🎬 Demo
 
-Quer ver o app em ação sem configurar nada?
-
+Se quiser usar o app sem configurar nada: 
 1. Acesse as **Configurações** ⚙️
 2. Role até o final
 3. Clique em **"Ativar Modo Demo"**
@@ -176,8 +177,6 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 
 ---
 
-## 🙏 Agradecimentos
-
 - [Google AI Studio](https://aistudio.google.com/) - Template inicial e API Gemini
 - [Anthropic Claude](https://claude.ai/) - Assistência no desenvolvimento
 - [Kiro](https://kiro.dev/) - IDE com IA integrada
@@ -185,15 +184,12 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 
 ---
 
-<p align="center">
-  Feito com ❤️ e muita ajuda de IA
-</p>
 
 <p align="center">
-  <a href="https://linkedin.com/in/seu-perfil">
+  <a href="https://linkedin.com/in/joaoalvesz">
     <img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn"/>
   </a>
-  <a href="https://github.com/seu-usuario">
+  <a href="https://github.com/alzolansk">
     <img src="https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white" alt="GitHub"/>
   </a>
 </p>
